@@ -23,3 +23,11 @@ app/
 │
 └── utils/                 # Helpers (e.g., hashing, JWT)
     └── security.py
+
+
+------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+💡 What is APIRouter() in FastAPI?
+APIRouter is a class provided by FastAPI that lets you define and organize your routes (endpoints) separately from the main app. It helps you break your app into modular components—especially useful for larger projects.
+
+------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
