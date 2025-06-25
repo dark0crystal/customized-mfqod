@@ -31,3 +31,10 @@ app/
 APIRouter is a class provided by FastAPI that lets you define and organize your routes (endpoints) separately from the main app. It helps you break your app into modular components—especially useful for larger projects.
 
 ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+ # Why use raise HTTPException(...) instead of return {...} in FastAPI?
+    # ✅ 1. raise tells FastAPI "This is an error"
+    # 🚫 But if you just do return {...}:
+    #FastAPI thinks it’s a successful (200 OK) response.
+    # It doesn’t know that something went wrong.
+    # This confuses the client or frontend.
+------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
