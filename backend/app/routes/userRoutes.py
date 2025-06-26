@@ -20,15 +20,16 @@ async def login(user: UserCreate):
     existing_user = await userServices.CheckUserExistenceDB(user.email)
     if existing_user:
         # generate a JWT
-        token = CreateJwtToken(existing_user.id, existing_user.email)
+        token = userServices.CreateJwtToken(existing_user.id, existing_user.email)
         return {
             "message": "Login successful from DB",
             "token": token
         }
     elif not existing_user:
-        active_dir_user = await userServices.CheckUserExistenceAD(user.email)
+        ActiveDirUser = await userServices.CheckUserExistenceAD(user.email)
         # add user to local DB
-        token = CreateJwtToken(existing_user.id, existing_user.email)
+        userServices.CreateNewUserInDB(ActiveDirUser)
+        token = userServices.CreateJwtToken(existing_user.id, existing_user.email)
         return {
             "message": "Login successful from AD",
             "token": token
