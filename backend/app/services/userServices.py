@@ -1,3 +1,13 @@
+from jose import jwt
+from datetime import datetime, timedelta
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
+TOKEN_EXPIRATION_MINUTES = 30
 DBusers = [
     {"id":"gfsdaggfdsfs1", "name":"omar" , "email": "user1@example.com", "password": "password123"},
     {"id":"gdsagd3fasdf2","name":"said" ,"email": "user2@example.com", "password": "secret456"},
@@ -24,7 +34,16 @@ def CreateNewUserInDB():
 
     return  
 
+# userId , email, role, first_name, last_name
+async def CreateJwtToken(user_id: str, email: str, role: str, first_name: str, last_name: str):
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "role": role,
+        "first_name": first_name,
+        "last_name": last_name,
+        "exp": datetime.utcnow() + timedelta(minutes=TOKEN_EXPIRATION_MINUTES)
+    }
 
-async def CreateJwtToken():   
-
-    return
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return token
