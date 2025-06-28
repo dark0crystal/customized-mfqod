@@ -38,3 +38,14 @@ APIRouter is a class provided by FastAPI that lets you define and organize your 
     # It doesn’t know that something went wrong.
     # This confuses the client or frontend.
 ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+📁 What is __pycache__?
+__pycache__ is a special folder automatically created by Python to store compiled bytecode of your .py files.
+
+When Python runs your code, it compiles it to .pyc (Python bytecode) files for faster execution in future runs.
+
+These .pyc files are stored in the __pycache__ directory.
+
+✅ It’s completely normal and safe — but you usually don't need to include it in version control (e.g., Git).
+
+------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
