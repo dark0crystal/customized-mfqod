@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from schemas.user_schema import UserCreate
+from schemas.user_schema import UserCreate, UserRegister
 from services import userServices
 
 router = APIRouter()
@@ -69,6 +69,37 @@ async def login(user: UserCreate):
 
 
 # ===========================
-# OutSide Uni Users Login Endpoint
+# OutSide Uni Users Register Endpoint
 # ===========================
-# This Endpoint will allow users from out 
+# This Endpoint will allow users who are not registered in uni Active Directory to register
+# Will use local DB to register 
+# Flow: 
+# - Validate provided inputs (email, password, first_name, last_name, phone_number, status(student, staff, ...))
+# - Check user in local DB:
+#   -Exist ? : yes => return error : user already exist
+#   -No => register the user  
+@router.post("/register")
+async def register(user: UserRegister):
+
+    #  Check if user already exists in local DB
+    existing_user = await userServices.CheckUserExistenceDB(user.email)
+    if existing_user:
+        raise HTTPException(status_code=409, detail="User already exists in the system.")
+
+    #  Create new user in DB
+    new_user = userServices.CreateNewUserInDB({
+        "id": user.id,
+        "email": user.email,
+        "password": user.password,
+        "first_name": user.first_name,
+        "middle_name": user.middle_name,
+        "last_name": user.last_name,
+        "phone_number": user.phone_number,
+        "status": user.status,
+        "role": "user"
+    })
+
+    return {
+        "message": "User registered successfully",
+        "user": new_user
+    }
