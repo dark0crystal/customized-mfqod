@@ -99,5 +99,19 @@ class ItemType(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
 
+class Address(SQLModel , table=True):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    branch_name:str
+    institution_name:str
+
+class Image(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    url: str
+    description: Optional[str] = None
+
+    imageable_id: str = Field(index=True)
+    imageable_type: str = Field(index=True)  # e.g., "item" or "claim"
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
 
 
