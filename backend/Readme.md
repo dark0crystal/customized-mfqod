@@ -49,3 +49,23 @@ These .pyc files are stored in the __pycache__ directory.
 ✅ It’s completely normal and safe — but you usually don't need to include it in version control (e.g., Git).
 
 ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+Database Migrations Using alembic : 
+#run the command to init the migrations % alembic init migrations   
+1) changes I made in auto generated files to setup the migration 👍 : 
+# first inide the the script.py.make:
+    - I have added this line %  import sqlmodel
+# inside env.py:
+    - I have added this line % from sqlmodel import SQLModel
+    - Also you need to import the Model you have created to be as database tables
+     e.g. from models import User
+    -Also I have changes this line form this:
+     % target_metadata = None
+     To this:
+     % target_metadata = SQLModel.metadata
+
+
+------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+
+
+------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
