@@ -88,9 +88,12 @@ class Item(SQLModel , table=True):
     user_id: Optional[str] = Field(default=None, foreign_key="user.id")
     user: Optional["User"] = Relationship(back_populates="items")
 
+    claims: List[Claim] = Relationship(back_populates="item")
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
 
+# Item Type is created a type that is dynamic and fully controlled by the admin from the dashboard
 class ItemType(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str = Field(index=True, unique=True, nullable=False)
@@ -113,5 +116,19 @@ class Image(SQLModel, table=True):
     imageable_type: str = Field(index=True)  # e.g., "item" or "claim"
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
 
+class Claim(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    title: str
+    description: str
+    approval: bool = Field(default=True)
 
+    user_id: Optional[str] = Field(default=None, foreign_key="user.id")
+    user: Optional[User] = Relationship(back_populates="claims")
+
+    item_id: Optional[str] = Field(default=None, foreign_key="item.id")
+    item: Optional[Item] = Relationship(back_populates="claims")
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
