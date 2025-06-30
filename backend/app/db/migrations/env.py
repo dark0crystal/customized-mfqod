@@ -13,7 +13,19 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 
 #  ========================
 # This import needs to be updated each time you add a new model ⚠️
-from app.models import User
+from app.models import (
+    User,
+    Role,
+    UserStatus,
+    Item,
+    ItemType,
+    Claim,
+    Image,
+    Organization,
+    Branch,
+    Address
+)
+
 #  ========================
 
 # this is the Alembic Config object, which provides
