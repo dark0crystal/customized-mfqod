@@ -3,12 +3,20 @@ from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 import uuid
+# from ldap3 import Server, Connection, ALL, NTLM, SIMPLE
 
 load_dotenv()
-
+# =====
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 TOKEN_EXPIRATION_MINUTES = 30
+# =====
+# Example AD config - replace these with your university's actual info
+# LDAP_SERVER = "ldap://ad.university.edu"
+# LDAP_DOMAIN = "UNIVERSITY"  # e.g., 'UNIVERSITY'
+# LDAP_SEARCH_BASE = "dc=university,dc=edu"  # Your domain components
+# =====
+
 DBusers = [
     {"id":"gfsdaggfdsfs1", "first_name":"omar","last_name":"alomani" , "email": "user@example.com", "password": "password123","role":"user"},
     {"id":"gdsagd3fasdf2","first_name":"said","last_name":"alomairi" ,"email": "manager@example.com", "password": "secret456","role":"manegar"},
@@ -60,3 +68,32 @@ async def CreateJwtToken(user_id: str, email: str, role: str, first_name: str, l
 
     token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
     return token
+
+
+
+
+# def authenticate_with_ad(email: str, password: str):
+#     # Extract username from email (if needed)
+#     username = email.split("@")[0]
+#     user_dn = f"{LDAP_DOMAIN}\\{username}"  # Or use full DN if required
+
+#     # Connect to the LDAP server
+#     server = Server(LDAP_SERVER, get_info=ALL)
+
+#     try:
+#         # Attempt to bind (authenticate)
+#         conn = Connection(server, user=user_dn, password=password, authentication=NTLM, auto_bind=True)
+
+#         if conn.bound:
+#             # Optional: you can search for user details
+#             conn.search(LDAP_SEARCH_BASE, f"(sAMAccountName={username})", attributes=["displayName", "mail"])
+#             user_info = conn.entries[0] if conn.entries else None
+#             return {
+#                 "status": "success",
+#                 "user": str(user_info) if user_info else "Authenticated, no additional info"
+#             }
+
+#     except Exception as e:
+#         raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
+
+#     raise HTTPException(status_code=401, detail="Authentication failed.")

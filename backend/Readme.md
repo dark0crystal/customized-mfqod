@@ -65,7 +65,11 @@ Database Migrations Using alembic :
 
 
 ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
-
+Command to make migration:
+   % alembic revision --autogenerate -m "commit message"
+   
+Command to apply the most recent migration:
+   %alembic upgrade head
 
 
 ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
