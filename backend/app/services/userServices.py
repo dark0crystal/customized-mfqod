@@ -1,5 +1,4 @@
 from jose import jwt
-from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 import uuid
@@ -7,7 +6,7 @@ from sqlmodel import Session
 from schemas.user_schema import UserRegister
 from models import User
 from sqlmodel import select
-from datetime import datetime, timezone
+from datetime import datetime, timezone,timedelta
 # from ldap3 import Server, Connection, ALL, NTLM, SIMPLE
 
 load_dotenv()
