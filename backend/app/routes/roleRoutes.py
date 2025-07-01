@@ -41,21 +41,7 @@ def list_roles(session: Session = Depends(get_session)):
 # ==================================
 # Add New Role
 # ==================================
-@router.post(
-    "/roles",
-    response_model=Role,
-    summary="Add a new role",
-    description="""
-Create a new role in the system.
-
-### Request body:
-- `name`: Required string (e.g., `"student"`)
-- `description`: Optional string
-
-### Returns:
-- The newly created role object
-"""
-)
+@router.post("/add-new-role")
 def add_new_role(role: Role, session: Session = Depends(get_session)):
     """
     Add a new role to the Role table.
