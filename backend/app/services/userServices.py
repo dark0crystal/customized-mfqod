@@ -28,10 +28,8 @@ ADusers = [
     {"id":"gfsdaggfdsfs1", "first_name":"omar","last_name":"alomani" , "email": "admin@example.com", "password": "password1dsfa23","role":"admin"},
 ]
 async def CheckUserExistenceDB(email: str):
-    for usr in DBusers:
-        if email == usr["email"]:
-            return usr  # return the user if found
-    return None  # return None if not found
+    
+    return   
 
 
 async def CheckUserExistenceAD(email: str):

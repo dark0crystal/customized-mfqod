@@ -35,7 +35,8 @@ from datetime import datetime, timezone
 # 🍸 This import tells Python:
 # "Don’t evaluate type hints right away. Instead, store them as strings and evaluate them later only if needed."
 # ==========================
-
+# default_factory: Automatically generates values (e.g., UUIDs).
+# ==========================
 
 class UserStatus(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)

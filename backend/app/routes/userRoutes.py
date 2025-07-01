@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from backend.app.db.database import get_session
 from schemas.user_schema import UserCreate, UserRegister
 from services import userServices
+from sqlmodel import Session
 
 router = APIRouter()
 
@@ -79,8 +81,9 @@ async def login(user: UserCreate):
 #   -Exist ? : yes => return error : user already exist
 #   -No => register the user  
 @router.post("/register")
-async def register(user: UserRegister):
-
+async def register(user: UserRegister, session: Session = Depends(get_session)):
+    # Check that provided data are valid
+    
     #  Check if user already exists in local DB
     existing_user = await userServices.CheckUserExistenceDB(user.email)
     if existing_user:
