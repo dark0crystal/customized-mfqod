@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
-from backend.app.db.database import get_session
-from backend.app.utils.security import hash_password
+from app.models import Role
+from db.database import get_session
+from utils.security import hash_password
 from schemas.user_schema import UserCreate, UserRegister
 from services import userServices
 from sqlmodel import Session
@@ -99,3 +100,21 @@ async def register(user: UserRegister, session: Session = Depends(get_session)):
         "message": "User registered successfully",
         "user_id": new_user.id
     }
+
+
+# =========================
+# Add New Role Endpoint
+# =========================
+# Check if Role already exist by role name:
+#  - yes : return already exist
+#  - no  : add role in Role DB table 
+@router.post("/add-new-role")
+def addNewRole(role : Role , session: Session = Depends(get_session)):
+    # Check if Role already exist, by the checking the role name 
+    existing_role = userServices.check_role_existence(session , role.name)
+    if existing_role:
+        raise HTTPException(status_code=409, detail="Role already exists in the system.")
+    
+    newRole = userServices.
+
+    return
