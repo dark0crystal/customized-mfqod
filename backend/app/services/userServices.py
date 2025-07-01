@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 import uuid
 from sqlmodel import Session
-from backend.app.schemas.user_schema import UserRegister
+from schemas.user_schema import UserRegister
 from models import User
 from sqlmodel import select
 from datetime import datetime, timezone
@@ -48,7 +48,7 @@ async def CheckUserExistenceAD(email: str):
 # this function will create a new user in the local database   
 
 
-def create_new_user_in_db(session: Session, user_data: UserRegister, hashed_password: str) -> User:
+def createNewUserInDB(session: Session, user_data: UserRegister, hashed_password: str) -> User:
     user = User(
         id=user_data.id or str(uuid.uuid4()),
         email=user_data.email,
@@ -80,8 +80,6 @@ async def CreateJwtToken(user_id: str, email: str, role: str, first_name: str, l
 
     token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
     return token
-
-
 
 
 # def authenticate_with_ad(email: str, password: str):
