@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from backend.app.db.database import get_session
+from backend.app.utils.security import hash_password
 from schemas.user_schema import UserCreate, UserRegister
 from services import userServices
 from sqlmodel import Session
@@ -82,27 +83,19 @@ async def login(user: UserCreate):
 #   -No => register the user  
 @router.post("/register")
 async def register(user: UserRegister, session: Session = Depends(get_session)):
-    # Check that provided data are valid
-    
+
     #  Check if user already exists in local DB
-    existing_user = await userServices.CheckUserExistenceDB(user.email)
+    existing_user = await userServices.CheckUserExistenceDB(session ,user.email)
     if existing_user:
         raise HTTPException(status_code=409, detail="User already exists in the system.")
 
-    #  Create new user in DB
-    new_user = userServices.CreateNewUserInDB({
-        "id": user.id,
-        "email": user.email,
-        "password": user.password,
-        "first_name": user.first_name,
-        "middle_name": user.middle_name,
-        "last_name": user.last_name,
-        "phone_number": user.phone_number,
-        "status": user.status,
-        "role": "user"
-    })
+    # Hash password before storing
+    hashed_password = hash_password(user.password)
+
+    # Create new user using SQLModel ORM
+    new_user = userServices.create_new_user_in_db(session, user, hashed_password)
 
     return {
         "message": "User registered successfully",
-        "user": new_user
+        "user_id": new_user.id
     }
