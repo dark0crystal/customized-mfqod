@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from enum import Enum
 import re
@@ -23,14 +24,18 @@ class UserCreate(BaseModel):
 
 
 class UserRegister(BaseModel):
-    id: str
+    id: Optional[str] = None
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     first_name: str = Field(min_length=1)
     middle_name: str = Field(min_length=1)
     last_name: str = Field(min_length=1)
     phone_number: str = Field(min_length=8, max_length=15)
-    status: StatusEnum
+    
+    # بدل status Enum، نمرر اسم الحالة الموجودة في قاعدة البيانات
+    status_name: str  # مثل: 'student', 'staff'
+    
+    role_name: str  # مثل: 'admin', 'user'
 
     @field_validator("password")
     @classmethod
@@ -51,3 +56,4 @@ class UserRegister(BaseModel):
         if not re.fullmatch(r"^\+?\d{8,15}$", value):
             raise ValueError("Phone number must contain only digits and may start with '+'.")
         return value
+    
