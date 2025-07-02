@@ -1,150 +1,128 @@
 from __future__ import annotations
-from sqlmodel import Relationship, SQLModel, Field
-from typing import List, Optional
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text
+from typing import Optional, List
 from datetime import datetime, timezone
 import uuid
 
-# ==========================
-# Database Models Using SQLModel ORM
-# ==========================
+class Base(DeclarativeBase):
+    pass
 
-class UserStatus(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    name: str = Field(unique=True, index=True)  # e.g., 'student', 'staff'
-    description: Optional[str] = None
+class UserStatus(Base):
+    __tablename__ = "userstatus"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    users: Mapped[List["User"]] = relationship("User", back_populates="status")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-    # Fixed: Remove List[] wrapper for SQLModel relationships
-    users: list["User"] = Relationship(back_populates="status")
+class User(Base):
+    __tablename__ = "user"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    email: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    password: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    first_name: Mapped[str] = mapped_column(String)
+    middle_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    last_name: Mapped[str] = mapped_column(String)
+    phone_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    ad_dn: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    status_id: Mapped[Optional[str]] = mapped_column(ForeignKey("userstatus.id"), nullable=True)
+    status: Mapped[Optional["UserStatus"]] = relationship("UserStatus", back_populates="users")
+    role_id: Mapped[Optional[str]] = mapped_column(ForeignKey("role.id"), nullable=True)
+    role: Mapped[Optional["Role"]] = relationship("Role", back_populates="users")
+    items: Mapped[List["Item"]] = relationship("Item", back_populates="user")
+    claims: Mapped[List["Claim"]] = relationship("Claim", back_populates="user")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+class Role(Base):
+    __tablename__ = "role"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    users: Mapped[List["User"]] = relationship("User", back_populates="role")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-class User(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    email: str = Field(index=True, unique=True, nullable=False)
-    password: Optional[str] = Field(default=None)
-    first_name: str
-    middle_name: Optional[str] = None
-    last_name: str
-    phone_number: Optional[str] = None
-    active: bool = Field(default=True)
-    ad_dn: Optional[str] = None
+class Item(Base):
+    __tablename__ = "item"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(Text)
+    claims_count: Mapped[int] = mapped_column(Integer, default=0)
+    temporary_deletion: Mapped[bool] = mapped_column(Boolean, default=False)
+    approval: Mapped[bool] = mapped_column(Boolean, default=True)
+    item_type_id: Mapped[Optional[str]] = mapped_column(ForeignKey("itemtype.id"), nullable=True)
+    item_type: Mapped[Optional["ItemType"]] = relationship("ItemType", back_populates="items")
+    user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="items")
+    claims: Mapped[List["Claim"]] = relationship("Claim", back_populates="item")
+    addresses: Mapped[List["Address"]] = relationship("Address", back_populates="item")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-    status_id: Optional[str] = Field(default=None, foreign_key="userstatus.id")
-    status: Optional["UserStatus"] = Relationship(back_populates="users")
+class ItemType(Base):
+    __tablename__ = "itemtype"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    items: Mapped[List["Item"]] = relationship("Item", back_populates="item_type")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-    role_id: Optional[str] = Field(default=None, foreign_key="role.id")
-    role: Optional["Role"] = Relationship(back_populates="users")
+class Branch(Base):
+    __tablename__ = "branch"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    branch_name: Mapped[str] = mapped_column(String)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organization.id"))
+    organization: Mapped[Optional["Organization"]] = relationship("Organization", back_populates="branches")
+    addresses: Mapped[List["Address"]] = relationship("Address", back_populates="branch")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-    # Fixed: Remove List[] wrapper for SQLModel relationships
-    items: list["Item"] = Relationship(back_populates="user")
-    claims: list["Claim"] = Relationship(back_populates="user")
+class Organization(Base):
+    __tablename__ = "organization"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    branches: Mapped[List["Branch"]] = relationship("Branch", back_populates="organization")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+class Address(Base):
+    __tablename__ = "address"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    item_id: Mapped[str] = mapped_column(ForeignKey("item.id"))
+    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="addresses")
+    branch_id: Mapped[str] = mapped_column(ForeignKey("branch.id"))
+    branch: Mapped[Optional["Branch"]] = relationship("Branch", back_populates="addresses")
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-class Role(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    name: str = Field(index=True, unique=True)
-    description: Optional[str] = None
+class Image(Base):
+    __tablename__ = "image"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    url: Mapped[str] = mapped_column(String)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    imageable_id: Mapped[str] = mapped_column(String, index=True)
+    imageable_type: Mapped[str] = mapped_column(String, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-    # Fixed: Remove List[] wrapper for SQLModel relationships
-    users: list["User"] = Relationship(back_populates="role")
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-
-class Item(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    title: str
-    description: str
-    claims_count: int = Field(default=0)
-    temporary_deletion: bool = Field(default=False)
-    approval: bool = Field(default=True)
-
-    item_type_id: Optional[str] = Field(default=None, foreign_key="itemtype.id")
-    item_type: Optional["ItemType"] = Relationship(back_populates="items")
-
-    user_id: Optional[str] = Field(default=None, foreign_key="user.id")
-    user: Optional["User"] = Relationship(back_populates="items")
-
-    # Fixed: Remove List[] wrapper for SQLModel relationships
-    claims: list["Claim"] = Relationship(back_populates="item")
-    addresses: list["Address"] = Relationship(back_populates="item")
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-
-class ItemType(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    name: str = Field(index=True, unique=True, nullable=False)
-    description: Optional[str] = None
-
-    # Fixed: Remove List[] wrapper for SQLModel relationships
-    items: list["Item"] = Relationship(back_populates="item_type")
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-
-class Branch(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    branch_name: str
-
-    organization_id: str = Field(foreign_key="organization.id")
-    organization: Optional["Organization"] = Relationship(back_populates="branches")
-    # Fixed: Remove List[] wrapper for SQLModel relationships
-    addresses: list["Address"] = Relationship(back_populates="branch")
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-
-class Organization(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    name: str
-    description: Optional[str] = None
-
-    # Fixed: Remove List[] wrapper for SQLModel relationships
-    branches: list["Branch"] = Relationship(back_populates="organization")
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-
-class Address(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-
-    item_id: str = Field(foreign_key="item.id")
-    item: Optional["Item"] = Relationship(back_populates="addresses")
-
-    branch_id: str = Field(foreign_key="branch.id")
-    branch: Optional["Branch"] = Relationship(back_populates="addresses")
-
-    is_current: bool = Field(default=True)
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-
-class Image(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    url: str
-    description: Optional[str] = None
-
-    imageable_id: str = Field(index=True)
-    imageable_type: str = Field(index=True)  # e.g., "item" or "claim"
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-
-class Claim(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    title: str
-    description: str
-    approval: bool = Field(default=True)
-
-    user_id: Optional[str] = Field(default=None, foreign_key="user.id")
-    user: Optional["User"] = Relationship(back_populates="claims")
-
-    item_id: Optional[str] = Field(default=None, foreign_key="item.id")
-    item: Optional["Item"] = Relationship(back_populates="claims")
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False)
+class Claim(Base):
+    __tablename__ = "claim"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(Text)
+    approval: Mapped[bool] = mapped_column(Boolean, default=True)
+    user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="claims")
+    item_id: Mapped[Optional[str]] = mapped_column(ForeignKey("item.id"), nullable=True)
+    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="claims")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    
+    
