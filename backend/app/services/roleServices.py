@@ -1,12 +1,12 @@
-from datetime import datetime, timezone,timedelta
+from datetime import datetime, timezone, timedelta
 import os
 from dotenv import load_dotenv
 import uuid
 from fastapi import HTTPException
-from sqlmodel import Session
+from sqlalchemy.orm import Session
 from schemas.user_schema import UserRegister
 from models import Role, User
-from sqlmodel import select
+from sqlalchemy import select
 
 
 # =============================
@@ -14,7 +14,7 @@ from sqlmodel import select
 # =============================
 def check_role_existence(session: Session, role_name: str) -> Role | None:
     statement = select(Role).where(Role.name == role_name)
-    return session.exec(statement).first()
+    return session.execute(statement).scalars().first()
 
 
 # =============================
@@ -39,7 +39,7 @@ def add_new_role(session: Session, role: Role) -> Role:
 def remove_role(session: Session, role_id: str):
     # Step 1: Try to fetch the role by ID
     statement = select(Role).where(Role.id == role_id)
-    role = session.exec(statement).first()
+    role = session.execute(statement).scalars().first()
 
     # Step 2: If role not found, raise 404 error
     if not role:
@@ -51,3 +51,21 @@ def remove_role(session: Session, role_id: str):
 
     # Step 4: Return confirmation
     return {"message": "Role deleted successfully", "role_id": role_id}
+
+
+# ============================= 
+# List All Roles
+# ============================= 
+def get_all_roles(session: Session) -> list[Role]:
+    """
+    Fetch all roles from the Role table.
+    
+    Args:
+        session: Database session
+        
+    Returns:
+        List of all roles in the system
+    """
+    statement = select(Role)
+    roles = session.execute(statement).scalars().all()
+    return roles
