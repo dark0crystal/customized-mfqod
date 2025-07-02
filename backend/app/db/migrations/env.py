@@ -2,14 +2,12 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
-from sqlmodel import SQLModel
 from alembic import context
 import sys
 import os
 
 # Add backend directory to sys.path so that 'app' can be imported
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
-
 
 #  ========================
 # This import needs to be updated each time you add a new model ⚠️
@@ -23,9 +21,9 @@ from app.models import (
     Image,
     Organization,
     Branch,
-    Address
+    Address,
+    Base  # Make sure Base is imported from your models
 )
-
 #  ========================
 
 # this is the Alembic Config object, which provides
@@ -41,7 +39,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = SQLModel.metadata
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
