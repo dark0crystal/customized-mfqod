@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from models import Role
 from db.database import get_session
 from utils.security import hash_password
-from schemas.user_schema import UserCreate, UserRegister
+from schemas.user_schema import UserCreate, UserLogin, UserRegister
 from services import userServices
 from sqlmodel import Session
 
@@ -25,14 +25,14 @@ router = APIRouter()
 # ===========================
 
 @router.post("/login")
-async def login(user: UserCreate):
+async def login(user: UserLogin, session: Session = Depends(get_session)):
     
     # Step 1: Validate email and password presence
     if not user.email or not user.password:
         raise HTTPException(status_code=400, detail="Email and Password are required")
 
     # Step 2: Check if user exists in local DB
-    existing_user = await userServices.CheckUserExistenceDB(user.email)
+    existing_user = await userServices.CheckUserExistenceDB(user.email , session)
 
     if existing_user:
         # Step 2.1: Generate JWT for local DB user
@@ -94,7 +94,7 @@ async def register(user: UserRegister, session: Session = Depends(get_session)):
     hashed_password = hash_password(user.password)
 
     # Create new user using SQLModel ORM
-    new_user = userServices.create_new_user_in_db(session, user, hashed_password)
+    new_user = userServices.CreateNewUserInDB(session, user, hashed_password)
 
     return {
         "message": "User registered successfully",
@@ -103,3 +103,14 @@ async def register(user: UserRegister, session: Session = Depends(get_session)):
 
 
 
+# add new user test
+# {
+#   "email": "jane.doe@example.com",
+#   "password": "SecureP@ssw0rd!",
+#   "first_name": "Jane",
+#   "middle_name": "A.",
+#   "last_name": "Doe",
+#   "phone_number": "+96891234567",
+#   "status_name": "Visitor",
+#   "role_name": "admin"
+# }

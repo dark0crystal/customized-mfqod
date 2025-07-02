@@ -8,6 +8,7 @@ import uuid
 class Base(DeclarativeBase):
     pass
 
+# like the user job title 
 class UserStatus(Base):
     __tablename__ = "userstatus"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

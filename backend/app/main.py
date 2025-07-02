@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from db.database import init_db
-from routes import userRoutes, roleRoutes, itemRoutes ,authRoutes,ldapAuthRoutes,itemTypeRoutes
+from routes import userRoutes, roleRoutes, itemRoutes ,authRoutes,ldapAuthRoutes,itemTypeRoutes,userStatusRoutes
 
 app = FastAPI()
 
@@ -14,3 +14,4 @@ app.include_router(roleRoutes.router, prefix="/roles", tags=["Role"])
 # app.include_router(authRoutes.router, prefix="/auth", tags=["Auth"])
 app.include_router(ldapAuthRoutes.router, prefix="/ldap-auth", tags=["LdapAuth"])
 app.include_router(itemTypeRoutes.router, prefix="/item-type", tags=["ItemType"])
+app.include_router(userStatusRoutes.router, prefix="/user-status", tags=["UserStatus"])
