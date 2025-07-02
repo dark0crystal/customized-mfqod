@@ -9,5 +9,10 @@ class RoleSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+class RoleRequestSchema(BaseModel):
+    name: str
+    description: Optional[str] = None
+
     class Config:
         orm_mode = True
+
