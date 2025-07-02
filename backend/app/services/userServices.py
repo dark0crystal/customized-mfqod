@@ -2,11 +2,11 @@ from jose import jwt
 import os
 from dotenv import load_dotenv
 import uuid
-from sqlmodel import Session
+from sqlalchemy.orm import Session
 from schemas.user_schema import UserRegister
 from models import User
-from sqlmodel import select
-from datetime import datetime, timezone,timedelta
+from sqlalchemy import select
+from datetime import datetime, timezone, timedelta
 # from ldap3 import Server, Connection, ALL, NTLM, SIMPLE
 
 load_dotenv()
@@ -34,7 +34,7 @@ ADusers = [
 
 def CheckUserExistenceDB(session: Session, email: str) -> bool:
     statement = select(User).where(User.email == email)
-    result = session.exec(statement).first()
+    result = session.execute(statement).scalars().first()
     return result is not None
 
 
@@ -45,7 +45,6 @@ async def CheckUserExistenceAD(email: str):
     return None
 
 # this function will create a new user in the local database   
-
 
 def createNewUserInDB(session: Session, user_data: UserRegister, hashed_password: str) -> User:
     user = User(
@@ -79,7 +78,6 @@ async def CreateJwtToken(user_id: str, email: str, role: str, first_name: str, l
 
     token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
     return token
-
 
 # def authenticate_with_ad(email: str, password: str):
 #     # Extract username from email (if needed)
