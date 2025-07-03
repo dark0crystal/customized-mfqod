@@ -1,27 +1,10 @@
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from enum import Enum
 import re
 
-
-# 1. Status Enum to restrict values
-class StatusEnum(str, Enum):
-    active = "active"
-    inactive = "inactive"
-    pending = "pending"
-    suspended = "suspended"
-
-
-# 2. Model for user login or auth-related operations
-class UserCreate(BaseModel):
-    user_id: str
-    email: str  
+class UserLogin(BaseModel):
+    email: EmailStr
     password: str
-    first_name: str
-    last_name: str
-    role: str
-
-
 
 class UserRegister(BaseModel):
     id: Optional[str] = None
@@ -31,11 +14,8 @@ class UserRegister(BaseModel):
     middle_name: str = Field(min_length=1)
     last_name: str = Field(min_length=1)
     phone_number: str = Field(min_length=8, max_length=15)
-    
-    # بدل status Enum، نمرر اسم الحالة الموجودة في قاعدة البيانات
-    status_name: str  # مثل: 'student', 'staff'
-    
-    role_name: str  # مثل: 'admin', 'user'
+    status_name: str
+    role_name: str
 
     @field_validator("password")
     @classmethod
@@ -56,4 +36,3 @@ class UserRegister(BaseModel):
         if not re.fullmatch(r"^\+?\d{8,15}$", value):
             raise ValueError("Phone number must contain only digits and may start with '+'.")
         return value
-    
