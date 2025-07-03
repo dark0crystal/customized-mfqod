@@ -1,6 +1,124 @@
 {
-  "HomePage": {
-    "title": "حياكم ورحبا !",
-    "about": "إعرف عنّا"
+    "HomePage": {
+      "title": "مغيّب شي؟ مفقود بيساعدك",
+      "about": "Go to the about page",
+      "search":"أبحث عن مفقود",
+      "report":"بلّغ عن مفقود",
+      "description":"مفقود يسهل عليك تحصل ممتلكاتك المفقودة",
+      "versionMessage":"إطلاق مفقود النسخة التجريبية v1.0.2 "
+    },
+    "navbar":{
+        "brand":"مَفقوُد",
+        "brand-duplicate":"مفقود",
+        "search":"أبحث عن مفقود",
+        "searchBtn":"Search Something",
+        "dashboard":"لوحة التحكم",
+        "report":"وجدت مفقودًا",
+        "reportBtn":"Found Something ?"
+
+    },
+    "storage":{
+      
+        "org": {
+          "SQU": "جامعة السلطان قابوس",
+          "UTAS Muscat": "جامعة التقنية والعلوم التطبيقية مسقط",
+          "UTAS Ibra": "جامعة التقنية والعلوم التطبيقية إبراء",
+          "Bin Omair": "مكتبة بن عمير",
+          "UTAS Nizwa": "جامعة التقنية والعلوم التطبيقية نزوى"
+        },
+        "place": {
+          "SQU Library": "مكتبة جامعة السلطان قابوس",
+          "SQU Lost and Found Department": "قسم المفقودات بجامعة السلطان قابوس",
+          "UTAS Muscat Library": "مكتبة جامعة التقنية والعلوم التطبيقية مسقط",
+          "UTAS Muscat Lost and Found Department": "قسم المفقودات بجامعة التقنية والعلوم التطبيقية مسقط",
+          "UTAS Ibra Library": "مكتبة جامعة التقنية والعلوم التطبيقية إبراء",
+          "UTAS Ibra Lost and Found Department": "قسم المفقودات بجامعة التقنية والعلوم التطبيقية إبراء",
+          "Bin Omair Library": "مكتبة بن عمير",
+          "Bin Omair Lost and Found Department": "قسم المفقودات بمكتبة بن عمير",
+          "UTAS Nizwa Library": "مكتبة جامعة التقنية والعلوم التطبيقية نزوى",
+          "UTAS Nizwa Lost and Found Department": "قسم المفقودات بجامعة التقنية والعلوم التطبيقية نزوى"
+        },
+        "country":{
+          "Oman":"عُمان"
+        }
+      },
+
+
+      "card":{
+        
+        "location":"الموقع",
+        "missing-items":"الأغراض المفقودة"
+
+      },
+
+
+      "footer":{
+          "seeAlso":"انظر أيضاً",
+         "quickLinks":"روابط سريعة",
+         "privacyTitle":"الخصوصية و البنود",
+          "main":"الرئيسية",
+          "search":"أبحث عن مفقود",
+          "report":"بلّغ عن مفقود",
+          "privacy":"سياسة الخصوصية",
+          "terms":"شروط الخدمة",
+          "dashboard":"لوحة التحكم",
+          "Register":"تسجيل دخول",
+          "disclaimer":"تنبيه: مفقود غير مصرح أو معتمد في أي مؤسسة من المؤسسات المذكورة لغاية آخر تحديث v1.0.2،  نحن في مفقود نستخدم أسماء المؤسسات لغرض المحاكاه فقط في هذه النسخة التجريبية.",
+          "developer":"صمم بــ❤️",
+          "description":"مفقود يسهل عليك تحصل ممتلكاتك المفقودة"
+
+
+
+      },
+
+      "trustedBy":{
+        "title":"موثوق به من قبل"
+      },
+
+      "cards":{
+        "name1":"الجامعة",
+        "name2":"التقنية",
+        "name3":"الألمانية",
+        "name4":"أوكسفورد",
+        "item1":"ساعة",
+        "item2":"محفظة",
+        "item3":"خاتم",
+        "item4":"مفتاح"
+      },
+
+      "timeBaseWords":{
+        "lostSth":"فاقد شي؟",
+        "help":"نقدر نساعدك",
+        "foundSth":"محصل شي؟",
+        "helpOwner":"ساعد صاحبه"
+      },
+
+      "report-found":{
+        "title":"بلّغ عن شيء وجدته",
+        "whatDidYouFind":"ماذا وجدت",
+        "Details":"اضف تفاصيل عن الغرض",
+        "type":"ما نوع الغرض",
+        "uploadImages":"ارفق صوراً للغرض",
+        "organization":"اسم المؤسسة",
+        "place":"اختر اسم مكان تسليم أو وضع الغرض",
+        "country":"الدولة",
+        "selectOrganization":"اختر اسم المؤسسة",
+        "selectPlace":"اختر اسم مكان تسليم أو وضع الغرض",
+        "note":"ملاحطة: في هذه النسخة v1.0.2 سيتم التحقق من المنشورات قبل نشرها "
+
+      },
+      "search":{
+        "filter":"فلتر"
+      },
+      "loading":{
+        "loadingMessage":"لحظات..."
+      }
+
+
+
+
+      
+      
+  
+    
   }
-}
