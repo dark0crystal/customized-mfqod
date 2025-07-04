@@ -1,18 +1,18 @@
 
-import img1 from "../../../public/img1.jpeg"
-import img2 from "../../../public/img2.jpeg"
-import img3 from "../../../public/img3.jpeg"
-import img4 from "../../../public/img4.jpeg"
-import img5 from "../../../public/img5.jpeg"
-import Image from 'next/image';
-import TimeBasedWords from '../components/framer/TimeBaseWords';
-import CardsSection from '../components/CardSection';
-import TrustedBy from '../components/trusted-by/TrustedBy';
-import Footer from "../components/Footer"
+// import img1 from "../../../public/img1.jpeg"
+// import img2 from "../../../public/img2.jpeg"
+// import img3 from "../../../public/img3.jpeg"
+// import img4 from "../../../public/img4.jpeg"
+// import img5 from "../../../public/img5.jpeg"
+// import Image from 'next/image';
+// import TimeBasedWords from '../components/framer/TimeBaseWords';
+// import CardsSection from '../components/CardSection';
+// import TrustedBy from '../components/trusted-by/TrustedBy';
+import Footer from "@/components/Footer"
 import { getTranslations } from "next-intl/server"
-import { Link } from "@/i18n/routing"
-import { SearchButton } from "../components/Buttons/SearchButton"
-import FoundButton from "../components/Buttons/FoundButton"
+// import { Link } from "@/i18n/navigation"
+import { SearchButton } from "@/components/buttons/SearchButton"
+import FoundButton from "@/components/buttons/FoundButton"
 
 export default async function Home() {
   
@@ -23,7 +23,7 @@ export default async function Home() {
     <main className="overflow-hidden flex flex-col justify-center "> 
       <div className="relative h-fit w-screen  mt-20 p-4 overflow-hidden">
         <div className='flex justify-center my-2 items-center'>
-        <TimeBasedWords/>
+        {/* <TimeBasedWords/> */}
         </div>
         {/* Central Text */}
         <p className="text-center text-4xl font-extrabold text-black leading-relaxed">
@@ -78,12 +78,12 @@ export default async function Home() {
       </div>
 
     <div>
-      <CardsSection/>
+      {/* <CardsSection/> */}
     </div>
 
 
     <div>
-      <TrustedBy/>
+      {/* <TrustedBy/> */}
     </div>
   
      
