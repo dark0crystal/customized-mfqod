@@ -1,6 +1,6 @@
 "use client"
 import Brand from "./navbar/Brand";
-import { Link } from "@/i18n/routing";
+import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import LanguageChange from "./navbar/LangChange";
 

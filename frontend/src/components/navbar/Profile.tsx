@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 // import { useSession } from "next-auth/react";
-import Image from "next/image";
+// import Image from "next/image";
 // import { SignOut } from "../auth/client/signout-button";
 // import { SignIn } from "../auth/client/signin-button";
-import defaultProfileImage from "../../../../public/bg11.jpg";
+// import defaultProfileImage from "../../../../public/bg11.jpg";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 
@@ -33,20 +33,20 @@ export default function Profile() {
             className="relative w-[43px] h-[43px] rounded-xl overflow-hidden border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Toggle profile menu"
           >
-            <Image
+            {/* <Image
               src={session?.user?.image || defaultProfileImage}
               alt="Profile Image"
               fill
               objectFit="cover"
               className="rounded-xl"
-            />
+            /> */}
         
           </button>
 
            {/* Username and Email */}
            <div className="flex flex-col">
-            <p className="text-sm font-medium">{session?.user?.name || "Guest"}</p>
-            <p className="text-sm text-gray-600">{session?.user?.email || "No email provided"}</p>
+            {/* <p className="text-sm font-medium">{session?.user?.name || "Guest"}</p>
+            <p className="text-sm text-gray-600">{session?.user?.email || "No email provided"}</p> */}
           </div>
 
           {/* Dropdown Menu */}
