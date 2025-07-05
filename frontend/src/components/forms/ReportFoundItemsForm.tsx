@@ -3,8 +3,8 @@
 import { SubmitHandler, useForm } from "react-hook-form";
 import { useState, useEffect, useRef } from "react";
 import ReactConfetti from "react-confetti";
-import DataProvider from "@/app/storage";
-import CompressorFileInput from "../CompressorFileInput";
+// import DataProvider from "@/app/storage";
+import CompressorFileInput from "./CompressorFileInput";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
