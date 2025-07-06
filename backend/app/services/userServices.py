@@ -16,7 +16,8 @@ ALGORITHM = os.getenv("ALGORITHM")
 TOKEN_EXPIRATION_MINUTES = 30
 
 async def authenticate_user(user: UserLogin, session: Session):
-    statement = select(User).where(User.email == user.email)
+    # Search by email only (since no username field exists)
+    statement = select(User).where(User.email == user.identifier)
     db_user = session.execute(statement).scalars().first()
 
     if not db_user:
@@ -32,20 +33,31 @@ async def authenticate_user(user: UserLogin, session: Session):
         first_name=db_user.first_name,
         last_name=db_user.last_name,
     )
-    return {"message": "Login successful", "token": token}
+    
+    return {
+        "message": "Login successful", 
+        "token": token,
+        "user": {
+            "id": db_user.id,
+            "email": db_user.email,
+            "first_name": db_user.first_name,
+            "last_name": db_user.last_name,
+            "role": role_name
+        }
+    }
 
 async def register_user(user: UserRegister, session: Session):
     # Check if user already exists
-    exists = session.execute(select(User).where(User.email == user.email)).first()
+    exists = session.execute(select(User).where(User.email == user.email)).scalars().first()
     if exists:
         raise HTTPException(status_code=409, detail="User already exists")
 
     # Resolve status & role
-    status = session.execute(select(UserStatus).where(UserStatus.name == user.status_name)).first()
+    status = session.execute(select(UserStatus).where(UserStatus.name == user.status_name)).scalars().first()
     if not status:
         raise HTTPException(status_code=400, detail="Invalid status name")
 
-    role = session.execute(select(Role).where(Role.name == user.role_name)).first()
+    role = session.execute(select(Role).where(Role.name == user.role_name)).scalars().first()
     if not role:
         raise HTTPException(status_code=400, detail="Invalid role name")
 
