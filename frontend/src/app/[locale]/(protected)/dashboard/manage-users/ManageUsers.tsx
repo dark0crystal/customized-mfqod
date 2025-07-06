@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
-import { Link } from "@/i18n/routing";
+import { Link } from "@/i18n/navigation";
 
 const schema = z.object({
   email: z.string().min(1, "Email is required").max(50, "Email is too long"),

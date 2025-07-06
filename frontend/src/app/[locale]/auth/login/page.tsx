@@ -4,6 +4,8 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { cookieUtils } from "@/utils/cookies" // Adjust path as needed
 
 const loginSchema = z.object({
   identifier: z.string().min(3, "Username or Email is required"),
@@ -18,6 +20,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const router = useRouter()
 
   const {
     register,
@@ -33,13 +36,13 @@ export default function Login() {
     setSuccess(null)
 
     try {
-      const res = await fetch(`http://127.0.0.1:8000/users/login`, {
+      const res = await fetch(`${host_name}/users/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          identifier: data.identifier, // Send as identifier
+          identifier: data.identifier,
           password: data.password
         }),
       })
@@ -50,15 +53,17 @@ export default function Login() {
         throw new Error(result.detail || "Login failed")
       }
 
-      // Store token (you might want to use a more secure method)
-      localStorage.setItem("token", result.token)
-      localStorage.setItem("user", JSON.stringify(result.user))
+      // Store token and user data in cookies using utility functions
+      cookieUtils.set("token", result.token, 7) // Expires in 7 days
+      cookieUtils.set("user", JSON.stringify(result.user), 7)
       
       setSuccess("Login successful!")
       console.log("Login success:", result)
       
-      // Redirect user or update app state here
-      // router.push("/dashboard") // if using Next.js router
+      // Redirect user after successful login
+      setTimeout(() => {
+        router.push("/dashboard") // or wherever you want to redirect
+      }, 1000)
       
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed")
