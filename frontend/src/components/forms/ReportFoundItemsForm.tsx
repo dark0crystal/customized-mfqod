@@ -1,6 +1,8 @@
 "use client";
 
-import { SubmitHandler, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useState, useEffect, useRef } from "react";
 import ReactConfetti from "react-confetti";
 // import DataProvider from "@/app/storage";
@@ -8,38 +10,64 @@ import CompressorFileInput from "./CompressorFileInput";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
-type ItemFormFields = {
-  title: string;
-  content: string;
-  type: string;
-  place: string;
-  country: string;
-  orgnization: string;
-};
+// Zod schema for form validation
+const itemFormSchema = z.object({
+  title: z.string().min(1, "This field is required"),
+  content: z.string().min(1, "Please provide additional details"),
+  type: z.string().min(1, "This field is required"),
+  place: z.string().min(1, "Please select a place"),
+  country: z.string().min(1, "Please select a country"),
+  orgnization: z.string().min(1, "Please select an organization"),
+});
+
+type ItemFormFields = z.infer<typeof itemFormSchema>;
 
 export default function ReportFoundItem() {
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, setValue } = useForm<ItemFormFields>();
+  const { 
+    register, 
+    handleSubmit, 
+    formState: { errors, isSubmitting }, 
+    reset, 
+    setValue 
+  } = useForm<ItemFormFields>({
+    resolver: zodResolver(itemFormSchema),
+    defaultValues: {
+      country: "Oman"
+    }
+  });
+
   const [organization, setOrganization] = useState<string>("");
   const [placeOptions, setPlaceOptions] = useState<{ key: string; name: string }[]>([]);
   const [compressedFiles, setCompressedFiles] = useState<File[]>([]);
   const [confetti, setConfetti] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  
   const t = useTranslations("storage");
   const c = useTranslations("report-found");
   const { OrgPlaces } = DataProvider();
   const router = useRouter();
   const orgPlacesRef = useRef(OrgPlaces);
 
- 
-
-  const onSubmit: SubmitHandler<ItemFormFields> = async (data) => {
+  const onSubmit = async (data: ItemFormFields) => {
     try {
       setIsProcessing(true);
       
+      // Create FormData to handle both form data and files
+      const formData = new FormData();
+      
+      // Append form fields
+      Object.entries(data).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
+      
+      // Append compressed files
+      compressedFiles.forEach((file, index) => {
+        formData.append(`images`, file);
+      });
+
       const response = await fetch("/api/upload-found-item", {
         method: "POST",
-        body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" },
+        body: formData, // Send as FormData instead of JSON
       });
 
       const result = await response.json();
@@ -47,55 +75,15 @@ export default function ReportFoundItem() {
       if (response.ok) {
         console.log("Item uploaded successfully.");
         setConfetti(true);
-
-        if (compressedFiles.length > 0) {
-          const uploadPromises = compressedFiles.map((file) => {
-            const filePath = `${result.postId}/${file.name}`;
-            return supabase.storage
-              .from("mfqodFiles")
-              .upload(filePath, file)
-              .then(({ error, data: uploadedData }) => {
-                if (error) {
-                  console.error(`Failed to upload image: ${error.message}`);
-                  throw new Error(`Failed to upload image: ${error.message}`);
-                } else {
-                  console.log("Uploaded image:", uploadedData);
-                  return uploadedData?.path;
-                }
-              });
-          });
-
-          const uploadedFilesKeys = await Promise.all(uploadPromises);
-
-          const imageUrls = uploadedFilesKeys
-            .map((fileKey) => {
-              if (fileKey) {
-                return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/mfqodFiles/${fileKey}`;
-              }
-              return null;
-            })
-            .filter(Boolean);
-
-          await fetch("/api/save-post-images", {
-            method: "POST",
-            body: JSON.stringify({
-              postId: result.postId,
-              imageUrls,
-            }),
-            headers: { "Content-Type": "application/json" },
-          });
-
-          console.log("All images uploaded and URLs saved to the database:", imageUrls);
-        }
-       
         reset();
+        setCompressedFiles([]);
         
         // Redirect after successful submission and a short delay for confetti
         setTimeout(() => {
           router.push("/");
         }, 3000);
       } else {
-        console.error("Failed to upload item.");
+        console.error("Failed to upload item:", result.error || "Unknown error");
       }
     } catch (error) {
       console.error("Error submitting form:", error);
@@ -160,101 +148,129 @@ export default function ReportFoundItem() {
       </h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-
-      
-
         {/* Title Input */}
         <div>
-          <label htmlFor="title" className="block text-lg font-semibold text-gray-700">{c("whatDidYouFind")}</label>
+          <label htmlFor="title" className="block text-lg font-semibold text-gray-700">
+            {c("whatDidYouFind")}
+          </label>
           <input
             type="text"
             id="title"
-            {...register("title", { required: "This field is required" })}
+            {...register("title")}
             placeholder="e.g., Key, Wallet, etc."
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-          {errors.title && <p className="mt-2 text-xs text-red-500">{errors.title.message}</p>}
+          {errors.title && (
+            <p className="mt-2 text-xs text-red-500">{errors.title.message}</p>
+          )}
         </div>
 
         {/* Content Input */}
         <div>
-          <label htmlFor="content" className="block text-lg font-semibold text-gray-700">{c("Details")}</label>
+          <label htmlFor="content" className="block text-lg font-semibold text-gray-700">
+            {c("Details")}
+          </label>
           <input
             type="text"
             id="content"
-            {...register("content", { required: "Please provide additional details" })}
+            {...register("content")}
             placeholder="Provide additional details about the item"
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-          {errors.content && <p className="mt-2 text-xs text-red-500">{errors.content.message}</p>}
+          {errors.content && (
+            <p className="mt-2 text-xs text-red-500">{errors.content.message}</p>
+          )}
         </div>
 
         {/* Type Input */}
         <div>
-          <label htmlFor="type" className="block text-lg font-semibold text-gray-700">{c("type")}</label>
+          <label htmlFor="type" className="block text-lg font-semibold text-gray-700">
+            {c("type")}
+          </label>
           <input
             type="text"
             id="type"
-            {...register("type", { required: "This field is required" })}
+            {...register("type")}
             placeholder="Type of item (e.g., Wallet, Phone)"
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-          {errors.type && <p className="mt-2 text-xs text-red-500">{errors.type.message}</p>}
+          {errors.type && (
+            <p className="mt-2 text-xs text-red-500">{errors.type.message}</p>
+          )}
         </div>
 
         <CompressorFileInput onFilesSelected={setCompressedFiles} />
 
-         {/* Select Organization */}
-         <div>
-          <label htmlFor="orgnization" className="block text-lg font-semibold text-gray-700">{c("organization")}</label>
+        {/* Select Organization */}
+        <div>
+          <label htmlFor="orgnization" className="block text-lg font-semibold text-gray-700">
+            {c("organization")}
+          </label>
           <select
             id="orgnization"
-            value={organization} // Bind to the organization state
-            {...register("orgnization", { required: "Please select an organization" })}
-            onChange={handleOrganizationChange} // Trigger handleOrganizationChange on selection
+            value={organization}
+            {...register("orgnization")}
+            onChange={handleOrganizationChange}
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            {/* Display "Select Organization" first */}
-            <option value="" disabled>{c("selectOrganization")}</option>
+            <option value="" disabled>
+              {c("selectOrganization")}
+            </option>
             {OrgPlaces.map((org, index) => {
               const orgName = Object.keys(org)[0];
               return (
-                <option key={index} value={org.key}>{t(`org.${org.key}`)}</option>
+                <option key={index} value={org.key}>
+                  {t(`org.${org.key}`)}
+                </option>
               );
             })}
           </select>
-          {errors.orgnization && <p className="mt-2 text-xs text-red-500">{errors.orgnization.message}</p>}
+          {errors.orgnization && (
+            <p className="mt-2 text-xs text-red-500">{errors.orgnization.message}</p>
+          )}
         </div>
 
         {/* Select Place */}
         {placeOptions.length > 0 && (
           <div>
-            <label htmlFor="place" className="block text-lg font-semibold text-gray-700">{c("place")}</label>
+            <label htmlFor="place" className="block text-lg font-semibold text-gray-700">
+              {c("place")}
+            </label>
             <select
               id="place"
-              {...register("place", { required: "Please select a place" })}
+              {...register("place")}
               className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="" disabled>{c("selectPlace")}</option>
+              <option value="" disabled>
+                {c("selectPlace")}
+              </option>
               {placeOptions.map((place, index) => (
-                <option key={index} value={place.key}>{place.name}</option>
+                <option key={index} value={place.key}>
+                  {place.name}
+                </option>
               ))}
             </select>
-            {errors.place && <p className="mt-2 text-xs text-red-500">{errors.place.message}</p>}
+            {errors.place && (
+              <p className="mt-2 text-xs text-red-500">{errors.place.message}</p>
+            )}
           </div>
         )}
 
         {/* Select Country */}
         <div>
-          <label htmlFor="country" className="block text-lg font-semibold text-gray-700">{c("country")}</label>
+          <label htmlFor="country" className="block text-lg font-semibold text-gray-700">
+            {c("country")}
+          </label>
           <select
             id="country"
-            {...register("country", { required: "Please select a country" })}
+            {...register("country")}
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="Oman">Oman</option>
           </select>
-          {errors.country && <p className="mt-2 text-xs text-red-500">{errors.country.message}</p>}
+          {errors.country && (
+            <p className="mt-2 text-xs text-red-500">{errors.country.message}</p>
+          )}
         </div>
         
         <div className="text-center">
