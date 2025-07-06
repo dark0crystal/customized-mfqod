@@ -1,12 +1,10 @@
-import { Link } from "@/i18n/routing";
-import prisma from "@/lib/db";
+import { Link } from "@/i18n/navigation";
 import NavbarSlider from "./NavbarSlider";
-import { auth } from "../../../../../auth";
 export default async function NavBar() {
-  const session = await auth();
-  if (!session) return null;
-  const userId = session.user?.id
-  if (!userId) return null;
+  // const session = await auth();
+  // if (!session) return null;
+  // const userId = session.user?.id
+  // if (!userId) return null;
 
   const result =await getUserRoleAndManagedPlaces(userId)
 
