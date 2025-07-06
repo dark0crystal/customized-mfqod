@@ -1,8 +1,8 @@
 import Image from "next/image";
-import img1 from "../../../public/img5.jpeg";
-import img2 from "../../../public/img4.jpeg";
-import img3 from "../../../public/img3.jpeg";
-import img4 from "../../../public/img15.jpeg";
+import img1 from "../../public/img1.jpeg"
+import img2 from "../../public/img2.jpeg";
+import img3 from "../../public/img3.jpeg";
+import img4 from "../../public/img4.jpeg";
 import { getTranslations } from "next-intl/server";
 
 export default async function CardsSection() {
