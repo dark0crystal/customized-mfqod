@@ -73,3 +73,46 @@ Command to apply the most recent migration:
 
 
 ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+Active Directory:
+
+
+------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+Fine-Grained Control (Actions per Role) using Roles + Permissions — also known as RBAC with Permissions.
+
+🧠 What It Means
+With fine-grained control, instead of checking only the user’s role, you check whether the user has specific permissions to do certain actions — like:
+
+can_view_users
+
+can_edit_users
+
+can_delete_posts
+
+can_publish_content
+
+This way, two roles can have different sets of actions even if they sound similar.
+
+roles table:
+id | name
+---|-------
+1  | admin
+2  | editor
+3  | student
+
+permissions table:
+id | name
+---|--------------------
+1  | can_view_users
+2  | can_edit_posts
+3  | can_view_content
+
+role_permissions table (many-to-many)
+role_id | permission_id
+--------|---------------
+1       | 1
+1       | 2
+1       | 3
+2       | 2
+2       | 3
+3       | 3
+------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------

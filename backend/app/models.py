@@ -40,12 +40,40 @@ class User(Base):
 
 class Role(Base):
     __tablename__ = "role"
+    
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String, unique=True, index=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     users: Mapped[List["User"]] = relationship("User", back_populates="role")
+
+    permissions: Mapped[List["Permission"]] = relationship(
+        "Permission",
+        secondary="role_permissions",
+        back_populates="roles"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+class RolePermissions(Base):
+    __tablename__ = "role_permissions"
+    role_id: Mapped[str] = mapped_column(ForeignKey("role.id"), primary_key=True)
+    permission_id: Mapped[str] = mapped_column(ForeignKey("permissions.id"), primary_key=True)
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    roles: Mapped[List["Role"]] = relationship(
+        "Role",
+        secondary="role_permissions",
+        back_populates="permissions"
+    )
+
 
 class Item(Base):
     __tablename__ = "item"
@@ -127,3 +155,5 @@ class Claim(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     
     
+
+    # don't forget to add the translated names
