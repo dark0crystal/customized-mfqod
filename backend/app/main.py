@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from db.database import init_db
 from fastapi.middleware.cors import CORSMiddleware
-from routes import userRoutes, roleRoutes, itemRoutes ,authRoutes,ldapAuthRoutes,itemTypeRoutes,userStatusRoutes,permissionRoutes
+from routes import userRoutes, roleRoutes, itemRoutes ,authRoutes,ldapAuthRoutes,itemTypeRoutes,userStatusRoutes,permissionRoutes,branchRoutes
 
 app = FastAPI()
 
@@ -34,3 +34,4 @@ app.include_router(ldapAuthRoutes.router, prefix="/ldap-auth", tags=["LdapAuth"]
 app.include_router(itemTypeRoutes.router, prefix="/item-type", tags=["ItemType"])
 app.include_router(userStatusRoutes.router, prefix="/user-status", tags=["UserStatus"])
 app.include_router(permissionRoutes.router, prefix="/permissions", tags=["Permissions"])
+app.include_router(branchRoutes.router, prefix="/branch", tags=["Branch"])
