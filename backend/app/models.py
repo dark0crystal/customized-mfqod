@@ -4,9 +4,10 @@ from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text
 from typing import Optional, List
 from datetime import datetime, timezone
 import uuid
+from sqlalchemy.ext.declarative import declarative_base
 
-class Base(DeclarativeBase):
-    pass
+
+Base = declarative_base()
 
 # like the user job title 
 class UserStatus(Base):
@@ -73,6 +74,8 @@ class Permission(Base):
         secondary="role_permissions",
         back_populates="permissions"
     )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class Item(Base):
