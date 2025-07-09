@@ -19,7 +19,7 @@ export default function Brand() {
     <Link href="/" className="flex items-center gap-1">
       {/* Brand Name */}
        <div className=" text-black text-[42px] ">
-            <Link   className={lalezarFont.className} href='/'><p className="flex flex-col relative z-20 text-slate-800">{t("brand-duplicate")} <span className="absolute -z-10 text-blue-600">{t("brand")}</span></p></Link>
+            <Link className={lalezarFont.className} href='/'><p className="flex flex-col relative z-20 text-slate-800">{t("brand-duplicate")} <span className="absolute -z-10 text-blue-600">{t("brand")}</span></p></Link>
         </div>
       
       {/* Styled Separator */}
