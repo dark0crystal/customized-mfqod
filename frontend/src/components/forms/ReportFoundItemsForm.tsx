@@ -175,62 +175,84 @@ export default function ReportFoundItem() {
   }, []);
 
   const onSubmit = async (data: ItemFormFields) => {
-    if (authError) {
-      alert("Please log in first to submit an item.");
+  if (authError) {
+    alert("Please log in first to submit an item.");
+    return;
+  }
+
+  try {
+    setIsProcessing(true);
+
+    const token = getTokenFromCookies();
+    if (!token) {
+      setAuthError("Authentication required. Please log in again.");
       return;
     }
 
-    try {
-      setIsProcessing(true);
-      
-      // Create FormData to handle both form data and files
-      const formData = new FormData();
-      
-      // Append form fields
-      Object.entries(data).forEach(([key, value]) => {
-        console.log(value)
-        formData.append(key, value);
-      });
-      
-      // Append compressed files
-      // compressedFiles.forEach((file, index) => {
-      //   formData.append(`images`, file);
-      // });
-      
-      // upload item
-      const response = await fetch(`${API_BASE_URL}/items/`, {
-        method: "POST",
-        headers: getAuthHeadersForFormData(),
-        body: formData,
-      });
+    // STEP 1: Create the item
+    const itemPayload = {
+      title: data.title,
+      description: data.content,
+      user_id: "48d1fe78-ddaa-4c1d-bd28-6f5395774bb5", 
+      item_type_id: data.item_type_id,
+      approval: true,
+      temporary_deletion: false
+    };
 
-      const result = await response.json();
+    const itemResponse = await fetch(`${API_BASE_URL}/items/`, {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(itemPayload),
+    });
 
-      if (response.ok) {
-        console.log("Item uploaded successfully.");
-        setConfetti(true);
-        reset();
-        setCompressedFiles([]);
-        setOrganization("");
-        setBranches([]);
-        
-        // Redirect after successful submission and a short delay for confetti
-        setTimeout(() => {
-          router.push("/");
-        }, 3000);
-      } else if (response.status === 401) {
-        setAuthError("Authentication failed. Please log in again.");
-      } else {
-        console.error("Failed to upload item:", result.error || "Unknown error");
-        alert(`Failed to upload item: ${result.error || "Unknown error"}`);
-      }
-    } catch (error) {
-      console.error("Error submitting form:", error);
-      alert("An error occurred while submitting the form. Please try again.");
-    } finally {
-      setIsProcessing(false);
+    if (!itemResponse.ok) {
+      const errorData = await itemResponse.json();
+      throw new Error(errorData.detail || "Item creation failed");
     }
-  };
+
+    const itemResult = await itemResponse.json();
+    const itemId = itemResult.id;
+
+    // STEP 2: Create the address
+    const addressPayload = {
+      item_id: itemId,
+      branch_id: data.branch_id,
+      is_current: true
+    };
+
+    const addressResponse = await fetch(`${API_BASE_URL}/branch/addresses/`, {
+      method: "POST",
+      headers: {
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(addressPayload),
+    });
+
+    if (!addressResponse.ok) {
+      const errorData = await addressResponse.json();
+      throw new Error(errorData.detail || "Address creation failed");
+    }
+
+    console.log("Item and address uploaded successfully");
+    setConfetti(true);
+    reset();
+    setCompressedFiles([]);
+    setOrganization("");
+    setBranches([]);
+
+    setTimeout(() => {
+      router.push("/");
+    }, 3000);
+  } catch (error: any) {
+    console.error("Error submitting form:", error);
+    alert(error.message || "An unexpected error occurred");
+  } finally {
+    setIsProcessing(false);
+  }
+};
+
 
   const handleOrganizationChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedOrgId = e.target.value;
