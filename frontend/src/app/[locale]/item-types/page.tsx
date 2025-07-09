@@ -20,13 +20,26 @@ const ItemTypesManager = () => {
   });
 
   // API base URL - adjust this to your backend URL
-  const API_BASE = 'http://localhost:8000/item-types';
+  const API_BASE = 'http://localhost:8000/item-type';
 
-  // Mock token - replace with actual token management
-  const getAuthHeaders = () => ({
-    'Authorization': `Bearer ${localStorage.getItem('token') || 'your-auth-token'}`,
+  // ✅ Get token from cookies
+const getTokenFromCookies = (): string | null => {
+  if (typeof document !== 'undefined') {
+    const match = document.cookie.match(/(?:^|; )(?:token|access_token|auth_token)=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+  return null;
+};
+
+// ✅ Generate headers
+const getAuthHeaders = () => {
+  const token = getTokenFromCookies();
+  return {
+    'Authorization': token ? `Bearer ${token}` : '',
     'Content-Type': 'application/json'
-  });
+  };
+};
+
 
   // Fetch all item types
   const fetchItemTypes = async () => {
@@ -138,9 +151,7 @@ const ItemTypesManager = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      description: '',
-      category: '',
-      is_active: true
+      description: ''
     });
     setShowCreateForm(false);
     setEditingItem(null);
@@ -164,9 +175,7 @@ const ItemTypesManager = () => {
   const startEdit = (item) => {
     setFormData({
       name: item.name,
-      description: item.description || '',
-      category: item.category || '',
-      is_active: item.is_active
+      description: item.description || ''
     });
     setEditingItem(item);
     setShowCreateForm(true);
@@ -175,8 +184,7 @@ const ItemTypesManager = () => {
   // Filter items based on search term
   const filteredItems = itemTypes.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()))
+    (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // Load data on component mount
@@ -249,32 +257,18 @@ const ItemTypesManager = () => {
               {editingItem ? 'Edit Item Type' : 'Create New Item Type'}
             </h2>
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter item type name"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter category"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter item type name"
+                  required
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -287,18 +281,6 @@ const ItemTypesManager = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter description"
                 />
-              </div>
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="is_active"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700">
-                  Active
-                </label>
               </div>
               <div className="flex gap-3">
                 <button
@@ -346,11 +328,6 @@ const ItemTypesManager = () => {
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                      {item.category && (
-                        <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mt-1">
-                          {item.category}
-                        </span>
-                      )}
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -375,12 +352,8 @@ const ItemTypesManager = () => {
                   )}
                   
                   <div className="flex justify-between items-center">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      item.is_active 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {item.is_active ? 'Active' : 'Inactive'}
+                    <span className="text-xs text-gray-500">
+                      Created: {new Date(item.created_at).toLocaleDateString()}
                     </span>
                     <span className="text-xs text-gray-500">
                       ID: {item.id}
