@@ -93,7 +93,7 @@ def create_item_type(
 # List all item types
 # ================= 
 @router.get("/", response_model=list[ItemTypeResponse])
-@require_permission("can_view_item_types")
+# @require_permission("can_view_item_types")
 def list_item_types(
     request: Request,  # Token extracted automatically from this
     db: Session = Depends(get_session)
