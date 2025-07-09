@@ -1,6 +1,6 @@
 "use client"
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, MapPin, Building, Search, Filter, X } from 'lucide-react';
+import { Plus, Edit, Trash2, MapPin, Building, Search, Filter, X, ChevronDown } from 'lucide-react';
 
 // API configuration
 const API_BASE_URL = 'http://localhost:8000'; // Adjust to your FastAPI server
@@ -74,13 +74,31 @@ const branchAPI = {
   }
 };
 
+// Organization API functions
+const organizationAPI = {
+  async getAllOrganizations(skip = 0, limit = 1000) {
+    const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
+    const response = await fetch(`${API_BASE_URL}/organization/organizations/?${params}`);
+    if (!response.ok) throw new Error('Failed to fetch organizations');
+    return response.json();
+  }
+};
+
 // Branch Form Modal Component
 const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
   const [formData, setFormData] = useState({
     branch_name: '',
     organization_id: ''
   });
+  const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [organizationsLoading, setOrganizationsLoading] = useState(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchOrganizations();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (branch) {
@@ -92,6 +110,18 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
       setFormData({ branch_name: '', organization_id: '' });
     }
   }, [branch]);
+
+  const fetchOrganizations = async () => {
+    setOrganizationsLoading(true);
+    try {
+      const data = await organizationAPI.getAllOrganizations();
+      setOrganizations(data);
+    } catch (error) {
+      alert(`Error loading organizations: ${error.message}`);
+    } finally {
+      setOrganizationsLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!formData.branch_name || !formData.organization_id) {
@@ -114,6 +144,11 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getSelectedOrganizationName = () => {
+    const selectedOrg = organizations.find(org => org.id === formData.organization_id);
+    return selectedOrg ? selectedOrg.name : 'Select an organization';
   };
 
   if (!isOpen) return null;
@@ -140,28 +175,44 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
               value={formData.branch_name}
               onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter branch name"
               required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Organization ID
+              Organization
             </label>
-            <input
-              type="text"
-              value={formData.organization_id}
-              onChange={(e) => setFormData({ ...formData, organization_id: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
+            {organizationsLoading ? (
+              <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                Loading organizations...
+              </div>
+            ) : (
+              <div className="relative">
+                <select
+                  value={formData.organization_id}
+                  onChange={(e) => setFormData({ ...formData, organization_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                  required
+                >
+                  <option value="">Select an organization</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2 pt-4">
             <button
               onClick={handleSubmit}
-              disabled={loading}
-              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              disabled={loading || organizationsLoading}
+              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Saving...' : (branch ? 'Update' : 'Create')}
             </button>
@@ -178,97 +229,12 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
   );
 };
 
-// Address Form Modal Component
-// const AddressFormModal = ({ isOpen, onClose, branchId, onSave }) => {
-//   const [formData, setFormData] = useState({
-//     item_id: '',
-//     is_current: true
-//   });
-//   const [loading, setLoading] = useState(false);
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-//     setLoading(true);
-    
-//     try {
-//       await branchAPI.createAddress({
-//         ...formData,
-//         branch_id: branchId
-//       });
-//       onSave();
-//       onClose();
-//       setFormData({ item_id: '', is_current: true });
-//     } catch (error) {
-//       alert(`Error: ${error.message}`);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   if (!isOpen) return null;
-
-//   return (
-//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-//       <div className="bg-white rounded-lg p-6 w-full max-w-md">
-//         <div className="flex justify-between items-center mb-4">
-//           <h2 className="text-xl font-bold">Add Address</h2>
-//           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-//             <X size={24} />
-//           </button>
-//         </div>
-
-//         <div className="space-y-4">
-//           <div>
-//             <label className="block text-sm font-medium text-gray-700 mb-1">
-//               Item ID
-//             </label>
-//             <input
-//               type="text"
-//               value={formData.item_id}
-//               onChange={(e) => setFormData({ ...formData, item_id: e.target.value })}
-//               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-//               required
-//             />
-//           </div>
-
-//           <div className="flex items-center space-x-2">
-//             <input
-//               type="checkbox"
-//               id="is_current"
-//               checked={formData.is_current}
-//               onChange={(e) => setFormData({ ...formData, is_current: e.target.checked })}
-//               className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-//             />
-//             <label htmlFor="is_current" className="text-sm font-medium text-gray-700">
-//               Set as current address
-//             </label>
-//           </div>
-
-//           <div className="flex gap-2 pt-4">
-//             <button
-//               onClick={handleSubmit}
-//               disabled={loading}
-//               className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
-//             >
-//               {loading ? 'Adding...' : 'Add Address'}
-//             </button>
-//             <button
-//               onClick={onClose}
-//               className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400"
-//             >
-//               Cancel
-//             </button>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
 // Branch Card Component
-const BranchCard = ({ branch, onEdit, onDelete }) => {
-  
-  
+const BranchCard = ({ branch, onEdit, onDelete, organizations }) => {
+  const getOrganizationName = () => {
+    const organization = organizations.find(org => org.id === branch.organization_id);
+    return organization ? organization.name : branch.organization_id;
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
@@ -279,7 +245,7 @@ const BranchCard = ({ branch, onEdit, onDelete }) => {
             {branch.branch_name}
           </h3>
           <p className="text-sm text-gray-500">
-            Organization: {branch.organization?.name || branch.organization_id}
+            Organization: {getOrganizationName()}
           </p>
           <p className="text-xs text-gray-400 mt-1">
             Created: {new Date(branch.created_at).toLocaleDateString()}
@@ -303,10 +269,6 @@ const BranchCard = ({ branch, onEdit, onDelete }) => {
           </button>
         </div>
       </div>
-
-      
-
-      
     </div>
   );
 };
@@ -314,13 +276,13 @@ const BranchCard = ({ branch, onEdit, onDelete }) => {
 // Main Branch Management Component
 export default function Branch() {
   const [branches, setBranches] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [organizationsLoading, setOrganizationsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [organizationFilter, setOrganizationFilter] = useState('');
   const [showBranchModal, setShowBranchModal] = useState(false);
-  const [showAddressModal, setShowAddressModal] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState(null);
-  const [selectedBranchForAddress, setSelectedBranchForAddress] = useState(null);
 
   const fetchBranches = async () => {
     setLoading(true);
@@ -334,8 +296,21 @@ export default function Branch() {
     }
   };
 
+  const fetchOrganizations = async () => {
+    setOrganizationsLoading(true);
+    try {
+      const data = await organizationAPI.getAllOrganizations();
+      setOrganizations(data);
+    } catch (error) {
+      alert(`Error loading organizations: ${error.message}`);
+    } finally {
+      setOrganizationsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchBranches();
+    fetchOrganizations();
   }, [organizationFilter]);
 
   const handleCreateBranch = () => {
@@ -359,12 +334,11 @@ export default function Branch() {
     }
   };
 
- 
-
-  const filteredBranches = branches.filter(branch =>
-    branch.branch_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (branch.organization?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredBranches = branches.filter(branch => {
+    const organizationName = organizations.find(org => org.id === branch.organization_id)?.name || '';
+    return branch.branch_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           organizationName.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -383,7 +357,7 @@ export default function Branch() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="text"
-                  placeholder="Search branches..."
+                  placeholder="Search branches or organizations..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -391,13 +365,19 @@ export default function Branch() {
               </div>
               <div className="relative">
                 <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-                <input
-                  type="text"
-                  placeholder="Filter by organization ID..."
+                <select
                   value={organizationFilter}
                   onChange={(e) => setOrganizationFilter(e.target.value)}
-                  className="w-full sm:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                  className="w-full sm:w-64 pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                >
+                  <option value="">All Organizations</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
               </div>
             </div>
             <button
@@ -430,9 +410,9 @@ export default function Branch() {
               <BranchCard
                 key={branch.id}
                 branch={branch}
+                organizations={organizations}
                 onEdit={handleEditBranch}
                 onDelete={handleDeleteBranch}
-                // onViewAddresses={handleViewAddresses}
               />
             ))}
           </div>
@@ -445,8 +425,6 @@ export default function Branch() {
           branch={selectedBranch}
           onSave={fetchBranches}
         />
-
-        
       </div>
     </div>
   );
