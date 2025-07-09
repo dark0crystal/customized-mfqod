@@ -20,13 +20,13 @@ export default function ManageUsers() {
   } = useForm<FormFields>({
     resolver: zodResolver(schema),
   });
-
+  const API_BASE = 'http://localhost:8000';
   const [users, setUsers] = useState<any[]>([]); // State to store fetched users
   const [error, setFetchError] = useState<string | null>(null);
 
   const fetchUsers = async (email: string) => {
     try {
-      const response = await fetch(`/api/manage-users?userEmail=${email}`);
+      const response = await fetch(`${API_BASE}/users?userEmail=${email}`);
       if (!response.ok) {
         throw new Error("Failed to fetch users");
       }
