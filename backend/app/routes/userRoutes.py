@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlmodel import Session
 from schemas.user_schema import UserLogin, UserRegister
 from services.userServices import (
@@ -20,3 +21,4 @@ async def login(user: UserLogin, session: Session = Depends(get_session)):
 @router.post("/register")
 async def register(user: UserRegister, session: Session = Depends(get_session)):
     return await register_user(user, session)
+
