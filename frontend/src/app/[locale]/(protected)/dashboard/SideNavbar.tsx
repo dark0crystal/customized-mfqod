@@ -17,6 +17,7 @@ import {
   LogOut,
   User
 } from 'lucide-react';
+import Brand from '@/components/navbar/Brand';
 
 // Mock permissions hook - replace with your actual hook
 const usePermissions = () => {
@@ -221,7 +222,7 @@ export default function SideNavbar() {
 
   return (
     <div className={`
-      bg-white shadow-lg border-r border-gray-200 h-screen flex flex-col transition-all duration-300
+      bg-white shadow-lg border-r border-gray-200 min-h-[88vh] max-h-[100vh] flex flex-col transition-all duration-300
       ${isCollapsed ? 'w-16' : 'w-64'}
     `}>
       {/* Header */}
@@ -229,10 +230,7 @@ export default function SideNavbar() {
         <div className="flex items-center justify-between">
           {!isCollapsed && (
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Shield className="text-white" size={20} />
-              </div>
-              <span className="font-bold text-lg text-gray-800">MyApp</span>
+              <Brand/>
             </div>
           )}
           
