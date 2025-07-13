@@ -18,6 +18,8 @@ import {
   User
 } from 'lucide-react';
 import Brand from '@/components/navbar/Brand';
+import { Link } from '@/i18n/navigation';
+import { usePathname } from 'next/navigation';
 
 // Mock permissions hook - replace with your actual hook
 const usePermissions = () => {
@@ -26,8 +28,8 @@ const usePermissions = () => {
   const [permissions] = useState(['admin', 'create_post', 'edit_post', 'view_analytics', 'can_create_item_types']);
   const [isAuthenticated] = useState(true);
   
-  const hasPermission = (permission) => permissions.includes(permission);
-  const hasAnyPermission = (perms) => perms.some(p => permissions.includes(p));
+  const hasPermission = (permission: string) => permissions.includes(permission);
+  const hasAnyPermission = (perms: string[]) => perms.some(p => permissions.includes(p));
   
   return {
     userRole,
@@ -54,6 +56,7 @@ export default function SideNavbar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const { userRole, hasPermission, hasAnyPermission, isAuthenticated } = usePermissions();
+  const pathname = usePathname();
 
   // Navigation configuration
   const navigationItems: NavItem[] = [
@@ -61,13 +64,19 @@ export default function SideNavbar() {
       id: 'dashboard',
       label: 'Dashboard',
       icon: <Home size={20} />,
-      href: '/',
+      href: '/dashboard',
     },
     {
-      id: 'content',
-      label: 'Content Management',
+      id: 'manage-branches',
+      label: 'Manage Branches',
+      icon: <Home size={20} />,
+      href: '/dashboard/branch',
+    },
+    {
+      id: 'Items',
+      label: 'Users Management',
       icon: <FileText size={20} />,
-      href: '/content',
+      href: '/dashboard/items',
       requiredPermissions: ['create_post', 'edit_post'],
       children: [
         {
@@ -100,6 +109,36 @@ export default function SideNavbar() {
       href: '/users',
       allowedRoles: ['admin', 'moderator']
     },
+    ,
+    {
+      id: 'analytics',
+      label: 'Analytics',
+      icon: <BarChart3 size={20} />,
+      href: '/analytics',
+      requiredPermissions: ['view_analytics']
+    },
+    {
+      id: 'users',
+      label: 'User Management',
+      icon: <Users size={20} />,
+      href: '/users',
+      allowedRoles: ['admin', 'moderator']
+    },
+    ,
+    {
+      id: 'analytics',
+      label: 'Analytics',
+      icon: <BarChart3 size={20} />,
+      href: '/analytics',
+      requiredPermissions: ['view_analytics']
+    },
+    {
+      id: 'users',
+      label: 'User Management',
+      icon: <Users size={20} />,
+      href: '/users',
+      allowedRoles: ['admin', 'moderator']
+    },
     {
       id: 'admin',
       label: 'Admin Panel',
@@ -111,14 +150,21 @@ export default function SideNavbar() {
           id: 'item-types',
           label: 'Item Types',
           icon: <PlusCircle size={16} />,
-          href: '/admin/item-types',
+          href: '/dashboard/item-types',
           requiredPermissions: ['can_create_item_types']
         },
         {
           id: 'system-settings',
           label: 'System Settings',
           icon: <Settings size={16} />,
-          href: '/admin/settings',
+          href: '/dashboard/settings',
+          requiredPermissions: ['admin']
+        },
+        {
+          id: 'manage-permissions',
+          label: 'Manage Permissions',
+          icon: <Settings size={16} />,
+          href: '/dashboard/permissions',
           requiredPermissions: ['admin']
         }
       ]
@@ -174,41 +220,61 @@ export default function SideNavbar() {
     const isExpanded = expandedItems.includes(item.id);
     const hasChildren = item.children && item.children.length > 0;
     const accessibleChildren = item.children?.filter(child => canAccessItem(child)) || [];
+    const isActive = pathname === item.href;
+    const isChildActive = item.children?.some(child => pathname === child.href);
 
     return (
       <div key={item.id} className="mb-1">
-        <div
-          className={`
-            flex items-center px-3 py-2 rounded-lg cursor-pointer transition-all duration-200
-            hover:bg-blue-50 hover:text-blue-600 group
-            ${depth > 0 ? 'ml-4 py-1.5' : ''}
-          `}
-          onClick={() => {
-            if (hasChildren && accessibleChildren.length > 0) {
-              toggleExpanded(item.id);
-            } else {
-              // Handle navigation - replace with your routing logic
-              console.log(`Navigating to: ${item.href}`);
-            }
-          }}
-        >
-          <div className="flex items-center flex-1">
-            <div className="text-gray-600 group-hover:text-blue-600 transition-colors">
-              {item.icon}
+        {hasChildren && accessibleChildren.length > 0 ? (
+          <div
+            className={`
+              flex items-center px-3 py-2 rounded-lg cursor-pointer transition-all duration-200
+              hover:bg-blue-50 hover:text-blue-600 group
+              ${depth > 0 ? 'ml-4 py-1.5' : ''}
+              ${isActive ? 'bg-blue-50 text-blue-600' : ''}
+              ${isChildActive && !isActive ? 'bg-gray-50' : ''}
+            `}
+            onClick={() => toggleExpanded(item.id)}
+          >
+            <div className="flex items-center flex-1">
+              <div className="text-gray-600 group-hover:text-blue-600 transition-colors">
+                {item.icon}
+              </div>
+              {!isCollapsed && (
+                <span className="ml-3 text-sm font-medium text-gray-700 group-hover:text-blue-600">
+                  {item.label}
+                </span>
+              )}
             </div>
+            
             {!isCollapsed && (
-              <span className="ml-3 text-sm font-medium text-gray-700 group-hover:text-blue-600">
-                {item.label}
-              </span>
+              <div className="text-gray-400 group-hover:text-blue-600 transition-colors">
+                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </div>
             )}
           </div>
-          
-          {!isCollapsed && hasChildren && accessibleChildren.length > 0 && (
-            <div className="text-gray-400 group-hover:text-blue-600 transition-colors">
-              {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        ) : (
+          <Link
+            href={item.href}
+            className={`
+              flex items-center px-3 py-2 rounded-lg cursor-pointer transition-all duration-200
+              hover:bg-blue-50 hover:text-blue-600 group
+              ${depth > 0 ? 'ml-4 py-1.5' : ''}
+              ${isActive ? 'bg-blue-50 text-blue-600' : ''}
+            `}
+          >
+            <div className="flex items-center flex-1">
+              <div className={`text-gray-600 group-hover:text-blue-600 transition-colors ${isActive ? 'text-blue-600' : ''}`}>
+                {item.icon}
+              </div>
+              {!isCollapsed && (
+                <span className={`ml-3 text-sm font-medium text-gray-700 group-hover:text-blue-600 ${isActive ? 'text-blue-600' : ''}`}>
+                  {item.label}
+                </span>
+              )}
             </div>
-          )}
-        </div>
+          </Link>
+        )}
 
         {/* Children */}
         {hasChildren && accessibleChildren.length > 0 && isExpanded && !isCollapsed && (
@@ -263,7 +329,7 @@ export default function SideNavbar() {
       {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
         <div className="space-y-1">
-          {navigationItems.map(item => renderNavItem(item))}
+          {navigationItems.map((item) => renderNavItem(item))}
         </div>
       </nav>
 
