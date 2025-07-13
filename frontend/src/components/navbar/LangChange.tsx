@@ -1,6 +1,6 @@
 'use client'
 import { usePathname } from "next/navigation";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useLocale } from "next-intl";
 // import { Inter } from "next/font/google";
 
