@@ -6,6 +6,21 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Link } from "@/i18n/navigation";
 
+type User = {
+  id: string;
+  email: string;
+  name?: string;
+  role?: string;
+};
+
+type UserSearchResponse = {
+  users: User[];
+  total_count: number;
+  total_pages: number;
+  page: number;
+  limit: number;
+};
+
 const schema = z.object({
   email: z.string().min(1, "Email is required").max(50, "Email is too long"),
 });
@@ -25,19 +40,20 @@ export default function ManageUsers() {
   const [error, setFetchError] = useState<string | null>(null);
 
   const fetchUsers = async (email: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/users?userEmail=${email}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch users");
-      }
-      const data = await response.json();
-      setUsers(data);
-      setFetchError(null);
-    } catch (error: any) {
-      setUsers([]);
-      setFetchError(error.message || "Error fetching users.");
+  try {
+    const response = await fetch(`${API_BASE}/users/users/search?email=${encodeURIComponent(email)}&page=1&limit=10`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch users");
     }
-  };
+
+    const data: UserSearchResponse = await response.json();
+    setUsers(data.users);
+    setFetchError(null);
+  } catch (error: any) {
+    setUsers([]);
+    setFetchError(error.message || "Error fetching users.");
+  }
+};
 
   const onSubmit: SubmitHandler<FormFields> = async (data) => {
     await fetchUsers(data.email);
@@ -77,7 +93,7 @@ export default function ManageUsers() {
           {users.map((user) => (
             <div
               key={user.id}
-              className="flex items-center justify-between border p-4 rounded-lg shadow-md"
+              className="flex  items-center justify-between border p-4 rounded-lg shadow-md"
             >
               {/* User Details */}
               <div>
@@ -87,7 +103,7 @@ export default function ManageUsers() {
                 <p>
                   <strong>Name:</strong> {user.name || "N/A"}
                 </p>
-                <p>
+                <p className="">
                   <strong>Role:</strong> {user.role || "N/A"}
                 </p>
               </div>
