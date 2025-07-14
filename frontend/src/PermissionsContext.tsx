@@ -4,13 +4,13 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 
 export type Permission = 
   | 'can_create_item_types'
-  | 'write' 
+  | 'can_delete_item_types' 
   | 'delete'
   | 'admin'
   | 'moderator'
   | 'user'
   | 'create_post'
-  | 'edit_post'
+  | 'can_edit_item_types'
   | 'view_analytics';
 
 const API_BASE = 'http://localhost:8000';
