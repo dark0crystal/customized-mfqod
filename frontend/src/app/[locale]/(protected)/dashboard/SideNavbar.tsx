@@ -74,27 +74,29 @@ export default function SideNavbar() {
     },
     {
       id: 'Items',
-      label: 'Users Management',
+      label: 'Items Management',
       icon: <FileText size={20} />,
       href: '/dashboard/items',
       requiredPermissions: ['create_post', 'edit_post'],
       children: [
         {
-          id: 'create-post',
-          label: 'Create Post',
-          icon: <PlusCircle size={16} />,
-          href: '/content/create',
-          requiredPermissions: ['create_post']
+        id: 'Items',
+        label: 'Items',
+        icon: <FileText size={20} />,
+        href: '/dashboard/items',
+        requiredPermissions: ['create_post', 'edit_post']
         },
         {
-          id: 'edit-posts',
-          label: 'Edit Posts',
-          icon: <Edit3 size={16} />,
-          href: '/content/edit',
-          requiredPermissions: ['edit_post']
+          id: 'report-found-item',
+          label: 'Report Found Item',
+          icon: <PlusCircle size={16} />,
+          href: '/dashboard/report-found-item',
+          requiredPermissions: ['create_post']
         }
+        
       ]
     },
+   
     {
       id: 'analytics',
       label: 'Analytics',
@@ -102,43 +104,7 @@ export default function SideNavbar() {
       href: '/analytics',
       requiredPermissions: ['view_analytics']
     },
-    {
-      id: 'users',
-      label: 'User Management',
-      icon: <Users size={20} />,
-      href: '/users',
-      allowedRoles: ['admin', 'moderator']
-    },
-    ,
-    {
-      id: 'analytics',
-      label: 'Analytics',
-      icon: <BarChart3 size={20} />,
-      href: '/analytics',
-      requiredPermissions: ['view_analytics']
-    },
-    {
-      id: 'users',
-      label: 'User Management',
-      icon: <Users size={20} />,
-      href: '/users',
-      allowedRoles: ['admin', 'moderator']
-    },
-    ,
-    {
-      id: 'analytics',
-      label: 'Analytics',
-      icon: <BarChart3 size={20} />,
-      href: '/analytics',
-      requiredPermissions: ['view_analytics']
-    },
-    {
-      id: 'users',
-      label: 'User Management',
-      icon: <Users size={20} />,
-      href: '/users',
-      allowedRoles: ['admin', 'moderator']
-    },
+    
     {
       id: 'admin',
       label: 'Admin Panel',
@@ -154,10 +120,10 @@ export default function SideNavbar() {
           requiredPermissions: ['can_create_item_types']
         },
         {
-          id: 'system-settings',
-          label: 'System Settings',
+          id: 'manage-users',
+          label: 'Manage Users',
           icon: <Settings size={16} />,
-          href: '/dashboard/settings',
+          href: '/dashboard/manage-users',
           requiredPermissions: ['admin']
         },
         {
@@ -173,7 +139,7 @@ export default function SideNavbar() {
       id: 'settings',
       label: 'Settings',
       icon: <Settings size={20} />,
-      href: '/settings'
+      href: '/dashboard/settings'
     }
   ];
 
