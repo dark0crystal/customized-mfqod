@@ -284,7 +284,7 @@ export default function SideNavbar() {
             </div>
             {!isCollapsed && (
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-800">John Doe</p>
+                <p className="text-sm font-medium text-gray-800">Al-Mardas Saif</p>
                 <p className="text-xs text-gray-500 capitalize">{userRole}</p>
               </div>
             )}
