@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { Lalezar } from "next/font/google";
 import { useTranslations } from "next-intl";
-import squLogo from "../../../public/Sultan_Qaboos_University_Logo.png"
+import tagAlrasss from "../../../public/alazzz.jpeg";
 
 const lalezarFont = Lalezar({
   weight: "400",
@@ -18,22 +18,25 @@ export default function Brand() {
   return (
     <Link href="/" className="flex items-center gap-1">
       {/* Brand Name */}
-       <div className=" text-black text-[42px] ">
-            <Link className={lalezarFont.className} href='/'><p className="flex flex-col relative z-20 text-slate-800">{t("brand-duplicate")} <span className="absolute -z-10 text-blue-600">{t("brand")}</span></p></Link>
-        </div>
-      
-      {/* Styled Separator */}
-      <div className="text-4xl font-light text-gray-500 mx-1">
-        |
+      <div className={`text-black text-[42px] ${lalezarFont.className}`}>
+        <p className="flex flex-col relative z-20 text-slate-800">
+          {t("brand-duplicate")}
+          <span className="absolute -z-10 text-blue-600">
+            {t("brand")}
+          </span>
+        </p>
       </div>
-      
+
+      {/* Styled Separator */}
+      <div className="text-4xl font-light text-gray-500 mx-1">|</div>
+
       {/* Organization Logo */}
       <div className="flex items-center">
         <Image
-          src={squLogo}
+          src={tagAlrasss}
           alt="Sultan Qaboos University Logo"
-          width={38}
-          height={38}
+          width={70}
+          height={70}
           className="object-contain"
         />
       </div>
