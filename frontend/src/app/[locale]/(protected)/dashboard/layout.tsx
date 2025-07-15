@@ -1,21 +1,66 @@
-import NavBar from "./NavBar";
+// app/admin/layout.tsx
+import type { Metadata } from "next";
+import { NextIntlClientProvider, hasLocale } from "next-intl";
+import "./globals.css"
+import { notFound } from "next/navigation";
+import { routing } from "@/i18n/routing";
+import SideNavbar from "./SideNavbar";
+import { Alexandria } from "next/font/google";
+import { PermissionsProvider } from "@/PermissionsContext";
 
-export default async function Layout({ children }: { children: React.ReactNode }) {
+
+const alexandria = Alexandria({
+  subsets: ["latin"],
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+});
+
+
+export const metadata: Metadata = {
+  title: "Admin Dashboard",
+  description: "Admin dashboard layout",
+};
+
+export default async function AdminLayout({
+  children,
+  params
+}: Readonly<{
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+}>) {
+  const { locale } = await params;
+
+  if (!hasLocale(routing.locales, locale)) {
+    notFound();
+  }
+
+  let direction = "";
+  if (locale == "ar") {
+    direction = "rtl";
+  } else {
+    direction = "ltr";
+  }
+
   return (
-    <div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 h-[88vh]">
-        {/* Sidebar for large screens */}
-        <aside className="flex-row lg:flex lg:flex-col items-center px-4 border-r-2 lg:col-span-1 ">
-          <NavBar />
-        </aside>
+    <html lang={locale} dir={direction}>
+      <body className={`${alexandria.variable}  antialiased bg-gray-50`}>
+        <NextIntlClientProvider>
+          <PermissionsProvider>
+          <div className="flex h-screen overflow-hidden">
+            {/* Sidebar */}
+            <SideNavbar/>
 
-        
+            {/* Content Area */}
+            <div className="flex flex-col flex-1 overflow-y-auto">
+              {/* Topbar */}
+              {/* <AdminTopbar /> */}
 
-        {/* Main content */}
-        <section className="col-span-1 lg:col-span-2 flex flex-col items-center px-4 overflow-y-auto">
-          {children}
-        </section>
-      </div>
-    </div>
+              {/* Page Content */}
+              <main className="p-6">{children}</main>
+            </div>
+          </div>
+          </PermissionsProvider>
+        </NextIntlClientProvider>
+      </body>
+    </html>
   );
 }
