@@ -20,6 +20,12 @@ type UserSearchResponse = {
   page: number;
   limit: number;
 };
+const userCardStyle: Record<string, string> = {
+  admin: "bg-gradient-to-l from-red-200 to-white",
+  editor: "bg-gradient-to-l from-yellow-200 to-white",
+  viewer: "bg-gradient-to-l from-green-200 to-white",
+};
+
 
 const schema = z.object({
   email: z.string().min(1, "Email is required").max(50, "Email is too long"),
@@ -88,42 +94,25 @@ export default function ManageUsers() {
       {error && <div className="text-red-500 mb-4">{error}</div>}
 
       {/* Results */}
-      {users.length > 0 ? (
-        <div className="space-y-4">
-          {users.map((user) => (
-            <div
-              key={user.id}
-              className="flex  items-center justify-between border p-4 rounded-lg shadow-md"
-            >
-              {/* User Details */}
-              <div>
-                <p>
-                  <strong>Email:</strong> {user.email}
-                </p>
-                <p>
-                  <strong>Name:</strong> {user.name || "N/A"}
-                </p>
-                <p className="">
-                  <strong>Role:</strong> {user.role || "N/A"}
-                </p>
-              </div>
+      {users.map((user) => (
+      <Link
+        href={{ pathname: `/dashboard/manage-users/${user.id}` }}
+        key={user.id}
+        className={`flex items-center justify-between border p-4 my-2 rounded-2xl shadow-md transition hover:scale-[1.01] `}
+        >
+      <div>
+        <p className="font-semibold">{user.email}</p>
+        <p className="text-sm text-gray-600">{user.name || "N/A"}</p>
+      </div>
+      <div className={`text-sm font-medium text-gray-700 h-full ${
+          user.role && userCardStyle[user.role] ? userCardStyle[user.role] : "bg-white"
+        }`}>
+        {user.role || "N/A"}
+      </div>
+    </Link>
 
-              {/* Edit Button */}
-              <Link
-               href={{
-                pathname: `/dashboard/manage-users/${user.id}`,
-             
-              }}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                >
-                Edit User
-              </Link>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-gray-500">No users found.</p>
-      )}
+      ))}
+
     </div>
   );
 }
