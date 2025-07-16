@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from db.database import get_session  # Your database dependency
+from db.database import get_session  #database dependency
 from schemas.branch_schemas import (
     BranchCreate, BranchUpdate, BranchResponse, BranchWithOrganization,
-    AddressCreate, AddressUpdate, AddressResponse, AddressWithDetails
+    AddressCreate, AddressUpdate, AddressResponse, AddressWithDetails,UserResponse
 )
+
 from services.branchService import BranchService, AddressService
 
 # Import permission decorators (if needed)
@@ -352,3 +353,165 @@ def get_branch_addresses(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving branch addresses: {str(e)}")
+    
+    # =========================== 
+# User-Branch Management Routes
+# ===========================
+
+@router.get("/users/{user_id}/managed-branches/", response_model=List[BranchWithOrganization])
+# @require_permission("can_view_user_branches")  # Uncomment if permissions are needed
+def get_user_managed_branches(
+    user_id: str,
+    request: Request,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_session),
+    branch_service: BranchService = Depends(get_branch_service)
+):
+    """Get all branches managed by a specific user"""
+    try:
+        branches = branch_service.get_user_managed_branches(user_id, skip=skip, limit=limit)
+        
+        # Convert to response format with organization details
+        result = []
+        for branch in branches:
+            branch_dict = {
+                "id": branch.id,
+                "branch_name": branch.branch_name,
+                "organization_id": branch.organization_id,
+                "created_at": branch.created_at,
+                "updated_at": branch.updated_at,
+                "organization": {
+                    "id": branch.organization.id,
+                    "name": branch.organization.name,
+                    "description": branch.organization.description
+                } if branch.organization else None
+            }
+            result.append(branch_dict)
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving user managed branches: {str(e)}")
+
+
+@router.post("/branches/{branch_id}/managers/{user_id}", status_code=status.HTTP_201_CREATED)
+# @require_permission("can_assign_branch_managers")  # Uncomment if permissions are needed
+def assign_branch_manager(
+    branch_id: str,
+    user_id: str,
+    request: Request,
+    db: Session = Depends(get_session),
+    branch_service: BranchService = Depends(get_branch_service)
+):
+    """Assign a user as manager of a branch"""
+    try:
+        branch_service.assign_branch_manager(branch_id, user_id)
+        return {"message": "User successfully assigned as branch manager"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error assigning branch manager: {str(e)}")
+
+
+@router.delete("/branches/{branch_id}/managers/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+# @require_permission("can_remove_branch_managers")  # Uncomment if permissions are needed
+def remove_branch_manager(
+    branch_id: str,
+    user_id: str,
+    request: Request,
+    db: Session = Depends(get_session),
+    branch_service: BranchService = Depends(get_branch_service)
+):
+    """Remove a user as manager of a branch"""
+    try:
+        branch_service.remove_branch_manager(branch_id, user_id)
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error removing branch manager: {str(e)}")
+
+
+@router.get("/branches/{branch_id}/managers/", response_model=List[UserResponse])
+# @require_permission("can_view_branch_managers")  # Uncomment if permissions are needed
+def get_branch_managers(
+    branch_id: str,
+    request: Request,
+    db: Session = Depends(get_session),
+    branch_service: BranchService = Depends(get_branch_service)
+):
+    """Get all users who manage a specific branch"""
+    try:
+        managers = branch_service.get_branch_managers(branch_id)
+        
+        # Convert to response format
+        result = []
+        for manager in managers:
+            manager_dict = {
+                "id": manager.id,
+                "email": manager.email,
+                "first_name": manager.first_name,
+                "middle_name": manager.middle_name,
+                "last_name": manager.last_name,
+                "phone_number": manager.phone_number,
+                "active": manager.active,
+                "status_id": manager.status_id,
+                "role_id": manager.role_id,
+                "created_at": manager.created_at,
+                "updated_at": manager.updated_at
+            }
+            result.append(manager_dict)
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving branch managers: {str(e)}")
+
+
+# Alternative endpoint for getting current user's managed branches
+@router.get("/my-managed-branches/", response_model=List[BranchWithOrganization])
+# @require_permission("can_view_own_branches")  # Uncomment if permissions are needed
+def get_my_managed_branches(
+    request: Request,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_session),
+    branch_service: BranchService = Depends(get_branch_service)
+):
+    """Get all branches managed by the current user"""
+    # Note: You'll need to implement user authentication and get current user ID
+    # This is just a placeholder - replace with your actual authentication logic
+    try:
+        # Get current user ID from authentication (implement based on your auth system)
+        current_user_id = "your_auth_logic_here"  # Replace with actual implementation
+        
+        branches = branch_service.get_user_managed_branches(current_user_id, skip=skip, limit=limit)
+        
+        # Convert to response format with organization details
+        result = []
+        for branch in branches:
+            branch_dict = {
+                "id": branch.id,
+                "branch_name": branch.branch_name,
+                "organization_id": branch.organization_id,
+                "created_at": branch.created_at,
+                "updated_at": branch.updated_at,
+                "organization": {
+                    "id": branch.organization.id,
+                    "name": branch.organization.name,
+                    "description": branch.organization.description
+                } if branch.organization else None
+            }
+            result.append(branch_dict)
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving managed branches: {str(e)}")
+    
+
+    
