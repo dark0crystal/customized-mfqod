@@ -48,7 +48,7 @@ interface Organization {
 const getTokenFromCookies = (): string | null => {
   if (typeof document !== 'undefined') {
     const cookies = document.cookie.split(';');
-    for (let cookie of cookies) {
+    for (const cookie of cookies) {
       const [name, value] = cookie.trim().split('=');
       if (name === 'token' || name === 'access_token' || name === 'auth_token') {
         return decodeURIComponent(value);
@@ -84,45 +84,86 @@ const getAuthHeadersForFormData = (): HeadersInit => {
   return headers;
 };
 
+// Helper function to upload images
+const uploadImages = async (itemId: string, files: File[], apiBaseUrl: string): Promise<string[]> => {
+  const uploadedImagePaths: string[] = [];
+  
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await fetch(`${apiBaseUrl}/image/items/${itemId}/upload-image/`, {
+        method: 'POST',
+        headers: getAuthHeadersForFormData(),
+        body: formData,
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        uploadedImagePaths.push(result.image_path || result.file_path);
+      } else {
+        console.error('Failed to upload image:', file.name);
+        // Get error details if available
+        try {
+          const errorData = await response.json();
+          console.error('Upload error details:', errorData);
+        } catch (e) {
+          console.error('Could not parse error response');
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading image:', file.name, error);
+    }
+  }
+  
+  return uploadedImagePaths;
+};
+
 export default function ReportFoundItem() {
   // API configuration
-  const API_BASE_URL = 'http://localhost:8000'; // Adjust to your FastAPI server
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   const { 
     register, 
     handleSubmit, 
     formState: { errors, isSubmitting }, 
     reset, 
-    setValue 
+    setValue,
+    watch
   } = useForm<ItemFormFields>({
-    // resolver: zodResolver(itemFormSchema),
+    resolver: zodResolver(itemFormSchema),
     defaultValues: {
-      country: "Oman"
+      country: "Oman",
+      type: "",
+      place: "",
+      orgnization: "",
+      item_type_id: "",
+      branch_id: ""
     }
   });
 
-  const [organization, setOrganization] = useState<string>("");
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [placeOptions, setPlaceOptions] = useState<{ key: string; name: string }[]>([]);
   const [compressedFiles, setCompressedFiles] = useState<File[]>([]);
   const [confetti, setConfetti] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   
-  // const t = useTranslations("storage");
+  const t = useTranslations("storage");
   const c = useTranslations("report-found");
   const router = useRouter();
+
+  // Watch for organization changes
+  const watchedOrganization = watch("orgnization");
 
   // Check if user is authenticated
   useEffect(() => {
     const token = getTokenFromCookies();
     if (!token) {
       setAuthError("Authentication required. Please log in first.");
-      // Optionally redirect to login page
-      // router.push("/login");
     } else {
       setAuthError(null);
     }
@@ -145,6 +186,7 @@ export default function ReportFoundItem() {
           setOrganizations(organizationsData);
         } else if (organizationsResponse.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
+          return;
         } else {
           console.error('Failed to fetch organizations');
         }
@@ -160,6 +202,7 @@ export default function ReportFoundItem() {
           setItemTypes(itemTypesData);
         } else if (itemTypesResponse.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
+          return;
         } else {
           console.error('Failed to fetch item types');
         }
@@ -171,98 +214,25 @@ export default function ReportFoundItem() {
       }
     };
 
-    fetchData();
-  }, []);
-
-  const onSubmit = async (data: ItemFormFields) => {
-  if (authError) {
-    alert("Please log in first to submit an item.");
-    return;
-  }
-
-  try {
-    setIsProcessing(true);
-
-    const token = getTokenFromCookies();
-    if (!token) {
-      setAuthError("Authentication required. Please log in again.");
-      return;
+    // Only fetch data if user is authenticated
+    if (!authError) {
+      fetchData();
+    } else {
+      setIsLoading(false);
     }
+  }, [authError, API_BASE_URL]);
 
-    // STEP 1: Create the item
-    const itemPayload = {
-      title: data.title,
-      description: data.content,
-      user_id: "48d1fe78-ddaa-4c1d-bd28-6f5395774bb5", 
-      item_type_id: data.item_type_id,
-      approval: true,
-      temporary_deletion: false
-    };
+  // Fetch branches when organization changes
+  useEffect(() => {
+    const fetchBranches = async () => {
+      if (!watchedOrganization) {
+        setBranches([]);
+        setValue("branch_id", "");
+        return;
+      }
 
-    const itemResponse = await fetch(`${API_BASE_URL}/items/`, {
-      method: "POST",
-      headers: {
-        ...getAuthHeaders(),
-      },
-      body: JSON.stringify(itemPayload),
-    });
-
-    if (!itemResponse.ok) {
-      const errorData = await itemResponse.json();
-      throw new Error(errorData.detail || "Item creation failed");
-    }
-
-    const itemResult = await itemResponse.json();
-    const itemId = itemResult.id;
-
-    // STEP 2: Create the address
-    const addressPayload = {
-      item_id: itemId,
-      branch_id: data.branch_id,
-      is_current: true
-    };
-
-    const addressResponse = await fetch(`${API_BASE_URL}/branch/addresses/`, {
-      method: "POST",
-      headers: {
-        ...getAuthHeaders(),
-      },
-      body: JSON.stringify(addressPayload),
-    });
-
-    if (!addressResponse.ok) {
-      const errorData = await addressResponse.json();
-      throw new Error(errorData.detail || "Address creation failed");
-    }
-
-    console.log("Item and address uploaded successfully");
-    setConfetti(true);
-    reset();
-    setCompressedFiles([]);
-    setOrganization("");
-    setBranches([]);
-
-    setTimeout(() => {
-      router.push("/");
-    }, 3000);
-  } catch (error: any) {
-    console.error("Error submitting form:", error);
-    alert(error.message || "An unexpected error occurred");
-  } finally {
-    setIsProcessing(false);
-  }
-};
-
-
-  const handleOrganizationChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedOrgId = e.target.value;
-    setOrganization(selectedOrgId);
-    setValue("orgnization", selectedOrgId);
-
-    // Fetch branches for the selected organization
-    if (selectedOrgId) {
       try {
-        const branchesResponse = await fetch(`${API_BASE_URL}/organization/organizations/${selectedOrgId}/branches/`, {
+        const branchesResponse = await fetch(`${API_BASE_URL}/organization/organizations/${watchedOrganization}/branches/`, {
           method: 'GET',
           headers: getAuthHeaders(),
         });
@@ -270,6 +240,8 @@ export default function ReportFoundItem() {
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
           setBranches(branchesData);
+          // Reset branch selection when organization changes
+          setValue("branch_id", "");
         } else if (branchesResponse.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
         } else {
@@ -280,29 +252,110 @@ export default function ReportFoundItem() {
         console.error('Error fetching branches:', error);
         setBranches([]);
       }
-    } else {
+    };
+
+    if (watchedOrganization && !authError) {
+      fetchBranches();
+    }
+  }, [watchedOrganization, API_BASE_URL, authError, setValue]);
+
+  const onSubmit = async (data: ItemFormFields) => {
+    if (authError) {
+      alert("Please log in first to submit an item.");
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+
+      const token = getTokenFromCookies();
+      if (!token) {
+        setAuthError("Authentication required. Please log in again.");
+        return;
+      }
+
+      // STEP 1: Create the item
+      const itemPayload = {
+        title: data.title,
+        description: data.content,
+        user_id: "48d1fe78-ddaa-4c1d-bd28-6f5395774bb5", // Consider making this dynamic
+        item_type_id: data.item_type_id,
+        approval: true,
+        temporary_deletion: false
+      };
+
+      const itemResponse = await fetch(`${API_BASE_URL}/items/`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(itemPayload),
+      });
+
+      if (!itemResponse.ok) {
+        let errorMessage = "Item creation failed";
+        try {
+          const errorData = await itemResponse.json();
+          errorMessage = errorData.detail || errorMessage;
+        } catch (e) {
+          console.error('Could not parse error response');
+        }
+        throw new Error(errorMessage);
+      }
+
+      const itemResult = await itemResponse.json();
+      const itemId = itemResult.id;
+
+      // STEP 2: Upload images if any
+      let uploadedImagePaths: string[] = [];
+      if (compressedFiles.length > 0) {
+        console.log("Uploading images...");
+        uploadedImagePaths = await uploadImages(itemId, compressedFiles, API_BASE_URL);
+        console.log("Images uploaded:", uploadedImagePaths);
+      }
+
+      // STEP 3: Create the address
+      const addressPayload = {
+        item_id: itemId,
+        branch_id: data.branch_id,
+        is_current: true
+      };
+
+      const addressResponse = await fetch(`${API_BASE_URL}/branch/addresses/`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(addressPayload),
+      });
+
+      if (!addressResponse.ok) {
+        let errorMessage = "Address creation failed";
+        try {
+          const errorData = await addressResponse.json();
+          errorMessage = errorData.detail || errorMessage;
+        } catch (e) {
+          console.error('Could not parse error response');
+        }
+        throw new Error(errorMessage);
+      }
+
+      console.log("Item, images, and address uploaded successfully");
+      setConfetti(true);
+      reset();
+      setCompressedFiles([]);
       setBranches([]);
-    }
-    
-    // Reset branch and place selection
-    setValue("branch_id", "");
-    setValue("place", "");
-    setPlaceOptions([]);
-  };
 
-  const handleBranchChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedBranchId = e.target.value;
-    setValue("branch_id", selectedBranchId);
-    
-    // You can add logic here to fetch places for the selected branch
-    // For now, using the existing OrgPlaces logic if available
-    const selectedBranch = branches.find(branch => branch.id === selectedBranchId);
-    if (selectedBranch) {
-      // If you have place data associated with branches, set it here
-      // setPlaceOptions(selectedBranch.places || []);
+      // Redirect after success
+      setTimeout(() => {
+        router.push("/");
+      }, 3000);
+
+    } catch (error: any) {
+      console.error("Error submitting form:", error);
+      alert(error.message || "An unexpected error occurred");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
+  // Handle confetti timeout
   useEffect(() => {
     if (confetti) {
       const timer = setTimeout(() => {
@@ -312,6 +365,7 @@ export default function ReportFoundItem() {
     }
   }, [confetti]);
 
+  // Loading state
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
@@ -322,7 +376,7 @@ export default function ReportFoundItem() {
     );
   }
 
-  // Show authentication error if present
+  // Authentication error state
   if (authError) {
     return (
       <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
@@ -330,7 +384,7 @@ export default function ReportFoundItem() {
           <div className="text-lg text-red-600 mb-4">{authError}</div>
           <button 
             onClick={() => router.push("/login")}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
           >
             Go to Login
           </button>
@@ -345,8 +399,11 @@ export default function ReportFoundItem() {
         <ReactConfetti
           width={window.innerWidth}
           height={window.innerHeight}
+          recycle={false}
+          numberOfPieces={200}
         />
       )}
+      
       <h2 className="text-2xl font-bold text-center text-indigo-600 mb-6">
         {c("title")}
       </h2>
@@ -354,7 +411,7 @@ export default function ReportFoundItem() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Title Input */}
         <div>
-          <label htmlFor="title" className="block text-lg font-semibold text-gray-700">
+          <label htmlFor="title" className="block text-lg font-semibold text-gray-700 mb-2">
             {c("whatDidYouFind")}
           </label>
           <input
@@ -362,60 +419,41 @@ export default function ReportFoundItem() {
             id="title"
             {...register("title")}
             placeholder="e.g., Key, Wallet, etc."
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
           {errors.title && (
-            <p className="mt-2 text-xs text-red-500">{errors.title.message}</p>
+            <p className="mt-2 text-sm text-red-500">{errors.title.message}</p>
           )}
         </div>
 
         {/* Content Input */}
         <div>
-          <label htmlFor="content" className="block text-lg font-semibold text-gray-700">
+          <label htmlFor="content" className="block text-lg font-semibold text-gray-700 mb-2">
             {c("Details")}
           </label>
-          <input
-            type="text"
+          <textarea
             id="content"
             {...register("content")}
             placeholder="Provide additional details about the item"
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            rows={4}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
           {errors.content && (
-            <p className="mt-2 text-xs text-red-500">{errors.content.message}</p>
+            <p className="mt-2 text-sm text-red-500">{errors.content.message}</p>
           )}
         </div>
 
-        {/* Type Input */}
-        {/* <div>
-          <label htmlFor="type" className="block text-lg font-semibold text-gray-700">
-            {c("type")}
-          </label>
-          <input
-            type="text"
-            id="type"
-            {...register("type")}
-            placeholder="Type of item (e.g., Wallet, Phone)"
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          {errors.type && (
-            <p className="mt-2 text-xs text-red-500">{errors.type.message}</p>
-          )}
-        </div> */}
-
         {/* Item Type Selection */}
         <div>
-          <label htmlFor="item_type_id" className="block text-lg font-semibold text-gray-700">
+          <label htmlFor="item_type_id" className="block text-lg font-semibold text-gray-700 mb-2">
             Item Type
           </label>
           <select
             id="item_type_id"
             {...register("item_type_id")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           >
-            <option value="" disabled>
-              Select an item type
-            </option>
+            <option value="">Select an item type</option>
             {itemTypes.map((itemType) => (
               <option key={itemType.id} value={itemType.id}>
                 {itemType.name}
@@ -423,26 +461,34 @@ export default function ReportFoundItem() {
             ))}
           </select>
           {errors.item_type_id && (
-            <p className="mt-2 text-xs text-red-500">{errors.item_type_id.message}</p>
+            <p className="mt-2 text-sm text-red-500">{errors.item_type_id.message}</p>
           )}
         </div>
 
-        <CompressorFileInput onFilesSelected={setCompressedFiles} />
+        {/* File Upload Component */}
+        <div>
+          <label className="block text-lg font-semibold text-gray-700 mb-2">
+            Upload Images (Optional)
+          </label>
+          <CompressorFileInput onFilesSelected={setCompressedFiles} />
+          {compressedFiles.length > 0 && (
+            <p className="mt-2 text-sm text-gray-600">
+              {compressedFiles.length} file(s) selected
+            </p>
+          )}
+        </div>
 
         {/* Select Organization */}
         <div>
-          <label htmlFor="orgnization" className="block text-lg font-semibold text-gray-700">
+          <label htmlFor="orgnization" className="block text-lg font-semibold text-gray-700 mb-2">
             {c("organization")}
           </label>
           <select
             id="orgnization"
-            value={organization}
-            onChange={handleOrganizationChange}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            {...register("orgnization")}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           >
-            <option value="" disabled>
-              {c("selectOrganization")}
-            </option>
+            <option value="">{c("selectOrganization")}</option>
             {organizations.map((org) => (
               <option key={org.id} value={org.id}>
                 {org.name}
@@ -450,91 +496,115 @@ export default function ReportFoundItem() {
             ))}
           </select>
           {errors.orgnization && (
-            <p className="mt-2 text-xs text-red-500">{errors.orgnization.message}</p>
+            <p className="mt-2 text-sm text-red-500">{errors.orgnization.message}</p>
           )}
         </div>
 
         {/* Select Branch */}
-        {branches.length > 0 && (
-          <div>
-            <label htmlFor="branch_id" className="block text-lg font-semibold text-gray-700">
-              Branch
-            </label>
-            <select
-              id="branch_id"
-              {...register("branch_id")}
-              onChange={handleBranchChange}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="" disabled>
-                Select a branch
+        <div>
+          <label htmlFor="branch_id" className="block text-lg font-semibold text-gray-700 mb-2">
+            Branch
+          </label>
+          <select
+            id="branch_id"
+            {...register("branch_id")}
+            disabled={!watchedOrganization || branches.length === 0}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+          >
+            <option value="">
+              {!watchedOrganization 
+                ? "Select an organization first" 
+                : branches.length === 0 
+                  ? "No branches available" 
+                  : "Select a branch"
+              }
+            </option>
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.branch_name}
               </option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.branch_name}
-                </option>
-              ))}
-            </select>
-            {errors.branch_id && (
-              <p className="mt-2 text-xs text-red-500">{errors.branch_id.message}</p>
-            )}
-          </div>
-        )}
+            ))}
+          </select>
+          {errors.branch_id && (
+            <p className="mt-2 text-sm text-red-500">{errors.branch_id.message}</p>
+          )}
+        </div>
 
-        {/* Select Place */}
-        {placeOptions.length > 0 && (
-          <div>
-            <label htmlFor="place" className="block text-lg font-semibold text-gray-700">
-              {c("place")}
-            </label>
-            <select
-              id="place"
-              {...register("place")}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="" disabled>
-                {c("selectPlace")}
-              </option>
-              {placeOptions.map((place, index) => (
-                <option key={index} value={place.key}>
-                  {place.name}
-                </option>
-              ))}
-            </select>
-            {errors.place && (
-              <p className="mt-2 text-xs text-red-500">{errors.place.message}</p>
-            )}
-          </div>
-        )}
+        {/* Type Field - seems to be unused in your schema but included for completeness */}
+        <div>
+          <label htmlFor="type" className="block text-lg font-semibold text-gray-700 mb-2">
+            Type
+          </label>
+          <input
+            type="text"
+            id="type"
+            {...register("type")}
+            placeholder="Enter type"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          {errors.type && (
+            <p className="mt-2 text-sm text-red-500">{errors.type.message}</p>
+          )}
+        </div>
+
+        {/* Place Field */}
+        <div>
+          <label htmlFor="place" className="block text-lg font-semibold text-gray-700 mb-2">
+            {c("place")}
+          </label>
+          <input
+            type="text"
+            id="place"
+            {...register("place")}
+            placeholder="Enter place"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          {errors.place && (
+            <p className="mt-2 text-sm text-red-500">{errors.place.message}</p>
+          )}
+        </div>
 
         {/* Select Country */}
         <div>
-          <label htmlFor="country" className="block text-lg font-semibold text-gray-700">
+          <label htmlFor="country" className="block text-lg font-semibold text-gray-700 mb-2">
             {c("country")}
           </label>
           <select
             id="country"
             {...register("country")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           >
             <option value="Oman">Oman</option>
           </select>
           {errors.country && (
-            <p className="mt-2 text-xs text-red-500">{errors.country.message}</p>
+            <p className="mt-2 text-sm text-red-500">{errors.country.message}</p>
           )}
         </div>
         
+        {/* Submit Button */}
         <div className="text-center">
           <button 
             type="submit" 
             disabled={isSubmitting || isProcessing || isLoading || !!authError} 
-            className="w-full p-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-400"
+            className="w-full p-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {isSubmitting || isProcessing ? "Processing..." : "Submit"}
+            {isSubmitting || isProcessing ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Processing...
+              </span>
+            ) : (
+              "Submit"
+            )}
           </button>
         </div>
+        
+        {/* Note */}
         <div className="text-center">
-          <h1>{c("note")}</h1>
+          <p className="text-sm text-gray-600">{c("note")}</p>
         </div>
       </form>
     </div>
