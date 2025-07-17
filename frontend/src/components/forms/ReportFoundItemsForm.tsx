@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactConfetti from "react-confetti";
 import CompressorFileInput from "./CompressorFileInput";
 import { useTranslations } from "next-intl";
@@ -124,24 +124,8 @@ export default function ReportFoundItem() {
   // API configuration
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-  const { 
-    register, 
-    handleSubmit, 
-    formState: { errors, isSubmitting }, 
-    reset, 
-    setValue,
-    watch
-  } = useForm<ItemFormFields>({
-    resolver: zodResolver(itemFormSchema),
-    defaultValues: {
-      country: "Oman",
-      type: "",
-      place: "",
-      orgnization: "",
-      item_type_id: "",
-      branch_id: ""
-    }
-  });
+  // Track if we've set the default orgnization value after fetching
+  const hasSetDefaultOrg = useRef(false);
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
@@ -151,10 +135,31 @@ export default function ReportFoundItem() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
-  
+  const [orgSelectDisabled, setOrgSelectDisabled] = useState(false);
+
   const t = useTranslations("storage");
   const c = useTranslations("report-found");
   const router = useRouter();
+
+  // useForm with empty orgnization by default, will set after fetch
+  const { 
+    register, 
+    handleSubmit, 
+    formState: { errors, isSubmitting }, 
+    reset, 
+    setValue,
+    watch
+  } = useForm<ItemFormFields>({
+    // resolver: zodResolver(itemFormSchema),
+    defaultValues: {
+      country: "Oman",
+      type: "",
+      place: "",
+      orgnization: "",
+      item_type_id: "",
+      branch_id: ""
+    }
+  });
 
   // Watch for organization changes
   const watchedOrganization = watch("orgnization");
@@ -184,6 +189,18 @@ export default function ReportFoundItem() {
         if (organizationsResponse.ok) {
           const organizationsData = await organizationsResponse.json();
           setOrganizations(organizationsData);
+
+          // Set default orgnization to first if available and not already set
+          if (
+            organizationsData.length > 0 &&
+            !hasSetDefaultOrg.current
+          ) {
+            setValue("orgnization", organizationsData[0].id);
+            hasSetDefaultOrg.current = true;
+          }
+
+          // If only one organization, disable the select
+          setOrgSelectDisabled(organizationsData.length === 1);
         } else if (organizationsResponse.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
           return;
@@ -220,7 +237,19 @@ export default function ReportFoundItem() {
     } else {
       setIsLoading(false);
     }
-  }, [authError, API_BASE_URL]);
+  }, [authError, API_BASE_URL, setValue]);
+
+  // If organizations change (e.g. after fetch), set default if not set
+  useEffect(() => {
+    if (
+      organizations.length > 0 &&
+      !hasSetDefaultOrg.current
+    ) {
+      setValue("orgnization", organizations[0].id);
+      hasSetDefaultOrg.current = true;
+    }
+    setOrgSelectDisabled(organizations.length === 1);
+  }, [organizations, setValue]);
 
   // Fetch branches when organization changes
   useEffect(() => {
@@ -341,6 +370,7 @@ export default function ReportFoundItem() {
       reset();
       setCompressedFiles([]);
       setBranches([]);
+      hasSetDefaultOrg.current = false; // Reset so default org is set again after reset
 
       // Redirect after success
       setTimeout(() => {
@@ -487,8 +517,11 @@ export default function ReportFoundItem() {
             id="orgnization"
             {...register("orgnization")}
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            disabled={orgSelectDisabled}
           >
-            <option value="">{c("selectOrganization")}</option>
+            {!orgSelectDisabled && (
+              <option value="">{c("selectOrganization")}</option>
+            )}
             {organizations.map((org) => (
               <option key={org.id} value={org.id}>
                 {org.name}
@@ -527,40 +560,6 @@ export default function ReportFoundItem() {
           </select>
           {errors.branch_id && (
             <p className="mt-2 text-sm text-red-500">{errors.branch_id.message}</p>
-          )}
-        </div>
-
-        {/* Type Field - seems to be unused in your schema but included for completeness */}
-        <div>
-          <label htmlFor="type" className="block text-lg font-semibold text-gray-700 mb-2">
-            Type
-          </label>
-          <input
-            type="text"
-            id="type"
-            {...register("type")}
-            placeholder="Enter type"
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          />
-          {errors.type && (
-            <p className="mt-2 text-sm text-red-500">{errors.type.message}</p>
-          )}
-        </div>
-
-        {/* Place Field */}
-        <div>
-          <label htmlFor="place" className="block text-lg font-semibold text-gray-700 mb-2">
-            {c("place")}
-          </label>
-          <input
-            type="text"
-            id="place"
-            {...register("place")}
-            placeholder="Enter place"
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          />
-          {errors.place && (
-            <p className="mt-2 text-sm text-red-500">{errors.place.message}</p>
           )}
         </div>
 
