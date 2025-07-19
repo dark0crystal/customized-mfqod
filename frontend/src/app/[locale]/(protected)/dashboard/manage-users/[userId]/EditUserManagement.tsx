@@ -41,12 +41,19 @@ export default function EditUserManagement({ userId }: { userId: string }) {
         if (!response.ok) throw new Error("Failed to fetch organizations");
         const data = await response.json();
         setOrganizations(data);
+
+        // Set the first organization as default if available
+        if (data && data.length > 0) {
+          setSelectedOrganization(data[0].id);
+          setValue("org", data[0].id);
+        }
       } catch (error: any) {
         console.error("Error fetching organizations:", error.message);
       }
     }
     fetchOrganizations();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setValue]);
 
   // Fetch user's currently managed branches
   useEffect(() => {
@@ -87,6 +94,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
   const handleOrganizationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedOrg = e.target.value;
     setSelectedOrganization(selectedOrg);
+    setValue("org", selectedOrg);
     setValue("branch", ""); // Reset branch selection
   };
 
@@ -119,7 +127,13 @@ export default function EditUserManagement({ userId }: { userId: string }) {
     }
 
     reset();
-    setSelectedOrganization("");
+    // If there is only one org, keep it selected, otherwise clear
+    if (organizations.length === 1 && organizations[0]) {
+      setSelectedOrganization(organizations[0].id);
+      setValue("org", organizations[0].id);
+    } else {
+      setSelectedOrganization("");
+    }
   };
 
   const handleRemoveBranchManager = async (branchId: string) => {
@@ -128,7 +142,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/branches/${branchId}/managers/${userId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/branch/branches/${branchId}/managers/${userId}`, {
         method: "DELETE",
       });
 
@@ -140,7 +154,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       setSuccessMessage("User successfully removed as branch manager!");
       
       // Refresh user managed branches
-      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/users/${userId}/managed-branches/`);
+      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/branch/users/${userId}/managed-branches/`);
       if (refreshResponse.ok) {
         const refreshedData = await refreshResponse.json();
         setUserManagedBranches(refreshedData);
@@ -194,6 +208,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
               {...register("org")}
               onChange={handleOrganizationChange}
               className="w-full p-2 border rounded"
+              disabled={organizations.length === 1}
             >
               <option value="" disabled>Select Organization</option>
               {organizations.map((org) => (
