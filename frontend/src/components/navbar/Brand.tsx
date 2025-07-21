@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { Lalezar } from "next/font/google";
 import { useTranslations } from "next-intl";
-import tagAlrasss from "../../../public/alazzz.jpeg";
+import squLogo from "../../../public/squ-logo.png";
 
 const lalezarFont = Lalezar({
   weight: "400",
@@ -33,10 +33,10 @@ export default function Brand() {
       {/* Organization Logo */}
       <div className="flex items-center">
         <Image
-          src={tagAlrasss}
+          src={squLogo}
           alt="Sultan Qaboos University Logo"
-          width={70}
-          height={70}
+          width={40}
+          height={40}
           className="object-contain"
         />
       </div>
