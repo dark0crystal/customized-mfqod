@@ -9,8 +9,16 @@ interface ItemType {
   name: string;
 }
 
+interface ItemImage {
+  id: string;
+  url: string;
+  imageable_type: string;
+  imageable_id: string;
+}
+
 export default function Search() {
   const [items, setItems] = useState<any[]>([]);
+  const [itemImages, setItemImages] = useState<Record<string, ItemImage[]>>({});
   const [currentItemTypeId, setCurrentItemTypeId] = useState<string>("");
   const [currentOrgName, setCurrentOrgName] = useState<string>("");
   const [show, setShow] = useState(false);
@@ -50,6 +58,34 @@ export default function Search() {
 
   const handleShow = () => setShow(!show);
 
+  // Fetch images for a list of item IDs
+  const fetchImagesForItems = async (itemsList: any[]) => {
+    const newImages: Record<string, ItemImage[]> = {};
+    await Promise.all(
+      itemsList.map(async (item) => {
+        try {
+          // You may need to adjust the endpoint according to your backend
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_HOST_NAME}/image/items/${item.id}/images/`,
+            {
+              headers: getAuthHeaders(),
+            }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            // Accept both array or {images: []} response
+            newImages[item.id] = Array.isArray(data) ? data : data.images || [];
+          } else {
+            newImages[item.id] = [];
+          }
+        } catch {
+          newImages[item.id] = [];
+        }
+      })
+    );
+    setItemImages(newImages);
+  };
+
   const fetchItemByItemType = async (orgName?: string, itemTypeId?: string) => {
     setLoading(true);
     setError(null);
@@ -77,9 +113,17 @@ export default function Search() {
       const data = await response.json();
       const itemsArray = data.items || data || [];
       setItems(itemsArray);
+
+      // Fetch images for these items
+      if (itemsArray.length > 0) {
+        await fetchImagesForItems(itemsArray);
+      } else {
+        setItemImages({});
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to fetch items");
       setItems([]);
+      setItemImages({});
     } finally {
       setLoading(false);
     }
@@ -181,7 +225,7 @@ export default function Search() {
               <p>No items found. Try adjusting your filters or click "Fetch Items".</p>
             </div>
           ) : (
-            <DisplayPosts items={items} />
+            <DisplayPosts items={items} images={itemImages} />
           )}
           <Footer />
         </div>
