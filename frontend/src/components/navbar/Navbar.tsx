@@ -1,6 +1,6 @@
 import { Link } from "@/i18n/navigation";
 import Brand from "./Brand";
-import Profile from "./Profile";
+// import Profile from "./Profile";
 // import { FaSearch } from "react-icons/fa";
 import { getTranslations } from "next-intl/server";
 import MobileNavbar from "./MobileNavbar";
@@ -48,8 +48,7 @@ export default async function NavBar() {
         {/* left section ar */}
         <div className="flex items-center justify-center p-3 rounded-lg col-span-5 ">
           <div>
-
-            <Profile/>
+            {/* <Profile/> */}
           </div>
          
         </div>
