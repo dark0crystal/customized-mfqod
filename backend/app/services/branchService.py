@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 
-from models import Branch, Organization, Address, Item  # Assuming these are your models
+from models import Branch, Organization, Address, Item, User, UserBranchManager  
 from schemas.branch_schemas import BranchCreate, BranchUpdate, AddressCreate, AddressUpdate
 
 
@@ -139,6 +139,105 @@ class BranchService:
         self.db.commit()
         
         return True
+    
+    def get_user_managed_branches(self, user_id: str, skip: int = 0, limit: int = 100) -> List[Branch]:
+        """Get all branches managed by a specific user"""
+        # Check if user exists
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Get branches managed by this user
+        query = self.db.query(Branch).join(
+            UserBranchManager, Branch.id == UserBranchManager.branch_id
+        ).filter(
+            UserBranchManager.user_id == user_id
+        )
+        
+        return query.offset(skip).limit(limit).all()
+    
+    def assign_branch_manager(self, branch_id: str, user_id: str) -> bool:
+        """Assign a user as manager of a branch"""
+        # Check if branch exists
+        branch = self.get_branch_by_id(branch_id)
+        if not branch:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Branch not found"
+            )
+        
+        # Check if user exists
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Check if assignment already exists
+        existing_assignment = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == user_id,
+                UserBranchManager.branch_id == branch_id
+            )
+        ).first()
+        
+        if existing_assignment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is already assigned as manager for this branch"
+            )
+        
+        # Create new assignment
+        assignment = UserBranchManager(
+            user_id=user_id,
+            branch_id=branch_id
+        )
+        
+        self.db.add(assignment)
+        self.db.commit()
+        
+        return True
+    
+    def remove_branch_manager(self, branch_id: str, user_id: str) -> bool:
+        """Remove a user as manager of a branch"""
+        assignment = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == user_id,
+                UserBranchManager.branch_id == branch_id
+            )
+        ).first()
+        
+        if not assignment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User is not assigned as manager for this branch"
+            )
+        
+        self.db.delete(assignment)
+        self.db.commit()
+        
+        return True
+    
+    def get_branch_managers(self, branch_id: str) -> List[User]:
+        """Get all users who manage a specific branch"""
+        branch = self.get_branch_by_id(branch_id)
+        if not branch:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Branch not found"
+            )
+        
+        managers = self.db.query(User).join(
+            UserBranchManager, User.id == UserBranchManager.user_id
+        ).filter(
+            UserBranchManager.branch_id == branch_id
+        ).all()
+        
+        return managers
 
 
 class AddressService:
@@ -261,3 +360,4 @@ class AddressService:
         self.db.commit()
         
         return True
+    

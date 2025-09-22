@@ -88,6 +88,8 @@ const organizationAPI = {
 const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
   const [formData, setFormData] = useState({
     branch_name: '',
+    branch_name_ar: '',
+    branch_name_en: '',
     organization_id: ''
   });
   const [organizations, setOrganizations] = useState([]);
@@ -104,10 +106,12 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
     if (branch) {
       setFormData({
         branch_name: branch.branch_name || '',
+        branch_name_ar: branch.branch_name_ar || '',
+        branch_name_en: branch.branch_name_en || '',
         organization_id: branch.organization_id || ''
       });
     } else {
-      setFormData({ branch_name: '', organization_id: '' });
+      setFormData({ branch_name: '', branch_name_ar: '', branch_name_en: '', organization_id: '' });
     }
   }, [branch]);
 
@@ -177,6 +181,33 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter branch name"
               required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Branch Name (Arabic)
+            </label>
+            <input
+              type="text"
+              value={formData.branch_name_ar}
+              onChange={(e) => setFormData({ ...formData, branch_name_ar: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter branch name in Arabic"
+              dir="rtl"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Branch Name (English)
+            </label>
+            <input
+              type="text"
+              value={formData.branch_name_en}
+              onChange={(e) => setFormData({ ...formData, branch_name_en: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter branch name in English"
             />
           </div>
 

@@ -81,6 +81,8 @@ Fine-Grained Control (Actions per Role) using Roles + Permissions — also known
 
 🧠 What It Means
 With fine-grained control, instead of checking only the user’s role, you check whether the user has specific permissions to do certain actions — like:
+ 
+These Are Examples: 
 
 can_view_users
 
@@ -116,3 +118,7 @@ role_id | permission_id
 2       | 3
 3       | 3
 ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+
+
+
+

@@ -39,6 +39,10 @@ def list_roles(session: Session = Depends(get_session)):
 # ==================================
 # Add New Role
 # ==================================
+
+# 3ddcf133-53ec-45ce-8f42-07317169a96f
+
+# f8586c40-2dd4-438d-a865-b9dbf6b18ebe
 @router.post(
     "/add-new-role",
     response_model=RoleSchema,

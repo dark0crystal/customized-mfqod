@@ -1,0 +1,84 @@
+# Core FastAPI and web framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+alembic==1.12.1
+psycopg2-binary==2.9.9
+
+# Authentication and Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
+cryptography==41.0.7
+
+# Active Directory Integration
+python-ldap==3.4.3
+ldap3==2.9.1
+
+# Data validation and serialization
+pydantic[email]==2.5.0
+email-validator==2.1.0
+
+# HTTP client
+httpx==0.25.2
+requests==2.31.0
+
+# Background task scheduling
+APScheduler==3.10.4
+
+# Logging and monitoring
+structlog==23.2.0
+
+# Environment and configuration
+python-decouple==3.8
+python-dotenv==1.0.0
+
+# CORS handling
+python-cors==1.0.0
+
+# Date and time handling
+python-dateutil==2.8.2
+
+# UUID generation
+uuid==1.30
+
+# File handling and utilities
+aiofiles==23.2.1
+
+# Testing (for development)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+pytest-mock==3.12.0
+
+# Development tools
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.7.1
+
+# Production server
+gunicorn==21.2.0
+
+# Rate limiting
+slowapi==0.1.9
+python-redis==5.0.1
+
+# Validation helpers
+phonenumbers==8.13.25
+
+# Image processing (if needed)
+Pillow==10.1.0
+
+# Export functionality
+openpyxl==3.1.2
+reportlab==4.0.7
+
+# Monitoring and health checks
+prometheus-client==0.19.0
+
+# Security headers
+secure==0.3.0

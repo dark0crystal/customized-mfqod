@@ -1,9 +1,8 @@
 from sqlalchemy import create_engine, text
-from sqlmodel import SQLModel
 import os
-from dotenv import load_dotenv 
+from dotenv import load_dotenv
 
-load_dotenv() 
+load_dotenv()
 
 # Import your database URL from your app config
 # Adjust this import based on your project structure
@@ -15,20 +14,15 @@ except ImportError:
     DATABASE_URL = os.getenv("DATABASE_URL")
 
 def clear_alembic_version():
-    """Clear the alembic_version table to reset migration history"""
-    
+    """Clear the alembic_version table to reset migration history using SQLAlchemy"""
     engine = create_engine(DATABASE_URL)
-    
     try:
         with engine.connect() as conn:
-            # Drop the alembic_version table
             conn.execute(text("DROP TABLE IF EXISTS alembic_version;"))
             conn.commit()
             print("✅ Alembic version table cleared successfully")
-            
     except Exception as e:
         print(f"❌ Error clearing alembic table: {e}")
-    
     finally:
         engine.dispose()
 

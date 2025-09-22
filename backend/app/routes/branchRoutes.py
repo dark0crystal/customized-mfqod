@@ -354,7 +354,7 @@ def get_branch_addresses(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving branch addresses: {str(e)}")
     
-    # =========================== 
+# =========================== 
 # User-Branch Management Routes
 # ===========================
 

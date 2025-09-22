@@ -108,7 +108,8 @@
 
       },
       "search":{
-        "filter":"فلتر"
+        "filter":"فلتر",
+        "fetch_items":"الأغراض الموجودة"
       },
       "loading":{
         "loadingMessage":"لحظات..."

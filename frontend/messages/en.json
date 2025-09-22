@@ -1,6 +1,121 @@
 {
-  "HomePage": {
-    "title": "Hello world!",
-    "about": "Go to the about page"
-  }
+    "HomePage": {
+      "title": "Lost Something? Mfqod Will Help",
+      "about": "Go to the about page",
+      "search":"Search Lost Items",
+      "report":"Report Found Item",
+      "description":"Mfqod makes it easy for you to find your lost property",
+      "versionMessage":"Mfqod Trail Version 1.0.2 officially released!"
+
+
+    },
+    "navbar":{
+        "brand":"",
+        "search":"Search",
+        "brand-duplicate":"MFQOD",
+        "searchBtn":"Search Something",
+        "dashboard":"Dashboard",
+        "report":"Report",
+        "reportBtn":"Found Something ?"
+    },
+    "storage":{
+      "org": {
+        "SQU": "Sultan Qaboos University",
+        "UTAS Muscat": "UTAS Muscat",
+        "UTAS Ibra": "UTAS Ibra",
+        "Bin Omair": "Bin Omair Library",
+        "UTAS Nizwa": "UTAS Nizwa"
+      },
+      "place": {
+        "SQU Library": "SQU Library",
+        "SQU Lost and Found Department": "SQU Lost and Found Department",
+        "UTAS Muscat Library": "UTAS Muscat Library",
+        "UTAS Muscat Lost and Found Department": "UTAS Muscat Lost and Found Department",
+        "UTAS Ibra Library": "UTAS Ibra Library",
+        "UTAS Ibra Lost and Found Department": "UTAS Ibra Lost and Found Department",
+        "Bin Omair Library": "Bin Omair Library",
+        "Bin Omair Lost and Found Department": "Bin Omair Lost and Found Department",
+        "UTAS Nizwa Library": "UTAS Nizwa Library",
+        "UTAS Nizwa Lost and Found Department": "UTAS Nizwa Lost and Found Department"
+      },
+      "country":{
+        "Oman":"Oman"
+      }
+    },
+
+
+    "card":{
+      
+      "location":"Location",
+      "missing-items":"Missing Items"
+    },
+
+
+    "footer":{
+      "seeAlso":"See Also",
+      "quickLinks":"Quick links",
+      "privacyTitle":"Privacy and Terms",
+      "main":"Main Page",
+      "search":"Search Lost Items",
+      "report":"Report Found Item",
+      "privacy":"Privacy Policy",
+      "terms":"Terms of Service",
+      "dashboard":"Dashboard",
+      "Register":"Sign In",
+      "disclaimer": "Disclaimer: Mafqood is neither authorized nor endorsed by any of the mentioned organizations as of the last update v1.0.2. At Mafqood, we use the names of organizations for simulation purposes only.",
+      "developer":"Made With ❤️",
+      "description":"Mfqod makes it easy for you to find your lost property"
+
+
+
+    },
+
+    "trustedBy":{
+      "title":"Proudly Trusted By"
+    },
+
+    "cards":{
+      "name1":"SQU",
+      "name2":"UTAS",
+      "name3":"GUtech",
+      "name4":"OXFORD",
+      "item1":"Watch",
+      "item2":"wallet",
+      "item3":"Ring",
+      "item4":"Key"
+      
+    },
+
+    "timeBaseWords":{
+      "lostSth":"Lost something?",
+      "help":"We can help you",
+      "foundSth":"Found something?",
+      "helpOwner":"Help its owner"
+    },
+    
+    
+  "report-found": {
+      "title": "Report Something You Found",
+      "whatDidYouFind": "What did you find?",
+      "Details": "Add details about the item",
+      "type": "What type of item is it?",
+      "uploadImages": "Attach images of the item",
+      "organization": "Organization Name",
+      "place": "Select the placement location",
+      "country": "Country",
+      "selectOrganization": "Select the organization name",
+      "selectPlace": "Select the placement location",
+      "note":"Note: In this version v1.0.2 posts will be verified before publishing"
+
+},
+"search":{
+  "filter":"filter",
+  "fetch_items":"Fetched items"
+
+},
+"loading":{
+        "loadingMessage":"Loading..."
 }
+
+    
+  }

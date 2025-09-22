@@ -1,13 +1,23 @@
 from __future__ import annotations
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text, Enum
 from typing import Optional, List
 from datetime import datetime, timezone
 import uuid
 from sqlalchemy.ext.declarative import declarative_base
+import enum
 
 
 Base = declarative_base()
+
+class UserType(enum.Enum):
+    INTERNAL = "internal"
+    EXTERNAL = "external"
+
+class LoginAttemptStatus(enum.Enum):
+    SUCCESS = "success"
+    FAILED = "failed"
+    BLOCKED = "blocked"
 
 # like the user job title 
 class UserStatus(Base):
@@ -23,21 +33,41 @@ class User(Base):
     __tablename__ = "user"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
+    username: Mapped[Optional[str]] = mapped_column(String, unique=True, index=True, nullable=True)
     password: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     first_name: Mapped[str] = mapped_column(String)
     middle_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     last_name: Mapped[str] = mapped_column(String)
     phone_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    user_type: Mapped[UserType] = mapped_column(Enum(UserType), default=UserType.EXTERNAL)
     ad_dn: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    ad_sync_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     status_id: Mapped[Optional[str]] = mapped_column(ForeignKey("userstatus.id"), nullable=True)
     status: Mapped[Optional["UserStatus"]] = relationship("UserStatus", back_populates="users")
     role_id: Mapped[Optional[str]] = mapped_column(ForeignKey("role.id"), nullable=True)
     role: Mapped[Optional["Role"]] = relationship("Role", back_populates="users")
     items: Mapped[List["Item"]] = relationship("Item", back_populates="user")
     claims: Mapped[List["Claim"]] = relationship("Claim", back_populates="user")
+    login_attempts: Mapped[List["LoginAttempt"]] = relationship("LoginAttempt", back_populates="user")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    managed_branches: Mapped[List["Branch"]] = relationship(
+        "Branch",
+        secondary="user_branch_managers",
+        back_populates="managers"
+    )
+
+class UserBranchManager(Base):
+    __tablename__ = "user_branch_managers"
+    user_id: Mapped[str] = mapped_column(ForeignKey("user.id"), primary_key=True)
+    branch_id: Mapped[str] = mapped_column(ForeignKey("branch.id"), primary_key=True)
+    assigned_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
 
 class Role(Base):
     __tablename__ = "role"
@@ -113,6 +143,11 @@ class Branch(Base):
     addresses: Mapped[List["Address"]] = relationship("Address", back_populates="branch")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    managers: Mapped[List["User"]] = relationship(
+        "User",
+        secondary="user_branch_managers",
+        back_populates="managed_branches"
+    )
 
 class Organization(Base):
     __tablename__ = "organization"
@@ -158,5 +193,44 @@ class Claim(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     
     
+
+class LoginAttempt(Base):
+    __tablename__ = "login_attempts"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="login_attempts")
+    email_or_username: Mapped[str] = mapped_column(String, index=True)
+    ip_address: Mapped[str] = mapped_column(String)
+    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[LoginAttemptStatus] = mapped_column(Enum(LoginAttemptStatus))
+    failure_reason: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(ForeignKey("user.id"))
+    user: Mapped["User"] = relationship("User")
+    session_token: Mapped[str] = mapped_column(String, unique=True, index=True)
+    ip_address: Mapped[str] = mapped_column(String)
+    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+class ADSyncLog(Base):
+    __tablename__ = "ad_sync_logs"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    sync_type: Mapped[str] = mapped_column(String)  # 'user_sync', 'group_sync', 'health_check'
+    status: Mapped[str] = mapped_column(String)  # 'success', 'failed', 'partial'
+    message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    users_processed: Mapped[int] = mapped_column(Integer, default=0)
+    users_updated: Mapped[int] = mapped_column(Integer, default=0)
+    users_deactivated: Mapped[int] = mapped_column(Integer, default=0)
+    error_details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # don't forget to add the translated names

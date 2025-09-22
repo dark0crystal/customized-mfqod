@@ -16,7 +16,6 @@ def check_role_existence(session: Session, role_name: str) -> Role | None:
     statement = select(Role).where(Role.name == role_name)
     return session.execute(statement).scalars().first()
 
-
 # =============================
 # Add New Role
 # =============================

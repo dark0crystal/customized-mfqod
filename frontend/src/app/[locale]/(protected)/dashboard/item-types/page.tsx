@@ -16,13 +16,17 @@ const ItemTypesManager = () => {
   // Form state
   const [formData, setFormData] = useState({
     name: '',
+    name_ar: '',
+    name_en: '',
     description: '',
+    description_ar: '',
+    description_en: '',
     category: '',
     is_active: true
   });
 
   // API base URL - adjust this to your backend URL
-  const API_BASE = 'http://localhost:8000/item-type';
+  const API_BASE = 'http://localhost:8000/api/item-types';
 
   // ✅ Get token from cookies - Updated to match your PermissionsContext
   const getTokenFromCookies = (): string | null => {
@@ -165,7 +169,11 @@ const ItemTypesManager = () => {
   const resetForm = () => {
     setFormData({
       name: '',
+      name_ar: '',
+      name_en: '',
       description: '',
+      description_ar: '',
+      description_en: '',
       category: '',
       is_active: true
     });
@@ -191,7 +199,11 @@ const ItemTypesManager = () => {
   const startEdit = (item) => {
     setFormData({
       name: item.name,
+      name_ar: item.name_ar || '',
+      name_en: item.name_en || '',
       description: item.description || '',
+      description_ar: item.description_ar || '',
+      description_en: item.description_en || '',
       category: item.category || '',
       is_active: item.is_active || true
     });
@@ -307,6 +319,33 @@ const ItemTypesManager = () => {
                   required
                 />
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Name (Arabic)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name_ar}
+                    onChange={(e) => setFormData({...formData, name_ar: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter name in Arabic"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Name (English)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name_en}
+                    onChange={(e) => setFormData({...formData, name_en: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter name in English"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description
@@ -318,6 +357,33 @@ const ItemTypesManager = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter description"
                 />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description (Arabic)
+                  </label>
+                  <textarea
+                    value={formData.description_ar}
+                    onChange={(e) => setFormData({...formData, description_ar: e.target.value})}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter description in Arabic"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description (English)
+                  </label>
+                  <textarea
+                    value={formData.description_en}
+                    onChange={(e) => setFormData({...formData, description_en: e.target.value})}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter description in English"
+                  />
+                </div>
               </div>
               <div className="flex gap-3">
                 <button
