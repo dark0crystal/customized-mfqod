@@ -112,6 +112,22 @@ export default function Login() {
           {isLoading ? "Logging in..." : "Login"}
         </button>
       </form>
+
+      {/* Sign up link */}
+      <div className="mt-6 text-center">
+        <p className="text-sm text-gray-600">
+          Don't have an account?{' '}
+          <a 
+            href="/auth/register" 
+            className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+          >
+            Sign up
+          </a>
+        </p>
+        <p className="text-xs text-gray-500 mt-2">
+          External users only - University users login with existing credentials
+        </p>
+      </div>
     </div>
   )
 }
