@@ -1,318 +1,401 @@
-"use client";
-import React, { useState, useEffect } from 'react';
-import { User, Mail, Lock, Phone, UserCheck, Eye, EyeOff, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+'use client'
 
-interface UserStatus {
-  id: string;
-  name: string;
-  description?: string;
-  created_at: string;
-  updated_at: string;
-}
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import Link from 'next/link'
+import { 
+  Eye, 
+  EyeOff, 
+  Mail, 
+  User, 
+  Lock, 
+  Phone, 
+  CheckCircle, 
+  XCircle, 
+  AlertCircle,
+  Loader2,
+  UserPlus
+} from 'lucide-react'
+import PasswordStrengthIndicator from '@/components/auth/PasswordStrengthIndicator'
+import { authApi } from '@/utils/api'
 
-interface FormData {
-  email: string;
-  password: string;
-  confirmPassword: string;
-  first_name: string;
-  middle_name: string;
-  last_name: string;
-  phone_number: string;
-  status_name: string;
-}
+// Password validation schema matching backend requirements
+const passwordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters long')
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/\d/, 'Password must contain at least one number')
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character')
 
-interface FormErrors {
-  [key: string]: string;
-}
+// Registration form schema
+const signupSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: passwordSchema,
+  confirmPassword: z.string(),
+  first_name: z.string()
+    .min(1, 'First name is required')
+    .max(50, 'First name must be less than 50 characters'),
+  last_name: z.string()
+    .min(1, 'Last name is required')
+    .max(50, 'Last name must be less than 50 characters'),
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(30, 'Username must be less than 30 characters')
+    .regex(/^[a-zA-Z0-9_.-]+$/, 'Username can only contain letters, numbers, dots, hyphens, and underscores')
+    .optional()
+    .or(z.literal('')),
+  phone_number: z.string()
+    .regex(/^\+?[\d\s\-\(\)]+$/, 'Please enter a valid phone number')
+    .optional()
+    .or(z.literal(''))
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+})
 
-interface SubmitStatus {
-  type: 'success' | 'error';
-  message: string;
-}
+type SignupFormData = z.infer<typeof signupSchema>
 
-export default function Register(): JSX.Element {
-  const [formData, setFormData] = useState<FormData>({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    first_name: '',
-    middle_name: '',
-    last_name: '',
-    phone_number: '',
-    status_name: '',
-  });
+export default function Register() {
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const router = useRouter()
 
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [submitStatus, setSubmitStatus] = useState<SubmitStatus | null>(null);
-  const [statuses, setStatuses] = useState<UserStatus[]>([]);
-  const [isLoadingStatuses, setIsLoadingStatuses] = useState<boolean>(true);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    watch,
+    setError
+  } = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
+    mode: 'onChange'
+  })
 
-  useEffect(() => {
-    const fetchStatuses = async (): Promise<void> => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/user-status/`);
-        if (response.ok) {
-          const data: UserStatus[] = await response.json();
-          setStatuses(data);
-        } else {
-          console.error('Failed to fetch user statuses');
-        }
-      } catch (error) {
-        console.error('Error fetching user statuses:', error);
-      } finally {
-        setIsLoadingStatuses(false);
-      }
-    };
-    fetchStatuses();
-  }, []);
+  const password = watch('password')
 
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!emailRegex.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters long';
-    }
-
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    if (!formData.first_name) newErrors.first_name = 'First name is required';
-    if (!formData.last_name) newErrors.last_name = 'Last name is required';
-    if (!formData.phone_number) newErrors.phone_number = 'Phone number is required';
-    if (!formData.status_name) newErrors.status_name = 'Status is required';
-
-    const phoneRegex = /^\+?[\d\s\-\(\)]+$/;
-    if (formData.phone_number && !phoneRegex.test(formData.phone_number)) {
-      newErrors.phone_number = 'Please enter a valid phone number';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
-
-  const handleSubmit = async (): Promise<void> => {
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-    setSubmitStatus(null);
+  const onSubmit = async (data: SignupFormData) => {
+    setIsLoading(true)
+    setApiError(null)
+    setSuccessMessage(null)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/users/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          first_name: formData.first_name,
-          middle_name: formData.middle_name || null,
-          last_name: formData.last_name,
-          phone_number: formData.phone_number,
-          status_name: formData.status_name,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSubmitStatus({ type: 'success', message: data.message });
-        setFormData({
-          email: '',
-          password: '',
-          confirmPassword: '',
-          first_name: '',
-          middle_name: '',
-          last_name: '',
-          phone_number: '',
-          status_name: ''
-        });
-      } else {
-        setSubmitStatus({ type: 'error', message: data.detail || 'Registration failed' });
+      // Prepare the payload according to backend schema
+      const payload = {
+        email: data.email,
+        password: data.password,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        ...(data.username && { username: data.username }),
+        ...(data.phone_number && { phone_number: data.phone_number })
       }
-    } catch (error) {
-      setSubmitStatus({ type: 'error', message: 'Network error. Please try again.' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const getInputClassName = (fieldName: string): string => {
-    const baseClasses = "w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors";
-    return errors[fieldName]
-      ? `${baseClasses} border-red-500 focus:ring-red-500`
-      : `${baseClasses} border-gray-300 focus:ring-blue-500`;
-  };
+      const response = await authApi.register(payload)
+
+      if (response.error) {
+        // Handle validation errors
+        if (response.validationErrors) {
+          Object.entries(response.validationErrors).forEach(([field, message]) => {
+            setError(field as any, { message })
+          })
+        }
+        
+        setApiError(response.error)
+        return
+      }
+
+      // Success
+      setSuccessMessage('Account created successfully! You can now log in.')
+      
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        router.push('/auth/login')
+      }, 2000)
+
+    } catch (error) {
+      console.error('Registration error:', error)
+      setApiError('Network error. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const getInputClassName = (fieldName: keyof SignupFormData) => {
+    const baseClasses = "w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors"
+    const hasError = errors[fieldName]
+    
+    return hasError
+      ? `${baseClasses} border-red-500 focus:ring-red-500 bg-red-50`
+      : `${baseClasses} border-gray-300 focus:ring-blue-500 focus:border-blue-500`
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-xl p-8">
+        {/* Header */}
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <UserCheck className="h-8 w-8 text-blue-600" />
+            <UserPlus className="h-8 w-8 text-blue-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
-          <p className="text-gray-600 mt-2">Join us by creating your account</p>
+          <p className="text-gray-600 mt-2">Sign up for external user access</p>
         </div>
 
-        {submitStatus && (
-          <div className={`mb-6 p-4 rounded-lg flex items-center ${
-            submitStatus.type === 'success'
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
-          }`}>
-            {submitStatus.type === 'success'
-              ? <CheckCircle className="h-5 w-5 mr-2" />
-              : <XCircle className="h-5 w-5 mr-2" />}
-            {submitStatus.message}
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 p-4 rounded-lg bg-green-50 text-green-800 border border-green-200 flex items-center">
+            <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+            <span>{successMessage}</span>
           </div>
         )}
 
-        <div className="space-y-6">
+        {/* API Error */}
+        {apiError && (
+          <div className="mb-6 p-4 rounded-lg bg-red-50 text-red-800 border border-red-200 flex items-center">
+            <XCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+            <span>{apiError}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Email Address *
+            </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input type="email" name="email" value={formData.email} onChange={handleInputChange} className={getInputClassName('email')} placeholder="Enter your email" />
+              <input
+                type="email"
+                {...register('email')}
+                className={getInputClassName('email')}
+                placeholder="Enter your email"
+                disabled={isLoading}
+              />
             </div>
-            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+            {errors.email && (
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {errors.email.message}
+              </p>
+            )}
           </div>
 
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleInputChange} className={getInputClassName('password')} placeholder="Enter your password" />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
-          </div>
-
-          {/* Confirm Password */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password *</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input type={showConfirmPassword ? "text" : "password"} name="confirmPassword" value={formData.confirmPassword} onChange={handleInputChange} className={getInputClassName('confirmPassword')} placeholder="Confirm your password" />
-              <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-            {errors.confirmPassword && <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>}
-          </div>
-
-          {/* Names */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Name Fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* First Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                First Name *
+              </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <input type="text" name="first_name" value={formData.first_name} onChange={handleInputChange} className={getInputClassName('first_name')} placeholder="First name" />
+                <input
+                  type="text"
+                  {...register('first_name')}
+                  className={getInputClassName('first_name')}
+                  placeholder="First name"
+                  disabled={isLoading}
+                />
               </div>
-              {errors.first_name && <p className="text-red-500 text-sm mt-1">{errors.first_name}</p>}
+              {errors.first_name && (
+                <p className="text-red-500 text-sm mt-1 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {errors.first_name.message}
+                </p>
+              )}
             </div>
+
+            {/* Last Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Last Name *
+              </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <input type="text" name="last_name" value={formData.last_name} onChange={handleInputChange} className={getInputClassName('last_name')} placeholder="Last name" />
+                <input
+                  type="text"
+                  {...register('last_name')}
+                  className={getInputClassName('last_name')}
+                  placeholder="Last name"
+                  disabled={isLoading}
+                />
               </div>
-              {errors.last_name && <p className="text-red-500 text-sm mt-1">{errors.last_name}</p>}
+              {errors.last_name && (
+                <p className="text-red-500 text-sm mt-1 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {errors.last_name.message}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Middle Name */}
+          {/* Username */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Username (Optional)
+            </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input type="text" name="middle_name" value={formData.middle_name} onChange={handleInputChange} className={getInputClassName('middle_name')} placeholder="Middle name (optional)" />
+              <input
+                type="text"
+                {...register('username')}
+                className={getInputClassName('username')}
+                placeholder="Choose a username"
+                disabled={isLoading}
+              />
             </div>
+            {errors.username && (
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {errors.username.message}
+              </p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Leave empty to use your email as username
+            </p>
           </div>
 
           {/* Phone Number */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Phone Number (Optional)
+            </label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input type="tel" name="phone_number" value={formData.phone_number} onChange={handleInputChange} className={getInputClassName('phone_number')} placeholder="Enter your phone number" />
+              <input
+                type="tel"
+                {...register('phone_number')}
+                className={getInputClassName('phone_number')}
+                placeholder="Enter phone number"
+                disabled={isLoading}
+              />
             </div>
-            {errors.phone_number && <p className="text-red-500 text-sm mt-1">{errors.phone_number}</p>}
+            {errors.phone_number && (
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {errors.phone_number.message}
+              </p>
+            )}
           </div>
 
-          {/* Status Dropdown */}
+          {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Password *
+            </label>
             <div className="relative">
-              <UserCheck className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <select name="status_name" value={formData.status_name} onChange={handleInputChange} className={getInputClassName('status_name')} disabled={isLoadingStatuses}>
-                <option value="">{isLoadingStatuses ? 'Loading...' : 'Select status'}</option>
-                {statuses.map(status => (
-                  <option key={status.id} value={status.name}>
-                    {status.name}
-                  </option>
-                ))}
-              </select>
-              {isLoadingStatuses && (
-                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 animate-spin" />
-              )}
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <input
+                type={showPassword ? "text" : "password"}
+                {...register('password')}
+                className={getInputClassName('password')}
+                placeholder="Create a strong password"
+                disabled={isLoading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                disabled={isLoading}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
-            {errors.status_name && <p className="text-red-500 text-sm mt-1">{errors.status_name}</p>}
+            {errors.password && (
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {errors.password.message}
+              </p>
+            )}
+            
+            {/* Password Strength Indicator */}
+            {password && (
+              <PasswordStrengthIndicator password={password} className="mt-2" />
+            )}
           </div>
 
-          {/* Submit */}
-          <button type="button" onClick={handleSubmit} disabled={isLoading || isLoadingStatuses} className={`w-full py-3 px-4 rounded-lg font-medium transition-colors flex items-center justify-center ${
-            isLoading || isLoadingStatuses ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50'
-          } text-white`}>
+          {/* Confirm Password */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Confirm Password *
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                {...register('confirmPassword')}
+                className={getInputClassName('confirmPassword')}
+                placeholder="Confirm your password"
+                disabled={isLoading}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                disabled={isLoading}
+              >
+                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+            {errors.confirmPassword && (
+              <p className="text-red-500 text-sm mt-1 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                {errors.confirmPassword.message}
+              </p>
+            )}
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center ${
+              isLoading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 transform hover:scale-[1.02]'
+            } text-white shadow-lg`}
+          >
             {isLoading ? (
               <>
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                 Creating Account...
               </>
             ) : (
-              'Create Account'
+              <>
+                <UserPlus className="h-5 w-5 mr-2" />
+                Create Account
+              </>
             )}
           </button>
-        </div>
+        </form>
 
+        {/* Footer */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
             Already have an account?{' '}
-            <a href="/login" className="text-blue-600 hover:text-blue-800 font-medium">Sign in</a>
+            <Link 
+              href="/auth/login" 
+              className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            >
+              Sign in
+            </Link>
+          </p>
+        </div>
+
+        {/* University Users Notice */}
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs text-blue-800 text-center">
+            <strong>University Users:</strong> Use your university credentials to log in directly. 
+            External registration is for non-university users only.
           </p>
         </div>
       </div>
     </div>
-  );
+  )
 }
-

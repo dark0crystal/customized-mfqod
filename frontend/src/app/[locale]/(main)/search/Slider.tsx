@@ -17,7 +17,7 @@ const SliderBar = ({ onFilterChange, initialItemTypeId }: SliderBarProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = "http://localhost:8000/item-type/";
+  const API_BASE = `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/item-types/`;
 
   const getTokenFromCookies = (): string | null => {
     if (typeof document !== "undefined") {

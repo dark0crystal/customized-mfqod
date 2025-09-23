@@ -8,14 +8,17 @@ import { IoMdResize } from "react-icons/io";
 import { useState, useEffect } from "react";
 import img from "../../../../../../backend/uploads/images/8e510a2a-2829-4126-b1f3-4bdc4f3646a0.png"
 
+interface LocationData {
+  organization_name?: string;
+  branch_name?: string;
+  full_location?: string;
+}
+
 interface Item {
   id: string;
   title: string;
-  content: string;
-  address?: {
-    place?: string;
-    country?: string;
-  };
+  description: string;
+  location?: LocationData;
 }
 
 interface ItemImage {
@@ -74,8 +77,19 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
     if (itemImages && itemImages[0]?.url) {
       // If the url is already absolute, use as is
       if (/^https?:\/\//.test(itemImages[0].url)) return itemImages[0].url;
-      // Otherwise, just prepend the backend host
-      return `http://localhost:8000/backend/${itemImages[0].url}`;
+      
+      // Convert database URL format to static file serving format
+      let imageUrl = itemImages[0].url.replace('/uploads/images/', '/static/images/');
+      
+      // Ensure the imageUrl starts with a forward slash
+      if (!imageUrl.startsWith('/')) {
+        imageUrl = '/' + imageUrl;
+      }
+      
+      // Get base URL and ensure it doesn't end with a slash
+      const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
+      
+      return `${baseUrl}${imageUrl}`;
     }
     return defaultImage;
   };
@@ -100,15 +114,14 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
                   {/* Content */}
                   <div className="p-4">
                     <h4 className="text-lg font-semibold text-gray-800">{item.title}</h4>
-                    <p className="text-gray-500 text-sm">{item.content}</p>
-                  </div>
-
-                  {/* Footer */}
-                  <div className="flex items-center justify-between py-2 px-4">
-                    <p className="text-gray-600 text-sm">
-                      {t("location")}
+                    <p className="text-gray-600 text-sm mt-2 line-clamp-2 overflow-hidden text-ellipsis">
+                      {item.description}
+                    </p>
+                    <p className="text-gray-500 text-xs mt-2">
+                      {item.location?.full_location || t("location-not-specified")}
                     </p>
                   </div>
+
 
                   {/* Image Section */}
                   <div className="relative h-[250px] m-3">
