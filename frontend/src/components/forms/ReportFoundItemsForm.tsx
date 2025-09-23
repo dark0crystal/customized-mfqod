@@ -93,7 +93,7 @@ const uploadImages = async (itemId: string, files: File[], apiBaseUrl: string): 
     formData.append('file', file);
     
     try {
-      const response = await fetch(`${apiBaseUrl}/image/items/${itemId}/upload-image/`, {
+      const response = await fetch(`${apiBaseUrl}/api/images/items/${itemId}/upload-image`, {
         method: 'POST',
         headers: getAuthHeadersForFormData(),
         body: formData,
@@ -122,7 +122,7 @@ const uploadImages = async (itemId: string, files: File[], apiBaseUrl: string): 
 
 export default function ReportFoundItem() {
   // API configuration
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
   // Track if we've set the default orgnization value after fetching
   const hasSetDefaultOrg = useRef(false);
@@ -181,7 +181,7 @@ export default function ReportFoundItem() {
         setIsLoading(true);
         
         // Fetch organizations with authentication
-        const organizationsResponse = await fetch(`${API_BASE_URL}/organization/organizations/`, {
+        const organizationsResponse = await fetch(`${API_BASE_URL}/api/organizations`, {
           method: 'GET',
           headers: getAuthHeaders(),
         });
@@ -209,7 +209,7 @@ export default function ReportFoundItem() {
         }
 
         // Fetch item types with authentication
-        const itemTypesResponse = await fetch(`${API_BASE_URL}/item-type/`, {
+        const itemTypesResponse = await fetch(`${API_BASE_URL}/api/item-types/`, {
           method: 'GET',
           headers: getAuthHeaders(),
         });
@@ -261,7 +261,7 @@ export default function ReportFoundItem() {
       }
 
       try {
-        const branchesResponse = await fetch(`${API_BASE_URL}/organization/organizations/${watchedOrganization}/branches/`, {
+        const branchesResponse = await fetch(`${API_BASE_URL}/api/organizations/${watchedOrganization}/branches`, {
           method: 'GET',
           headers: getAuthHeaders(),
         });
@@ -313,7 +313,7 @@ export default function ReportFoundItem() {
         temporary_deletion: false
       };
 
-      const itemResponse = await fetch(`${API_BASE_URL}/items/`, {
+      const itemResponse = await fetch(`${API_BASE_URL}/api/items`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(itemPayload),
@@ -348,7 +348,7 @@ export default function ReportFoundItem() {
         is_current: true
       };
 
-      const addressResponse = await fetch(`${API_BASE_URL}/branch/addresses/`, {
+      const addressResponse = await fetch(`${API_BASE_URL}/api/addresses`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(addressPayload),
