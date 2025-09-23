@@ -3,7 +3,22 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, MapPin, Building, Search, Filter, X, ChevronDown } from 'lucide-react';
 
 // API configuration
-const API_BASE_URL = 'http://localhost:8000'; // Adjust to your FastAPI server
+const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
+
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  const token = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('access_token='))
+    ?.split('=')[1] || document.cookie
+    .split('; ')
+    .find(row => row.startsWith('token='))
+    ?.split('=')[1];
+  return {
+    'Authorization': `Bearer ${token || ''}`,
+    'Content-Type': 'application/json'
+  };
+};
 
 // API service functions
 const branchAPI = {
@@ -11,21 +26,25 @@ const branchAPI = {
     const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
     if (organizationId) params.append('organization_id', organizationId);
     
-    const response = await fetch(`${API_BASE_URL}/branch/branches`);
+    const response = await fetch(`${API_BASE_URL}/api/branches?${params}`, {
+      headers: getAuthHeaders()
+    });
     if (!response.ok) throw new Error('Failed to fetch branches');
     return response.json();
   },
 
   async getBranchById(branchId) {
-    const response = await fetch(`${API_BASE_URL}/branch/${branchId}`);
+    const response = await fetch(`${API_BASE_URL}/api/branches/${branchId}`, {
+      headers: getAuthHeaders()
+    });
     if (!response.ok) throw new Error('Failed to fetch branch');
     return response.json();
   },
 
   async createBranch(branchData) {
-    const response = await fetch(`${API_BASE_URL}/branch/branches`, {
+    const response = await fetch(`${API_BASE_URL}/api/branches`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(branchData)
     });
     if (!response.ok) throw new Error('Failed to create branch');
@@ -33,9 +52,9 @@ const branchAPI = {
   },
 
   async updateBranch(branchId, branchData) {
-    const response = await fetch(`${API_BASE_URL}/branch/${branchId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/branches/${branchId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(branchData)
     });
     if (!response.ok) throw new Error('Failed to update branch');
@@ -43,23 +62,26 @@ const branchAPI = {
   },
 
   async deleteBranch(branchId) {
-    const response = await fetch(`${API_BASE_URL}/branch/branches/${branchId}`, {
-      method: 'DELETE'
+    const response = await fetch(`${API_BASE_URL}/api/branches/${branchId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
     });
     if (!response.ok) throw new Error('Failed to delete branch');
   },
 
   async getBranchAddresses(branchId, skip = 0, limit = 100) {
     const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
-    const response = await fetch(`${API_BASE_URL}/branch/${branchId}/addresses/?${params}`);
+    const response = await fetch(`${API_BASE_URL}/api/branches/${branchId}/addresses?${params}`, {
+      headers: getAuthHeaders()
+    });
     if (!response.ok) throw new Error('Failed to fetch addresses');
     return response.json();
   },
 
   async createAddress(addressData) {
-    const response = await fetch(`${API_BASE_URL}/addresses/`, {
+    const response = await fetch(`${API_BASE_URL}/api/addresses`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(addressData)
     });
     if (!response.ok) throw new Error('Failed to create address');
@@ -67,8 +89,9 @@ const branchAPI = {
   },
 
   async deleteAddress(addressId) {
-    const response = await fetch(`${API_BASE_URL}/addresses/${addressId}`, {
-      method: 'DELETE'
+    const response = await fetch(`${API_BASE_URL}/api/addresses/${addressId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
     });
     if (!response.ok) throw new Error('Failed to delete address');
   }
@@ -78,7 +101,9 @@ const branchAPI = {
 const organizationAPI = {
   async getAllOrganizations(skip = 0, limit = 1000) {
     const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
-    const response = await fetch(`${API_BASE_URL}/organization/organizations/?${params}`);
+    const response = await fetch(`${API_BASE_URL}/api/organizations?${params}`, {
+      headers: getAuthHeaders()
+    });
     if (!response.ok) throw new Error('Failed to fetch organizations');
     return response.json();
   }

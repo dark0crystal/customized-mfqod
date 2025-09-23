@@ -26,7 +26,7 @@ const ItemTypesManager = () => {
   });
 
   // API base URL - adjust this to your backend URL
-  const API_BASE = 'http://localhost:8000/api/item-types';
+  const API_BASE = `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/item-types`;
 
   // ✅ Get token from cookies - Updated to match your PermissionsContext
   const getTokenFromCookies = (): string | null => {

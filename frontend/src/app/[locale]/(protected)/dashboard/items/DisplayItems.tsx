@@ -6,13 +6,21 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { MdArrowOutward } from 'react-icons/md';
 
+interface LocationData {
+  organization_name?: string;
+  branch_name?: string;
+  full_location?: string;
+}
+
 type Post = {
   approval: any;
   id: string;
   temporaryDeletion: boolean;
   title: string;
   content: string;
+  description?: string;
   type: string;
+  location?: LocationData;
   uploadedPostPhotos: { postUrl: string }[]; // Updated to include postUrl structure
 };
 
@@ -128,13 +136,27 @@ export default function DisplayPosts() {
               {/* Content Section */}
               <div className="p-4">
                 <h2 className="text-lg font-bold text-gray-800">{post.title}</h2>
-                <p className="text-gray-700 text-sm mb-2">{post.content}</p>
+                <p className="text-gray-600 text-sm mt-2 line-clamp-2 overflow-hidden text-ellipsis">
+                  {post.description || post.content}
+                </p>
+                <p className="text-gray-500 text-xs mt-2">
+                  {post.location?.full_location || "Location not specified"}
+                </p>
                 <span className="text-xs text-gray-500">{post.type}</span>
               </div>
 
               {/* Action Buttons */}
               {(role === 'TECHADMIN' || role === 'ADMIN') && (
                 <div className="absolute top-2 right-2 space-x-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/dashboard/items/${post.id}`);
+                    }}
+                    className="text-sm text-white bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded shadow"
+                  >
+                    Edit
+                  </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -156,15 +178,26 @@ export default function DisplayPosts() {
                 </div>
               )}
               {role === 'VERIFIED' && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleHide(post.id);
-                  }}
-                  className="absolute top-2 right-2 text-sm text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded shadow"
-                >
-                  Hide
-                </button>
+                <div className="absolute top-2 right-2 space-x-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/dashboard/items/${post.id}`);
+                    }}
+                    className="text-sm text-white bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded shadow"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleHide(post.id);
+                    }}
+                    className="text-sm text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded shadow"
+                  >
+                    Hide
+                  </button>
+                </div>
               )}
             </div>
           ))}
