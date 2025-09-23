@@ -16,10 +16,13 @@ const PermissionsManager = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const API_BASE = 'http://localhost:8000';
+  const API_BASE = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
   const getAuthHeaders = () => {
     const token = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('access_token='))
+      ?.split('=')[1] || document.cookie
       .split('; ')
       .find(row => row.startsWith('token='))
       ?.split('=')[1];
@@ -30,21 +33,42 @@ const PermissionsManager = () => {
   };
 
   const fetchPermissions = async () => {
-    const res = await fetch(`${API_BASE}/permissions/all`, { headers: getAuthHeaders() });
-    const data = await res.json();
-    setPermissions(data);
+    try {
+      const res = await fetch(`${API_BASE}/api/permissions/all`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setPermissions(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to fetch permissions:', error);
+      setError('Failed to load permissions');
+      setPermissions([]);
+    }
   };
 
   const fetchRoles = async () => {
-    const res = await fetch(`${API_BASE}/roles/all`, { headers: getAuthHeaders() });
-    const data = await res.json();
-    setRoles(data);
+    try {
+      const res = await fetch(`${API_BASE}/api/roles/all`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setRoles(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to fetch roles:', error);
+      setError('Failed to load roles');
+      setRoles([]);
+    }
   };
 
   const fetchAssignedPermissions = async (roleId) => {
-    const res = await fetch(`${API_BASE}/permissions/role/${roleId}`, { headers: getAuthHeaders() });
-    const data = await res.json();
-    setAssignedPermissions(data.map(p => p.id));
+    try {
+      const res = await fetch(`${API_BASE}/api/permissions/role/${roleId}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setAssignedPermissions(Array.isArray(data) ? data.map(p => p.id) : []);
+    } catch (error) {
+      console.error('Failed to fetch assigned permissions:', error);
+      setError('Failed to load role permissions');
+      setAssignedPermissions([]);
+    }
   };
 
   const handlePermissionToggle = (permissionId) => {
@@ -57,7 +81,7 @@ const PermissionsManager = () => {
 
   const handleAssign = async () => {
     try {
-      const res = await fetch(`${API_BASE}/permissions/assign-multiple-to-role`, {
+      const res = await fetch(`${API_BASE}/api/permissions/assign-multiple-to-role`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -65,23 +89,29 @@ const PermissionsManager = () => {
           permission_ids: assignedPermissions
         })
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setSuccess('Permissions assigned successfully');
-    } catch {
+    } catch (error) {
+      console.error('Failed to assign permissions:', error);
       setError('Failed to assign permissions');
     }
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this permission?')) return;
-    const res = await fetch(`${API_BASE}/permissions/${id}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
-    });
-    if (res.ok) {
-      setPermissions(permissions.filter(p => p.id !== id));
-      setSuccess('Permission deleted');
-    } else {
+    try {
+      const res = await fetch(`${API_BASE}/api/permissions/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        setPermissions(permissions.filter(p => p.id !== id));
+        setSuccess('Permission deleted');
+      } else {
+        setError('Failed to delete permission');
+      }
+    } catch (error) {
+      console.error('Failed to delete permission:', error);
       setError('Failed to delete permission');
     }
   };
@@ -92,33 +122,43 @@ const PermissionsManager = () => {
   };
 
   const handleUpdate = async () => {
-    const res = await fetch(`${API_BASE}/permissions/${editingPermissionId}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(editForm)
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setPermissions(permissions.map(p => p.id === updated.id ? updated : p));
-      setEditingPermissionId(null);
-      setSuccess('Permission updated');
-    } else {
+    try {
+      const res = await fetch(`${API_BASE}/api/permissions/${editingPermissionId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(editForm)
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setPermissions(permissions.map(p => p.id === updated.id ? updated : p));
+        setEditingPermissionId(null);
+        setSuccess('Permission updated');
+      } else {
+        setError('Failed to update permission');
+      }
+    } catch (error) {
+      console.error('Failed to update permission:', error);
       setError('Failed to update permission');
     }
   };
 
   const handleCreate = async () => {
-    const res = await fetch(`${API_BASE}/permissions/add-new-permission`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(newPermission)
-    });
-    if (res.ok) {
-      const created = await res.json();
-      setPermissions([...permissions, created]);
-      setNewPermission({ name: '', description: '' });
-      setSuccess('Permission created');
-    } else {
+    try {
+      const res = await fetch(`${API_BASE}/api/permissions/add-new-permission`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(newPermission)
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setPermissions([...permissions, created]);
+        setNewPermission({ name: '', description: '' });
+        setSuccess('Permission created');
+      } else {
+        setError('Failed to create permission');
+      }
+    } catch (error) {
+      console.error('Failed to create permission:', error);
       setError('Failed to create permission');
     }
   };

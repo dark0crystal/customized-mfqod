@@ -37,13 +37,13 @@ export default function EditUserRole({ userId }: { userId: string }) {
         setIsLoading(true);
         
         // Fetch available roles from your FastAPI backend
-        const rolesResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/roles/all`);
+        const rolesResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/roles/all`);
         if (!rolesResponse.ok) throw new Error("Failed to fetch roles");
         const rolesData: Role[] = await rolesResponse.json();
         setRoles(rolesData);
 
         // Fetch current user data to get current role
-        const userResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/users/users/${userId}`);
+        const userResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}`);
         if (!userResponse.ok) throw new Error("Failed to fetch user data");
         const userData: UserData = await userResponse.json();
         
@@ -76,7 +76,7 @@ export default function EditUserRole({ userId }: { userId: string }) {
 
     try {
       // Use the FastAPI endpoint for updating user role
-      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/users/users/${userId}/role`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}/role`, {
         method: "PUT",
         body: JSON.stringify({ role_name: selectedRole }),
         headers: { "Content-Type": "application/json" },

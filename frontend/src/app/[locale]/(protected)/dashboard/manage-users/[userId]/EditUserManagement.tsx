@@ -37,7 +37,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
   useEffect(() => {
     async function fetchOrganizations() {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/organization/organizations/`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/organizations/`);
         if (!response.ok) throw new Error("Failed to fetch organizations");
         const data = await response.json();
         setOrganizations(data);
@@ -59,7 +59,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
   useEffect(() => {
     async function fetchUserManagedBranches() {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/branch/users/${userId}/managed-branches/`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/users/${userId}/managed-branches/`);
         if (!response.ok) throw new Error("Failed to fetch user managed branches");
         const data = await response.json();
         setUserManagedBranches(data);
@@ -79,7 +79,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       }
 
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/branch/branches/?organization_id=${selectedOrganization}`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/?organization_id=${selectedOrganization}`);
         if (!response.ok) throw new Error("Failed to fetch branches");
         const data = await response.json();
         setBranches(data);
@@ -104,7 +104,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
 
     try {
       // Assign user as branch manager
-      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/branch/branches/${data.branch}/managers/${userId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/${data.branch}/managers/${userId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
@@ -117,7 +117,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       setSuccessMessage("User successfully assigned as branch manager!");
       
       // Refresh user managed branches
-      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/users/${userId}/managed-branches/`);
+      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}/managed-branches/`);
       if (refreshResponse.ok) {
         const refreshedData = await refreshResponse.json();
         setUserManagedBranches(refreshedData);
@@ -142,7 +142,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/branch/branches/${branchId}/managers/${userId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/${branchId}/managers/${userId}`, {
         method: "DELETE",
       });
 
@@ -154,7 +154,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       setSuccessMessage("User successfully removed as branch manager!");
       
       // Refresh user managed branches
-      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/branch/users/${userId}/managed-branches/`);
+      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/users/${userId}/managed-branches/`);
       if (refreshResponse.ok) {
         const refreshedData = await refreshResponse.json();
         setUserManagedBranches(refreshedData);
