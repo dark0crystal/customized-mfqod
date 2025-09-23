@@ -101,7 +101,7 @@ export default function SideNavbar() {
       id: 'analytics',
       label: 'Analytics',
       icon: <BarChart3 size={20} />,
-      href: '/analytics',
+      href: '/dashboard/analytics',
       requiredPermissions: ['view_analytics']
     },
     

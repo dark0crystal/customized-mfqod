@@ -13,7 +13,7 @@ export type Permission =
   | 'can_edit_item_types'
   | 'view_analytics';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
 // Define user roles
 export type UserRole = 'admin' | 'moderator' | 'user' | 'guest';
@@ -103,10 +103,16 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
   // Function to fetch permissions from API
   const fetchPermissions = async (roleId: string, token: string): Promise<Permission[]> => {
     try {
+      // Validate roleId before making the request
+      if (!roleId || roleId === 'undefined' || roleId === 'null') {
+        console.warn('Invalid or missing roleId, skipping permissions fetch');
+        return [];
+      }
+
       console.log(`Attempting to fetch permissions for role: ${roleId}`);
-      console.log(`API URL: ${API_BASE}/permissions/role/${roleId}`);
+      console.log(`API URL: ${API_BASE}/api/permissions/role/${roleId}`);
       
-      const response = await fetch(`${API_BASE}/permissions/role/${roleId}`, {
+      const response = await fetch(`${API_BASE}/api/permissions/role/${roleId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -192,6 +198,16 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
 
       // Set authenticated state
       setIsAuthenticated(true);
+      
+      // Validate role_id exists in payload
+      if (!payload.role_id) {
+        console.warn('No role_id found in JWT payload, setting as guest');
+        setUserRole('guest');
+        setRoleId(null);
+        setPermissions([]);
+        return;
+      }
+      
       setRoleId(payload.role_id);
 
       // Fetch permissions from API

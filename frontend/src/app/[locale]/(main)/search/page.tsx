@@ -26,7 +26,7 @@ export default function Search() {
   const [error, setError] = useState<string | null>(null);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
 
-  const API_BASE = "http://localhost:8000/api/item-types/";
+  const API_BASE = `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/item-types/`;
   const t = useTranslations("search");
 
   const getTokenFromCookies = (): string | null => {
@@ -66,7 +66,7 @@ export default function Search() {
         try {
           // You may need to adjust the endpoint according to your backend
           const res = await fetch(
-            `${process.env.NEXT_PUBLIC_HOST_NAME}/api/images/items/${item.id}/images/`,
+            `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/images/items/${item.id}/images`,
             {
               headers: getAuthHeaders(),
             }
@@ -90,7 +90,7 @@ export default function Search() {
     setLoading(true);
     setError(null);
     try {
-      let url = `${process.env.NEXT_PUBLIC_HOST_NAME}/api/items/`;
+      let url = `${process.env.NEXT_PUBLIC_HOST_NAME}/api/items/public`;
       const params = new URLSearchParams();
       if (itemTypeId) params.append("item_type_id", itemTypeId);
       params.append("skip", "0");
@@ -103,7 +103,9 @@ export default function Search() {
 
       const response = await fetch(url, {
         method: "GET",
-        headers: getAuthHeaders()
+        headers: {
+          "Content-Type": "application/json",
+        }
       });
 
       if (!response.ok) {
