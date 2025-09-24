@@ -85,36 +85,7 @@ const getAuthHeadersForFormData = (): HeadersInit => {
   return headers;
 };
 
-// Helper function to upload images using new service
-const uploadImages = async (itemId: string, files: File[]): Promise<string[]> => {
-  const uploadedImagePaths: string[] = [];
-  const errors: UploadError[] = [];
-  
-  for (const file of files) {
-    try {
-      const result = await imageUploadService.uploadImageToItem(
-        itemId, 
-        file,
-        (progress) => {
-          setUploadProgress(progress);
-        }
-      );
-      
-      if (result.success) {
-        uploadedImagePaths.push(result.data.url);
-      }
-    } catch (error) {
-      console.error('Error uploading image:', file.name, error);
-      errors.push(error as UploadError);
-    }
-  }
-  
-  if (errors.length > 0) {
-    setUploadErrors(errors);
-  }
-  
-  return uploadedImagePaths;
-};
+// This function will be moved inside the component
 
 export default function ReportFoundItem() {
   // API configuration
@@ -161,6 +132,37 @@ export default function ReportFoundItem() {
 
   // Watch for organization changes
   const watchedOrganization = watch("orgnization");
+
+  // Helper function to upload images using new service
+  const uploadImages = async (itemId: string, files: File[]): Promise<string[]> => {
+    const uploadedImagePaths: string[] = [];
+    const errors: UploadError[] = [];
+    
+    for (const file of files) {
+      try {
+        const result = await imageUploadService.uploadImageToItem(
+          itemId, 
+          file,
+          (progress) => {
+            setUploadProgress(progress);
+          }
+        );
+        
+        if (result.success) {
+          uploadedImagePaths.push(result.data.url);
+        }
+      } catch (error) {
+        console.error('Error uploading image:', file.name, error);
+        errors.push(error as UploadError);
+      }
+    }
+    
+    if (errors.length > 0) {
+      setUploadErrors(errors);
+    }
+    
+    return uploadedImagePaths;
+  };
 
   // Check if user is authenticated
   useEffect(() => {

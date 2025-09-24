@@ -38,19 +38,25 @@ class ImageUploadService {
   }
 
   /**
-   * Get authentication headers from cookies
+   * Get authentication headers from tokenManager
    */
   private getAuthHeaders(): HeadersInit {
-    if (typeof document === 'undefined') return {};
+    if (typeof window === 'undefined') return {};
     
-    const cookies = document.cookie.split(';');
+    // Try to import tokenManager dynamically
     let token: string | null = null;
-    
-    for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split('=');
-      if (name === 'token' || name === 'access_token' || name === 'auth_token') {
-        token = decodeURIComponent(value);
-        break;
+    try {
+      const { tokenManager } = require('@/utils/tokenManager');
+      token = tokenManager.getAccessToken();
+    } catch (error) {
+      // Fallback to cookie parsing if tokenManager is not available
+      const cookies = document.cookie.split(';');
+      for (const cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'token' || name === 'access_token' || name === 'auth_token') {
+          token = decodeURIComponent(value);
+          break;
+        }
       }
     }
 
@@ -318,6 +324,115 @@ class ImageUploadService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Generic upload image method for any entity type
+   */
+  async uploadImage(
+    file: File,
+    entityType: string,
+    entityId: string,
+    onProgress?: (progress: UploadProgress) => void,
+    maxRetries: number = 2
+  ): Promise<UploadResponse> {
+    return this.retryUpload(
+      () => this.performGenericUpload(file, entityType, entityId, onProgress),
+      maxRetries
+    );
+  }
+
+  /**
+   * Perform a generic upload to any entity type
+   */
+  private performGenericUpload(
+    file: File,
+    entityType: string,
+    entityId: string,
+    onProgress?: (progress: UploadProgress) => void
+  ): Promise<UploadResponse> {
+    return new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const xhr = new XMLHttpRequest();
+
+      // Set up progress tracking
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const progress: UploadProgress = {
+              loaded: event.loaded,
+              total: event.total,
+              percentage: Math.round((event.loaded / event.total) * 100)
+            };
+            onProgress(progress);
+          }
+        });
+      }
+
+      // Set up response handling
+      xhr.addEventListener('load', () => {
+        try {
+          const response = JSON.parse(xhr.responseText);
+          
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(response);
+          } else {
+            reject(this.parseError(response));
+          }
+        } catch (error) {
+          reject({
+            error: 'PARSE_ERROR',
+            message: 'Failed to parse server response',
+            details: { status: xhr.status, responseText: xhr.responseText }
+          });
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        reject({
+          error: 'NETWORK_ERROR',
+          message: 'Network error occurred during upload',
+          details: { status: xhr.status }
+        });
+      });
+
+      xhr.addEventListener('timeout', () => {
+        reject({
+          error: 'TIMEOUT_ERROR',
+          message: 'Upload timed out',
+          details: { timeout: xhr.timeout }
+        });
+      });
+
+      // Configure request based on entity type
+      let url: string;
+      if (entityType === 'item') {
+        url = `${this.baseUrl}/api/images/items/${entityId}/upload-image/`;
+      } else if (entityType === 'claim') {
+        url = `${this.baseUrl}/api/claims/${entityId}/upload-image/`;
+      } else {
+        reject({
+          error: 'INVALID_ENTITY_TYPE',
+          message: `Unsupported entity type: ${entityType}`,
+          details: { entityType, entityId }
+        });
+        return;
+      }
+
+      xhr.open('POST', url);
+      xhr.timeout = 60000; // 60 seconds timeout
+      
+      // Set auth headers
+      const authHeaders = this.getAuthHeaders();
+      Object.entries(authHeaders).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
+
+      // Send request
+      xhr.send(formData);
+    });
   }
 
   /**
