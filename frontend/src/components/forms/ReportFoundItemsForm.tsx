@@ -8,6 +8,7 @@ import ReactConfetti from "react-confetti";
 import CompressorFileInput from "./CompressorFileInput";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
 
 // Zod schema for form validation
 const itemFormSchema = z.object({
@@ -84,37 +85,32 @@ const getAuthHeadersForFormData = (): HeadersInit => {
   return headers;
 };
 
-// Helper function to upload images
-const uploadImages = async (itemId: string, files: File[], apiBaseUrl: string): Promise<string[]> => {
+// Helper function to upload images using new service
+const uploadImages = async (itemId: string, files: File[]): Promise<string[]> => {
   const uploadedImagePaths: string[] = [];
+  const errors: UploadError[] = [];
   
   for (const file of files) {
-    const formData = new FormData();
-    formData.append('file', file);
-    
     try {
-      const response = await fetch(`${apiBaseUrl}/api/images/items/${itemId}/upload-image`, {
-        method: 'POST',
-        headers: getAuthHeadersForFormData(),
-        body: formData,
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        uploadedImagePaths.push(result.image_path || result.file_path);
-      } else {
-        console.error('Failed to upload image:', file.name);
-        // Get error details if available
-        try {
-          const errorData = await response.json();
-          console.error('Upload error details:', errorData);
-        } catch (e) {
-          console.error('Could not parse error response');
+      const result = await imageUploadService.uploadImageToItem(
+        itemId, 
+        file,
+        (progress) => {
+          setUploadProgress(progress);
         }
+      );
+      
+      if (result.success) {
+        uploadedImagePaths.push(result.data.url);
       }
     } catch (error) {
       console.error('Error uploading image:', file.name, error);
+      errors.push(error as UploadError);
     }
+  }
+  
+  if (errors.length > 0) {
+    setUploadErrors(errors);
   }
   
   return uploadedImagePaths;
@@ -136,6 +132,8 @@ export default function ReportFoundItem() {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [orgSelectDisabled, setOrgSelectDisabled] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
 
   const t = useTranslations("storage");
   const c = useTranslations("report-found");
@@ -337,8 +335,11 @@ export default function ReportFoundItem() {
       let uploadedImagePaths: string[] = [];
       if (compressedFiles.length > 0) {
         console.log("Uploading images...");
-        uploadedImagePaths = await uploadImages(itemId, compressedFiles, API_BASE_URL);
+        uploadedImagePaths = await uploadImages(itemId, compressedFiles);
         console.log("Images uploaded:", uploadedImagePaths);
+        
+        // Clear upload progress after completion
+        setUploadProgress(null);
       }
 
       // STEP 3: Create the address
@@ -370,6 +371,8 @@ export default function ReportFoundItem() {
       reset();
       setCompressedFiles([]);
       setBranches([]);
+      setUploadProgress(null);
+      setUploadErrors([]);
       hasSetDefaultOrg.current = false; // Reset so default org is set again after reset
 
       // Redirect after success
@@ -500,7 +503,47 @@ export default function ReportFoundItem() {
           <label className="block text-lg font-semibold text-gray-700 mb-2">
             Upload Images (Optional)
           </label>
-          <CompressorFileInput onFilesSelected={setCompressedFiles} />
+          <CompressorFileInput 
+            onFilesSelected={setCompressedFiles} 
+            showValidation={true} 
+            maxFiles={5}
+            showOptimizationSettings={false}
+            compressionQuality={0.7}
+            maxWidth={1200}
+            maxHeight={1200}
+          />
+          
+          {/* Upload Progress */}
+          {uploadProgress && (
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-blue-900">Uploading images...</span>
+                <span className="text-sm text-blue-700">{uploadProgress.percentage}%</span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                  style={{ width: `${uploadProgress.percentage}%` }}
+                ></div>
+              </div>
+              <div className="text-xs text-blue-600 mt-1">
+                {Math.round(uploadProgress.loaded / 1024)} KB / {Math.round(uploadProgress.total / 1024)} KB
+              </div>
+            </div>
+          )}
+
+          {/* Upload Errors */}
+          {uploadErrors.length > 0 && (
+            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="text-sm text-red-800 font-medium mb-2">Some images failed to upload:</div>
+              {uploadErrors.map((error, index) => (
+                <div key={index} className="text-sm text-red-600 mb-1">
+                  <span className="font-medium">{error.error}:</span> {error.message}
+                </div>
+              ))}
+            </div>
+          )}
+
           {compressedFiles.length > 0 && (
             <p className="mt-2 text-sm text-gray-600">
               {compressedFiles.length} file(s) selected
