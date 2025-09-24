@@ -4,15 +4,15 @@ from sqlalchemy.orm import Session
 from typing import Dict, Any, Optional, List
 import logging
 
-from db.database import get_db
-from services.auth_service import AuthService
-from services.enhanced_ad_service import EnhancedADService
-from middleware.auth_middleware import (
+from app.db.database import get_session
+from app.services.auth_service import AuthService
+from app.services.enhanced_ad_service import EnhancedADService
+from app.middleware.auth_middleware import (
     auth_middleware, 
     get_current_user_required, 
     get_current_user_optional
 )
-from schemas.auth_schemas import (
+from app.schemas.auth_schemas import (
     LoginRequest, 
     LoginResponse, 
     RegisterRequest, 
@@ -22,7 +22,7 @@ from schemas.auth_schemas import (
     ResetPasswordRequest,
     UserProfileUpdateRequest
 )
-from models import User, LoginAttempt, UserSession, ADSyncLog
+from app.models import User, LoginAttempt, UserSession, ADSyncLog
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ security = HTTPBearer()
 async def login(
     credentials: LoginRequest,
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Authenticate user with email/username and password.
@@ -70,7 +70,7 @@ async def login(
 @router.post("/register", response_model=UserResponse, summary="Register External User")
 async def register(
     user_data: RegisterRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Register a new external user account.
@@ -101,7 +101,7 @@ async def register(
 @router.post("/refresh", response_model=Dict[str, Any], summary="Refresh Access Token")
 async def refresh_token(
     refresh_request: RefreshTokenRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Refresh access token using refresh token.
@@ -127,7 +127,7 @@ async def refresh_token(
 async def logout(
     refresh_request: RefreshTokenRequest,
     current_user: User = Depends(get_current_user_required),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Logout user by invalidating refresh token session.
@@ -149,7 +149,7 @@ async def logout(
 @router.get("/me", response_model=UserResponse, summary="Get Current User")
 async def get_current_user_info(
     current_user: User = Depends(get_current_user_required),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Get current authenticated user information.
@@ -167,7 +167,7 @@ async def get_current_user_info(
 async def update_profile(
     profile_data: UserProfileUpdateRequest,
     current_user: User = Depends(get_current_user_required),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Update current user's profile information.
@@ -224,7 +224,7 @@ async def update_profile(
 async def change_password(
     password_data: ChangePasswordRequest,
     current_user: User = Depends(get_current_user_required),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Change user password.
@@ -276,7 +276,7 @@ async def change_password(
 @router.get("/sessions", summary="Get User Sessions")
 async def get_user_sessions(
     current_user: User = Depends(get_current_user_required),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Get list of active sessions for current user.
@@ -302,7 +302,7 @@ async def get_user_sessions(
 async def revoke_session(
     session_id: str,
     current_user: User = Depends(get_current_user_required),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Revoke a specific user session.
@@ -330,7 +330,7 @@ async def get_all_users(
     limit: int = 100,
     user_type: Optional[str] = None,
     active_only: bool = True,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Get all users (admin only).
@@ -358,7 +358,7 @@ async def get_login_attempts(
     skip: int = 0,
     limit: int = 100,
     status_filter: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Get login attempts for security monitoring (admin only).
@@ -393,7 +393,7 @@ async def get_login_attempts(
 @router.post("/admin/sync-ad", dependencies=[Depends(auth_middleware.require_admin())])
 async def trigger_ad_sync(
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Trigger manual Active Directory sync (admin only).
@@ -407,7 +407,7 @@ async def trigger_ad_sync(
 async def get_ad_sync_logs(
     skip: int = 0,
     limit: int = 50,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Get Active Directory sync logs (admin only).
@@ -442,7 +442,7 @@ async def get_ad_sync_logs(
     }
 
 @router.get("/admin/health", dependencies=[Depends(auth_middleware.require_admin())])
-async def check_system_health(db: Session = Depends(get_db)):
+async def check_system_health(db: Session = Depends(get_session)):
     """
     Check system health including AD connectivity (admin only).
     """
@@ -487,7 +487,7 @@ async def check_system_health(db: Session = Depends(get_db)):
 @router.put("/admin/users/{user_id}/toggle-active", dependencies=[Depends(auth_middleware.require_admin())])
 async def toggle_user_active(
     user_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ):
     """
     Toggle user active status (admin only).

@@ -2,16 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from db.database import get_session  #database dependency
-from schemas.branch_schemas import (
+from app.db.database import get_session  #database dependency
+from app.schemas.branch_schemas import (
     BranchCreate, BranchUpdate, BranchResponse, BranchWithOrganization,
     AddressCreate, AddressUpdate, AddressResponse, AddressWithDetails,UserResponse
 )
 
-from services.branchService import BranchService, AddressService
+from app.services.branchService import BranchService, AddressService
 
 # Import permission decorators (if needed)
-from utils.permission_decorator import require_permission
+from app.utils.permission_decorator import require_permission
 
 router = APIRouter()
 
@@ -29,7 +29,7 @@ def get_address_service(db: Session = Depends(get_session)) -> AddressService:
 # Branch Routes
 # ===========================
 
-@router.post("/branches/", response_model=BranchResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=BranchResponse, status_code=status.HTTP_201_CREATED)
 # @require_permission("can_create_branches")  # Uncomment if permissions are needed
 def create_branch(
     branch: BranchCreate,
@@ -46,7 +46,7 @@ def create_branch(
         raise HTTPException(status_code=500, detail=f"Error creating branch: {str(e)}")
 
 
-@router.get("/branches/", response_model=List[BranchWithOrganization])
+@router.get("/", response_model=List[BranchWithOrganization])
 # @require_permission("can_view_branches")  # Uncomment if permissions are needed
 def get_branches(
     request: Request,
@@ -82,7 +82,7 @@ def get_branches(
         raise HTTPException(status_code=500, detail=f"Error retrieving branches: {str(e)}")
 
 
-@router.get("/branches/{branch_id}", response_model=BranchWithOrganization)
+@router.get("/{branch_id}", response_model=BranchWithOrganization)
 # @require_permission("can_view_branches")  # Uncomment if permissions are needed
 def get_branch(
     branch_id: str,
@@ -118,7 +118,7 @@ def get_branch(
         raise HTTPException(status_code=500, detail=f"Error retrieving branch: {str(e)}")
 
 
-@router.put("/branches/{branch_id}", response_model=BranchResponse)
+@router.put("/{branch_id}", response_model=BranchResponse)
 # @require_permission("can_edit_branches")  # Uncomment if permissions are needed
 def update_branch(
     branch_id: str,
@@ -136,7 +136,7 @@ def update_branch(
         raise HTTPException(status_code=500, detail=f"Error updating branch: {str(e)}")
 
 
-@router.delete("/branches/{branch_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{branch_id}", status_code=status.HTTP_204_NO_CONTENT)
 # @require_permission("can_delete_branches")  # Uncomment if permissions are needed
 def delete_branch(
     branch_id: str,
@@ -300,7 +300,7 @@ def delete_address(
 # Additional utility routes
 # ===========================
 
-@router.get("/branches/{branch_id}/addresses/", response_model=List[AddressWithDetails])
+@router.get("/{branch_id}/addresses/", response_model=List[AddressWithDetails])
 # @require_permission("can_view_addresses")  # Uncomment if permissions are needed
 def get_branch_addresses(
     branch_id: str,
@@ -396,7 +396,7 @@ def get_user_managed_branches(
         raise HTTPException(status_code=500, detail=f"Error retrieving user managed branches: {str(e)}")
 
 
-@router.post("/branches/{branch_id}/managers/{user_id}", status_code=status.HTTP_201_CREATED)
+@router.post("/{branch_id}/managers/{user_id}", status_code=status.HTTP_201_CREATED)
 # @require_permission("can_assign_branch_managers")  # Uncomment if permissions are needed
 def assign_branch_manager(
     branch_id: str,
@@ -415,7 +415,7 @@ def assign_branch_manager(
         raise HTTPException(status_code=500, detail=f"Error assigning branch manager: {str(e)}")
 
 
-@router.delete("/branches/{branch_id}/managers/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{branch_id}/managers/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 # @require_permission("can_remove_branch_managers")  # Uncomment if permissions are needed
 def remove_branch_manager(
     branch_id: str,
@@ -434,7 +434,7 @@ def remove_branch_manager(
         raise HTTPException(status_code=500, detail=f"Error removing branch manager: {str(e)}")
 
 
-@router.get("/branches/{branch_id}/managers/", response_model=List[UserResponse])
+@router.get("/{branch_id}/managers/", response_model=List[UserResponse])
 # @require_permission("can_view_branch_managers")  # Uncomment if permissions are needed
 def get_branch_managers(
     branch_id: str,
