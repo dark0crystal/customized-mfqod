@@ -1,26 +1,42 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, use } from "react";
 import Claims from "./Claims";
+import EditPost from "./EditPost";
 import Image from "next/image";
-import img4 from "../../../../../../../public/img4.jpeg";
 
-export default function PostDetails({ params }: { params: { postId: string } }) {
+const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
+
+export default function PostDetails({ params }: { params: Promise<{ itemId: string }> }) {
+  const resolvedParams = use(params);
   const [post, setPost] = useState<any>(null);
+  const [images, setImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [showClaims, setShowClaims] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPost, setShowPost] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch(`/api/get-items/${params.postId}`);
+        // Fetch item details
+        const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`);
         if (!response.ok) {
           throw new Error("Failed to fetch post details");
         }
         const data = await response.json();
         setPost(data);
+
+        // Fetch item images
+        try {
+          const imagesResponse = await fetch(`${API_BASE_URL}/api/images/items/${resolvedParams.itemId}/images/`);
+          if (imagesResponse.ok) {
+            const imagesData = await imagesResponse.json();
+            setImages(imagesData || []);
+          }
+        } catch (imgErr) {
+          console.warn("Failed to fetch images:", imgErr);
+          setImages([]);
+        }
       } catch (err) {
         console.error(err);
         setError("Error fetching post details.");
@@ -28,7 +44,7 @@ export default function PostDetails({ params }: { params: { postId: string } }) 
     };
 
     fetchData();
-  }, [params.postId]);
+  }, [resolvedParams.itemId]);
 
   const handlePostEdit = () => {
     setShowPost((prev) => !prev);
@@ -41,15 +57,11 @@ export default function PostDetails({ params }: { params: { postId: string } }) 
       setLoading(true);
       const newApprovalStatus = !post.approval;
 
-      const response = await fetch(`/api/edit-post`, {
+      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}/toggle-approval`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          postId: params.postId,
-          approval: newApprovalStatus,
-        }),
       });
 
       if (!response.ok) {
@@ -95,9 +107,15 @@ export default function PostDetails({ params }: { params: { postId: string } }) 
             <div className="w-full h-fit  grid grid-cols-1 grid-rows-2 lg:grid-cols-2 md:grid-rows-1">
               {/* image section */}
               <div className="w-full h-[350px] relative overflow-hidden rounded-2xl order-1 md:order-2 md:col-span-1">
-                {post.images.map((img:string , index:number)=>(
-                  <Image key={index} alt="Post image" src={img} fill objectFit="cover" />
-                ))}
+                {images && images.length > 0 ? (
+                  images.map((img: string, index: number) => (
+                    <Image key={index} alt="Post image" src={img} fill objectFit="cover" />
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center h-full bg-gray-200 text-gray-500">
+                    No Images Available
+                  </div>
+                )}
                 
               </div>
               {/* post content section */}
@@ -130,11 +148,8 @@ export default function PostDetails({ params }: { params: { postId: string } }) 
               </div>
             </div>
           ) : (
-            <div className="w-full h-fit bg-yellow-100 flex flex-row">
-              <div className="w-1/2 relative overflow-hidden rounded-2xl">
-                {/* Placeholder for EditPost */}
-                Comming soon
-              </div>
+            <div className="w-full h-fit">
+              <EditPost params={{ itemId: resolvedParams.itemId }} />
             </div>
           )}
         </div>
@@ -181,7 +196,7 @@ export default function PostDetails({ params }: { params: { postId: string } }) 
             Show Claims
           </button> */}
         {/* ) : ( */}
-          <Claims postId={params.postId} />
+          <Claims postId={resolvedParams.itemId} />
         {/* )} */}
       </div>
     </div>

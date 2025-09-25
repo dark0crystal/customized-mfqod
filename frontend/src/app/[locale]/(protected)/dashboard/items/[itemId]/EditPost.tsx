@@ -4,6 +4,23 @@ import { useRouter } from '@/i18n/navigation';
 import { useState, useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import Image from 'next/image';
+import { tokenManager } from '@/utils/tokenManager';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
+
+// Helper function to create authenticated headers
+const getAuthHeaders = (): HeadersInit => {
+  const token = tokenManager.getAccessToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
+};
 
 interface LocationData {
   organization_name?: string;
@@ -14,10 +31,21 @@ interface LocationData {
 interface ItemFormFields {
   title: string;
   description: string;
-  type: string;
   location: string;
-  organization_name: string;
+  organization_id: string;
+  branch_id: string;
+}
+
+interface Organization {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+interface Branch {
+  id: string;
   branch_name: string;
+  organization_id: string;
 }
 
 interface ItemData {
@@ -40,15 +68,23 @@ export default function EditPost({ params }: EditPostProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [originalLocation, setOriginalLocation] = useState<string>('');
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
+  const [loadingBranches, setLoadingBranches] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ItemFormFields>();
+
+  const watchedOrganization = watch('organization_id');
 
   const watchedLocation = watch('location');
 
   useEffect(() => {
     const fetchItem = async () => {
       try {
-        const response = await fetch(`/api/items/${params.itemId}`);
+        const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+          headers: getAuthHeaders(),
+        });
         if (response.ok) {
           const data = await response.json();
           setItem(data);
@@ -57,10 +93,19 @@ export default function EditPost({ params }: EditPostProps) {
           // Set form values
           setValue('title', data.title);
           setValue('description', data.description || data.content);
-          setValue('type', data.type);
+          // setValue('type', data.type); // Type editing removed
           setValue('location', data.location?.full_location || '');
-          setValue('organization_name', data.location?.organization_name || '');
-          setValue('branch_name', data.location?.branch_name || '');
+          
+          // Set organization and branch IDs if available from addresses
+          if (data.addresses && data.addresses.length > 0) {
+            const currentAddress = data.addresses.find((addr: any) => addr.is_current) || data.addresses[0];
+            if (currentAddress?.branch) {
+              setValue('branch_id', currentAddress.branch.id);
+              if (currentAddress.branch.organization) {
+                setValue('organization_id', currentAddress.branch.organization.id);
+              }
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching item:', error);
@@ -70,7 +115,63 @@ export default function EditPost({ params }: EditPostProps) {
     };
 
     fetchItem();
+    fetchOrganizations();
   }, [params.itemId, setValue]);
+
+  // Fetch organizations
+  const fetchOrganizations = async () => {
+    setLoadingOrgs(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/organizations`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setOrganizations(data);
+        console.log('Organizations fetched:', data.length);
+      } else {
+        console.error('Failed to fetch organizations:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching organizations:', error);
+    } finally {
+      setLoadingOrgs(false);
+    }
+  };
+
+  // Fetch branches when organization changes
+  useEffect(() => {
+    if (watchedOrganization) {
+      fetchBranches(watchedOrganization);
+    } else {
+      setBranches([]);
+      setValue('branch_id', '');
+    }
+  }, [watchedOrganization, setValue]);
+
+  const fetchBranches = async (organizationId: string) => {
+    setLoadingBranches(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/organizations/${organizationId}/branches`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setBranches(data);
+        console.log('Branches fetched:', data.length);
+        // Reset branch selection when organization changes
+        setValue('branch_id', '');
+      } else {
+        console.error('Failed to fetch branches:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
 
   const onSubmit: SubmitHandler<ItemFormFields> = async (data) => {
     setSubmitting(true);
@@ -80,16 +181,19 @@ export default function EditPost({ params }: EditPostProps) {
       const locationChanged = data.location !== originalLocation;
       
       const updateData = {
-        ...data,
+        title: data.title,
+        description: data.description,
         locationChanged,
-        originalLocation: locationChanged ? originalLocation : undefined
+        originalLocation: locationChanged ? originalLocation : undefined,
+        // Include organization and branch info
+        organization_id: data.organization_id,
+        branch_id: data.branch_id,
+        location: data.location
       };
 
-      const response = await fetch(`/api/items/${params.itemId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
         body: JSON.stringify(updateData),
       });
 
@@ -173,22 +277,7 @@ export default function EditPost({ params }: EditPostProps) {
           {errors.description && <p className="mt-2 text-sm text-red-500">{errors.description.message}</p>}
         </div>
 
-        {/* Type */}
-        <div>
-          <label htmlFor="type" className="block text-lg font-semibold text-gray-700 mb-2">
-            Type
-          </label>
-          <select
-            id="type"
-            {...register('type', { required: 'Type is required' })}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          >
-            <option value="">Select Type</option>
-            <option value="lost">Lost</option>
-            <option value="found">Found</option>
-          </select>
-          {errors.type && <p className="mt-2 text-sm text-red-500">{errors.type.message}</p>}
-        </div>
+        {/* Type field removed as requested */
 
         {/* Location Fields */}
         <div className="bg-gray-50 p-4 rounded-lg">
@@ -221,32 +310,50 @@ export default function EditPost({ params }: EditPostProps) {
             )}
           </div>
 
-          {/* Organization Name */}
+          {/* Organization */}
           <div className="mb-4">
-            <label htmlFor="organization_name" className="block text-sm font-medium text-gray-700 mb-2">
-              Organization Name
+            <label htmlFor="organization_id" className="block text-sm font-medium text-gray-700 mb-2">
+              Organization
             </label>
-            <input
-              type="text"
-              id="organization_name"
-              {...register('organization_name')}
+            <select
+              id="organization_id"
+              {...register('organization_id')}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Organization or institution name"
-            />
+            >
+              <option value="">
+                {loadingOrgs ? 'Loading organizations...' : 'Select an organization'}
+              </option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Branch Name */}
+          {/* Branch */}
           <div>
-            <label htmlFor="branch_name" className="block text-sm font-medium text-gray-700 mb-2">
-              Branch Name
+            <label htmlFor="branch_id" className="block text-sm font-medium text-gray-700 mb-2">
+              Branch
             </label>
-            <input
-              type="text"
-              id="branch_name"
-              {...register('branch_name')}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Specific branch or department"
-            />
+            <select
+              id="branch_id"
+              {...register('branch_id')}
+              disabled={!watchedOrganization || branches.length === 0}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">
+                {!watchedOrganization ? 'Select an organization first' : 
+                 loadingBranches ? 'Loading branches...' :
+                 branches.length === 0 ? 'No branches available' :
+                 'Select a branch'}
+              </option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.branch_name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

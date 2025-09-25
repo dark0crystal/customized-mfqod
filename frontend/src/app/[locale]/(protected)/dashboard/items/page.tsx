@@ -5,6 +5,7 @@ import Image from "next/image";
 import defaultImage from "../../../../../../public/img1.jpeg";
 import { MdArrowOutward } from "react-icons/md";
 import { IoMdResize } from "react-icons/io";
+import { useRouter } from '@/i18n/navigation';
 
 // Define the Item type
 type Item = {
@@ -15,10 +16,10 @@ type Item = {
   [key: string]: any;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 const IMAGE_HOST =
   process.env.NEXT_PUBLIC_IMAGE_HOST?.replace(/\/+$/, "") ||
-  "http://localhost:8000/backend";
+  `${process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000"}/backend`;
 
 // Helper to get token from cookies
 function getTokenFromCookies(): string | null {
@@ -35,18 +36,16 @@ const getImageUrl = (url?: string) => {
 };
 
 export default function ItemsPage() {
+  const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingItem, setEditingItem] = useState<Item | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editDescription, setEditDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
 
   // Fetch all items
   useEffect(() => {
     fetchItems();
-    // eslint-disable-next-line
+     
   }, []);
 
   const fetchItems = async () => {
@@ -54,7 +53,7 @@ export default function ItemsPage() {
     setError(null);
     try {
       const token = getTokenFromCookies();
-      const res = await fetch(`${API_BASE_URL}/items/`, {
+      const res = await fetch(`${API_BASE_URL}/api/items`, {
         headers: token
           ? {
               Authorization: `Bearer ${token}`,
@@ -91,7 +90,7 @@ export default function ItemsPage() {
     if (!window.confirm("Are you sure you want to delete this item?")) return;
     try {
       const token = getTokenFromCookies();
-      const res = await fetch(`${API_BASE_URL}/items/${id}/`, {
+      const res = await fetch(`${API_BASE_URL}/api/items/${id}`, {
         method: "DELETE",
         headers: token
           ? {
@@ -109,48 +108,9 @@ export default function ItemsPage() {
     }
   };
 
-  // Start editing
+  // Navigate to edit page
   const handleEdit = (item: Item) => {
-    setEditingItem(item);
-    setEditName(item.name);
-    setEditDescription(item.description || "");
-  };
-
-  // Cancel editing
-  const handleCancelEdit = () => {
-    setEditingItem(null);
-    setEditName("");
-    setEditDescription("");
-  };
-
-  // Save edit
-  const handleSaveEdit = async () => {
-    if (!editingItem) return;
-    try {
-      const token = getTokenFromCookies();
-      const res = await fetch(`${API_BASE_URL}/items/${editingItem.id}/`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          name: editName,
-          description: editDescription,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to update item");
-      const updated = await res.json();
-      setItems((prev) =>
-        Array.isArray(prev)
-          ? prev.map((item) => (item.id === updated.id ? updated : item))
-          : []
-      );
-      handleCancelEdit();
-    } catch (err: any) {
-      alert(err.message || "Error updating item");
-    }
+    router.push(`/dashboard/items/${item.id}`);
   };
 
   // Expand/Shrink image
@@ -189,62 +149,26 @@ export default function ItemsPage() {
                 >
                   {/* Content */}
                   <div className={`p-4 ${isExpanded ? "hidden" : ""}`}>
-                    {editingItem && editingItem.id === item.id ? (
-                      <div>
-                        <input
-                          className="border rounded px-2 py-1 w-full mb-2"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          placeholder="Name"
-                        />
-                        <input
-                          className="border rounded px-2 py-1 w-full"
-                          value={editDescription}
-                          onChange={(e) => setEditDescription(e.target.value)}
-                          placeholder="Description"
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <h4 className="text-lg font-semibold text-gray-800">{item.name}</h4>
-                        <p className="text-gray-500 text-sm">{item.description || "-"}</p>
-                      </>
-                    )}
+                    <h4 className="text-lg font-semibold text-gray-800">{item.name}</h4>
+                    <p className="text-gray-500 text-sm">{item.description || "-"}</p>
                   </div>
 
                   {/* Action Buttons */}
                   <div className={`flex items-center justify-between py-2 px-4 ${isExpanded ? "hidden" : ""}`}>
-                    {editingItem && editingItem.id === item.id ? (
-                      <div className="space-x-2">
-                        <button
-                          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
-                          onClick={handleSaveEdit}
-                        >
-                          Save
-                        </button>
-                        <button
-                          className="bg-gray-300 text-gray-700 px-3 py-1 rounded hover:bg-gray-400"
-                          onClick={handleCancelEdit}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-x-2">
-                        <button
-                          className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                          onClick={() => handleEdit(item)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-                          onClick={() => handleDelete(item.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
+                    <div className="space-x-2">
+                      <button
+                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                        onClick={() => handleEdit(item)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
 
                   {/* Image Section */}
@@ -264,12 +188,11 @@ export default function ItemsPage() {
                       <IoMdResize />
                     </button>
 
-                    {/* Go to details (placeholder, can be linked to details page) */}
+                    {/* Go to details */}
                     <button
                       title="Go to details"
-                      // onClick={() => router.push(`/dashboard/items/${item.id}`)}
+                      onClick={() => router.push(`/dashboard/items/${item.id}`)}
                       className="absolute bottom-2 right-2 p-3 bg-white z-20 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
-                      disabled
                     >
                       <MdArrowOutward />
                     </button>

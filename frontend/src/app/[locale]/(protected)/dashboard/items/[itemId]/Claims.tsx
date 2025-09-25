@@ -3,6 +3,8 @@ import Image from 'next/image';
 import React, { useState } from 'react';
 import img from "../../../../../../../public/img3.jpeg"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
+
 // Claims Component
 export default function Claims({ postId }: { postId: string }) {
   const [claims, setClaims] = useState<any[]>([]);
@@ -11,7 +13,7 @@ export default function Claims({ postId }: { postId: string }) {
 
   async function handleClaimApproval(claimId: string, approval: boolean) {
     try {
-      const response = await fetch('/api/post-claim-approval', {
+      const response = await fetch(`${API_BASE_URL}/api/claims/${claimId}/approve`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ claimId, approval }),
@@ -32,7 +34,7 @@ export default function Claims({ postId }: { postId: string }) {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/get-claims?postId=${postId}`);
+      const response = await fetch(`${API_BASE_URL}/api/claims/item/${postId}`);
       if (!response.ok) throw new Error('Failed to fetch claims');
       
       const data = await response.json();
