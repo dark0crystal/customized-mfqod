@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import DisplayPosts from "./DisplayPosts";
 import Footer from "@/components/Footer";
-import { useTranslations } from "next-intl";
 
 interface ItemType {
   id: string;
@@ -20,14 +19,11 @@ export default function Search() {
   const [items, setItems] = useState<any[]>([]);
   const [itemImages, setItemImages] = useState<Record<string, ItemImage[]>>({});
   const [currentItemTypeId, setCurrentItemTypeId] = useState<string>("");
-  const [currentOrgName, setCurrentOrgName] = useState<string>("");
-  const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
 
   const API_BASE = `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/item-types/`;
-  const t = useTranslations("search");
 
   const getTokenFromCookies = (): string | null => {
     if (typeof document !== "undefined") {
@@ -56,7 +52,6 @@ export default function Search() {
     };
   };
 
-  const handleShow = () => setShow(!show);
 
   // Fetch images for a list of item IDs
   const fetchImagesForItems = async (itemsList: any[]) => {
@@ -86,7 +81,7 @@ export default function Search() {
     setItemImages(newImages);
   };
 
-  const fetchItemByItemType = async (orgName?: string, itemTypeId?: string) => {
+  const fetchItemByItemType = async (itemTypeId?: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -131,14 +126,6 @@ export default function Search() {
     }
   };
 
-  const handleItemTypeFilter = (itemTypeId: string) => {
-    setCurrentItemTypeId(itemTypeId);
-    fetchItemByItemType(currentOrgName, itemTypeId);
-  };
-
-  const handleFetchItems = () => {
-    fetchItemByItemType(currentOrgName, currentItemTypeId);
-  };
 
   const fetchItemTypes = async () => {
     setLoading(true);
@@ -161,18 +148,38 @@ export default function Search() {
 
   const handleClick = (itemTypeId: string) => {
     setCurrentItemTypeId(itemTypeId);
-    fetchItemByItemType(currentOrgName, itemTypeId);
+    fetchItemByItemType(itemTypeId);
   };
 
   useEffect(() => {
     fetchItemTypes();
+    // Also fetch initial items without filter
+    fetchItemByItemType();
   }, []);
 
   return (
     <div className="relative lg:grid lg:grid-cols-10 lg:pl-0 lg:h-[88vh]">
-      {/* Left Sidebar */}
+      {/* Horizontal scrollable item types for small screens only */}
+      <div className="col-span-12 w-full p-4 border-b border-gray-200 lg:hidden">
+        <div className="flex overflow-x-auto space-x-3 pb-2 scrollbar-hide">
+          {itemTypes.map((itemType) => (
+            <button
+              key={itemType.id}
+              onClick={() => handleClick(itemType.id)}
+              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                currentItemTypeId === itemType.id
+                  ? "bg-blue-500 text-white shadow-md"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+              }`}
+            >
+              {itemType.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Left Sidebar - Desktop only */}
       <div className="hidden lg:col-span-2 lg:flex flex-col items-center overflow-y-auto p-4">
- 
         <div className="h-full w-full flex flex-col items-center z-40 p-4 overflow-y-auto shadow-lg">
           <h3 className="text-md font-semibold mb-4 text-gray-700">Item Types</h3>
           {itemTypes.map((itemType) => (
@@ -188,18 +195,7 @@ export default function Search() {
               {itemType.name}
             </button>
           ))}
-    
-      </div>
-      </div>
-
-      {/* Floating button for mobile */}
-      <div className="z-40 fixed bottom-8 right-6 lg:hidden">
-        <button
-          className="text-white border-2 bg-blue-500 py-3 px-4 rounded-md mt-2 text-lg font-semibold"
-          onClick={handleShow}
-        >
-          {t("filter")}
-        </button>
+        </div>
       </div>
 
       {/* Main content */}
@@ -210,11 +206,6 @@ export default function Search() {
           </div>
         )}
 
-        <div className="w-full mb-4 p-2 bg-gray-100 rounded text-sm">
-          <p>Current Item Type ID: {currentItemTypeId || "None"}</p>
-          <p>Current Org Name: {currentOrgName || "None"}</p>
-          <p>Items Count: {items.length}</p>
-        </div>
 
         <div className="w-full mt-6 pb-20">
           {loading ? (
