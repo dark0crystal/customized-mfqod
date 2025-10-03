@@ -5,6 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { MdArrowOutward } from 'react-icons/md';
+import { useAuth } from '@/hooks/useAuth';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
 interface LocationData {
   organization_name?: string;
@@ -12,36 +15,41 @@ interface LocationData {
   full_location?: string;
 }
 
+interface ImageData {
+  id: string;
+  url: string;
+  description?: string;
+}
+
 type Post = {
   approval: any;
   id: string;
-  temporaryDeletion: boolean;
+  temporary_deletion: boolean;
   title: string;
-  content: string;
-  description?: string;
-  type: string;
+  description: string;
+  claims_count: number;
   location?: LocationData;
-  uploadedPostPhotos: { postUrl: string }[]; // Updated to include postUrl structure
+  images: ImageData[];
 };
 
 export default function DisplayPosts() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const orgName = searchParams.get('orgName');
   const placeName = searchParams.get('placeName');
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState('');
 
   useEffect(() => {
     if (orgName) {
       const fetchPosts = async () => {
         try {
-          const response = await fetch(`/api/get-verified-posts?orgName=${orgName}&placeName=${placeName}`);
+          const response = await fetch(`${API_BASE_URL}/api/items?approved_only=true&limit=100`);
           const data = await response.json();
-          setRole(data.role);
-          setPosts(data.posts);
+          // Backend returns { items: [...], total: number } format
+          setPosts(data.items || []);
         } catch (error) {
           console.error('Error fetching posts:', error);
         } finally {
@@ -58,15 +66,15 @@ export default function DisplayPosts() {
     if (!isConfirmed) return;
   
     try {
-      await fetch(`/api/get-verified-posts?postId=${postId}`, {
-        method: 'PUT',
+      await fetch(`${API_BASE_URL}/api/items/${postId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ temporaryDeletion: true }),
+        body: JSON.stringify({ temporary_deletion: true }),
       });
   
       setPosts((prevPosts) =>
         prevPosts.map((post) =>
-          post.id === postId ? { ...post, temporaryDeletion: true } : post
+          post.id === postId ? { ...post, temporary_deletion: true } : post
         )
       );
     } catch (error) {
@@ -79,10 +87,9 @@ export default function DisplayPosts() {
     if (!isConfirmed) return;
   
     try {
-      await fetch(`/api/get-verified-posts?postId=${postId}`, {
+      await fetch(`${API_BASE_URL}/api/items/${postId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ temporaryDeletion: true }),
       });
   
       setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId));
@@ -106,17 +113,17 @@ export default function DisplayPosts() {
           {posts.map((post) => (
             <div
               key={post.id}
-              className={`relative  rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 w-[350px] min-w-[350px] ${
-                post.temporaryDeletion ? 'hidden' : 'block'}  ${post.approval ? 'bg-white':'bg-red-300'}`}
+              className={`relative rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 w-[350px] min-w-[350px] ${
+                post.temporary_deletion ? 'hidden' : 'block'} ${post.approval ? 'bg-white':'bg-red-300'}`}
             >
               {/* Image Section */}
               <div className="relative h-40">
-                {post.uploadedPostPhotos.length > 0 && post.uploadedPostPhotos[0].postUrl ? (
+                {post.images.length > 0 && post.images[0].url ? (
                   <Image
-                    src={post.uploadedPostPhotos[0].postUrl}
+                    src={`${API_BASE_URL}${post.images[0].url}`}
                     alt={post.title}
-                    layout="fill"
-                    objectFit="cover"
+                    fill
+                    style={{ objectFit: 'cover' }}
                     className="rounded-t-2xl"
                   />
                 ) : (
@@ -126,7 +133,7 @@ export default function DisplayPosts() {
                 )}
                 <button
                   title="Go to details"
-                  onClick={() => router.push(`/dashboard/posts/${post.id}`)}
+                  onClick={() => router.push(`/dashboard/items/${post.id}`)}
                   className="absolute bottom-2 right-2 p-3 bg-white text-black text-xl rounded-full hover:bg-indigo-200 transition-colors shadow-md"
                 >
                   <MdArrowOutward />
@@ -137,16 +144,21 @@ export default function DisplayPosts() {
               <div className="p-4">
                 <h2 className="text-lg font-bold text-gray-800">{post.title}</h2>
                 <p className="text-gray-600 text-sm mt-2 line-clamp-2 overflow-hidden text-ellipsis">
-                  {post.description || post.content}
+                  {post.description}
                 </p>
                 <p className="text-gray-500 text-xs mt-2">
                   {post.location?.full_location || "Location not specified"}
                 </p>
-                <span className="text-xs text-gray-500">{post.type}</span>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-xs text-gray-500">{post.claims_count} Claims</span>
+                  <span className={`text-xs px-2 py-1 rounded ${post.approval ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {post.approval ? 'Approved' : 'Pending'}
+                  </span>
+                </div>
               </div>
 
               {/* Action Buttons */}
-              {(role === 'TECHADMIN' || role === 'ADMIN') && (
+              {(user?.role === 'TECHADMIN' || user?.role === 'ADMIN') && (
                 <div className="absolute top-2 right-2 space-x-2">
                   <button
                     onClick={(e) => {
@@ -177,7 +189,7 @@ export default function DisplayPosts() {
                   </button>
                 </div>
               )}
-              {role === 'VERIFIED' && (
+              {user?.role === 'VERIFIED' && (
                 <div className="absolute top-2 right-2 space-x-2">
                   <button
                     onClick={(e) => {

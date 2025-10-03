@@ -52,7 +52,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       }
     }
     fetchOrganizations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [setValue]);
 
   // Fetch user's currently managed branches

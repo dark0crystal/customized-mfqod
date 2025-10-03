@@ -1,6 +1,7 @@
 "use client"
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, MapPin, Building, Search, Filter, X, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Trash2, Building, Search, Filter, X, ChevronDown } from 'lucide-react';
+import { useLocale } from 'next-intl';
 
 // API configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
@@ -110,7 +111,7 @@ const organizationAPI = {
 };
 
 // Branch Form Modal Component
-const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
+const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }) => {
   const [formData, setFormData] = useState({
     branch_name: '',
     branch_name_ar: '',
@@ -175,10 +176,18 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
     }
   };
 
-  const getSelectedOrganizationName = () => {
-    const selectedOrg = organizations.find(org => org.id === formData.organization_id);
-    return selectedOrg ? selectedOrg.name : 'Select an organization';
+  const getLocalizedOrganizationName = (organization) => {
+    if (!organization) return '';
+    if (locale === 'ar' && organization.name_ar) {
+      return organization.name_ar;
+    }
+    if (locale === 'en' && organization.name_en) {
+      return organization.name_en;
+    }
+    return organization.name || organization.name_en || organization.name_ar || '';
   };
+
+  // Removed unused function getSelectedOrganizationName
 
   if (!isOpen) return null;
 
@@ -255,7 +264,7 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
                   <option value="">Select an organization</option>
                   {organizations.map((org) => (
                     <option key={org.id} value={org.id}>
-                      {org.name}
+                      {getLocalizedOrganizationName(org)}
                     </option>
                   ))}
                 </select>
@@ -286,10 +295,28 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave }) => {
 };
 
 // Branch Card Component
-const BranchCard = ({ branch, onEdit, onDelete, organizations }) => {
-  const getOrganizationName = () => {
+const BranchCard = ({ branch, onEdit, onDelete, organizations, locale }) => {
+  const getLocalizedBranchName = () => {
+    if (locale === 'ar' && branch.branch_name_ar) {
+      return branch.branch_name_ar;
+    }
+    if (locale === 'en' && branch.branch_name_en) {
+      return branch.branch_name_en;
+    }
+    return branch.branch_name || branch.branch_name_en || branch.branch_name_ar;
+  };
+
+  const getLocalizedOrganizationName = () => {
     const organization = organizations.find(org => org.id === branch.organization_id);
-    return organization ? organization.name : branch.organization_id;
+    if (!organization) return branch.organization_id;
+    
+    if (locale === 'ar' && organization.name_ar) {
+      return organization.name_ar;
+    }
+    if (locale === 'en' && organization.name_en) {
+      return organization.name_en;
+    }
+    return organization.name || organization.name_en || organization.name_ar;
   };
 
   return (
@@ -298,10 +325,10 @@ const BranchCard = ({ branch, onEdit, onDelete, organizations }) => {
         <div>
           <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
             <Building size={20} />
-            {branch.branch_name}
+            {getLocalizedBranchName()}
           </h3>
           <p className="text-sm text-gray-500">
-            Organization: {getOrganizationName()}
+            Organization: {getLocalizedOrganizationName()}
           </p>
           <p className="text-xs text-gray-400 mt-1">
             Created: {new Date(branch.created_at).toLocaleDateString()}
@@ -331,6 +358,7 @@ const BranchCard = ({ branch, onEdit, onDelete, organizations }) => {
 
 // Main Branch Management Component
 export default function Branch() {
+  const locale = useLocale();
   const [branches, setBranches] = useState([]);
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -366,8 +394,12 @@ export default function Branch() {
 
   useEffect(() => {
     fetchBranches();
-    fetchOrganizations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organizationFilter]);
+
+  useEffect(() => {
+    fetchOrganizations();
+  }, []);
 
   const handleCreateBranch = () => {
     setSelectedBranch(null);
@@ -390,9 +422,33 @@ export default function Branch() {
     }
   };
 
+  const getLocalizedBranchName = (branch) => {
+    if (locale === 'ar' && branch.branch_name_ar) {
+      return branch.branch_name_ar;
+    }
+    if (locale === 'en' && branch.branch_name_en) {
+      return branch.branch_name_en;
+    }
+    return branch.branch_name || branch.branch_name_en || branch.branch_name_ar || '';
+  };
+
+  const getLocalizedOrganizationName = (organization) => {
+    if (!organization) return '';
+    if (locale === 'ar' && organization.name_ar) {
+      return organization.name_ar;
+    }
+    if (locale === 'en' && organization.name_en) {
+      return organization.name_en;
+    }
+    return organization.name || organization.name_en || organization.name_ar || '';
+  };
+
   const filteredBranches = branches.filter(branch => {
-    const organizationName = organizations.find(org => org.id === branch.organization_id)?.name || '';
-    return branch.branch_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const organization = organizations.find(org => org.id === branch.organization_id);
+    const branchName = getLocalizedBranchName(branch);
+    const organizationName = getLocalizedOrganizationName(organization);
+    
+    return branchName.toLowerCase().includes(searchTerm.toLowerCase()) ||
            organizationName.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
@@ -429,7 +485,7 @@ export default function Branch() {
                   <option value="">All Organizations</option>
                   {organizations.map((org) => (
                     <option key={org.id} value={org.id}>
-                      {org.name}
+                      {getLocalizedOrganizationName(org)}
                     </option>
                   ))}
                 </select>
@@ -467,6 +523,7 @@ export default function Branch() {
                 key={branch.id}
                 branch={branch}
                 organizations={organizations}
+                locale={locale}
                 onEdit={handleEditBranch}
                 onDelete={handleDeleteBranch}
               />
@@ -480,6 +537,7 @@ export default function Branch() {
           onClose={() => setShowBranchModal(false)}
           branch={selectedBranch}
           onSave={fetchBranches}
+          locale={locale}
         />
       </div>
     </div>
