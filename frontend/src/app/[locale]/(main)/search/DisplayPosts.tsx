@@ -2,15 +2,17 @@
 import { useRouter } from "@/i18n/navigation";
 import { MdArrowOutward } from "react-icons/md";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import defaultImage from "../../../../../public/img1.jpeg";
 import { IoMdResize } from "react-icons/io";
 import { useState, useEffect } from "react";
 import img from "../../../../../../backend/uploads/images/8e510a2a-2829-4126-b1f3-4bdc4f3646a0.png"
 
 interface LocationData {
-  organization_name?: string;
-  branch_name?: string;
+  organization_name_ar?: string;
+  organization_name_en?: string;
+  branch_name_ar?: string;
+  branch_name_en?: string;
   full_location?: string;
 }
 
@@ -35,7 +37,7 @@ interface DisplayPostsProps {
 
 export default function DisplayPosts({ items, images }: DisplayPostsProps) {
   const t = useTranslations("card");
-  const c = useTranslations("storage");
+  const locale = useLocale();
   const router = useRouter();
 
   // Track which image is expanded (by item id), or null if none
@@ -64,7 +66,7 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
   }, [expandedItemId]);
 
   const handlePostClick = (postId: string) => {
-    router.push(`/find/${postId}`);
+    router.push(`/search/${postId}`);
   };
 
   const handleImageSize = (itemId: string) => {
@@ -72,6 +74,31 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
   };
 
   // Helper to get the correct image URL for an item from local backend uploads
+  // Helper to get localized name based on current locale
+  const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
+    if (locale === 'ar' && nameAr) return nameAr;
+    if (locale === 'en' && nameEn) return nameEn;
+    return nameAr || nameEn || '';
+  };
+
+  // Helper to format location with localized organization and branch names
+  const getLocationDisplay = (location?: LocationData): string => {
+    if (!location) return t("location-not-specified");
+    
+    const orgName = getLocalizedName(
+      location.organization_name_ar,
+      location.organization_name_en
+    );
+    
+    const branchName = getLocalizedName(
+      location.branch_name_ar,
+      location.branch_name_en
+    );
+    
+    const parts = [orgName, branchName, location.full_location].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : t("location-not-specified");
+  };
+
   const getImageUrl = (itemId: string) => {
     const itemImages = images?.[itemId] && images[itemId].length > 0 ? images[itemId] : null;
     if (itemImages && itemImages[0]?.url) {
@@ -118,7 +145,7 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
                       {item.description}
                     </p>
                     <p className="text-gray-500 text-xs mt-2">
-                      {item.location?.full_location || t("location-not-specified")}
+                      {getLocationDisplay(item.location)}
                     </p>
                   </div>
 

@@ -15,11 +15,37 @@ import {
   ChevronDown,
   ChevronRight,
   LogOut,
-  User
+  User,
+  Building2,
+  Package,
+  TrendingUp,
+  UserCheck,
+  Key,
+  Tags
 } from 'lucide-react';
 import Brand from '@/components/navbar/Brand';
 import { Link } from '@/i18n/navigation';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+
+// Helper to get user from cookies
+const getUserFromCookies = () => {
+  if (typeof document !== "undefined") {
+    const cookies = document.cookie.split(";");
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split("=");
+      if (name === "user") {
+        try {
+          return JSON.parse(decodeURIComponent(value));
+        } catch {
+          console.error("Failed to parse user cookie");
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+};
 
 // Mock permissions hook - replace with your actual hook
 const usePermissions = () => {
@@ -27,6 +53,7 @@ const usePermissions = () => {
   const [userRole] = useState('admin'); // Change to test different roles
   const [permissions] = useState(['admin', 'create_post', 'edit_post', 'view_analytics', 'can_create_item_types']);
   const [isAuthenticated] = useState(true);
+  const [user] = useState(getUserFromCookies());
   
   const hasPermission = (permission: string) => permissions.includes(permission);
   const hasAnyPermission = (perms: string[]) => perms.some(p => permissions.includes(p));
@@ -36,7 +63,8 @@ const usePermissions = () => {
     permissions,
     isAuthenticated,
     hasPermission,
-    hasAnyPermission
+    hasAnyPermission,
+    user
   };
 };
 
@@ -55,40 +83,41 @@ interface NavItem {
 export default function SideNavbar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
-  const { userRole, hasPermission, hasAnyPermission, isAuthenticated } = usePermissions();
+  const { userRole, hasPermission, hasAnyPermission, isAuthenticated, user } = usePermissions();
   const pathname = usePathname();
+  const t = useTranslations('dashboard.sideNavbar');
 
   // Navigation configuration
   const navigationItems: NavItem[] = [
     {
       id: 'dashboard',
-      label: 'Dashboard',
+      label: t('dashboard'),
       icon: <Home size={20} />,
       href: '/dashboard',
     },
     {
       id: 'manage-branches',
-      label: 'Manage Branches',
-      icon: <Home size={20} />,
+      label: t('manageBranches'),
+      icon: <Building2 size={20} />,
       href: '/dashboard/branch',
     },
     {
       id: 'Items',
-      label: 'Items Management',
-      icon: <FileText size={20} />,
+      label: t('itemsManagement'),
+      icon: <Package size={20} />,
       href: '/dashboard/items',
       requiredPermissions: ['create_post', 'edit_post'],
       children: [
         {
         id: 'Items',
-        label: 'Items',
-        icon: <FileText size={20} />,
+        label: t('items'),
+        icon: <Package size={16} />,
         href: '/dashboard/items',
         requiredPermissions: ['create_post', 'edit_post']
         },
         {
           id: 'report-found-item',
-          label: 'Report Found Item',
+          label: t('reportFoundItem'),
           icon: <PlusCircle size={16} />,
           href: '/dashboard/report-found-item',
           requiredPermissions: ['create_post']
@@ -99,37 +128,37 @@ export default function SideNavbar() {
    
     {
       id: 'analytics',
-      label: 'Analytics',
-      icon: <BarChart3 size={20} />,
+      label: t('analytics'),
+      icon: <TrendingUp size={20} />,
       href: '/dashboard/analytics',
       requiredPermissions: ['view_analytics']
     },
     
     {
       id: 'admin',
-      label: 'Admin Panel',
+      label: t('adminPanel'),
       icon: <Shield size={20} />,
       href: '/admin',
       requiredRole: 'admin',
       children: [
         {
           id: 'item-types',
-          label: 'Item Types',
-          icon: <PlusCircle size={16} />,
+          label: t('itemTypes'),
+          icon: <Tags size={16} />,
           href: '/dashboard/item-types',
           requiredPermissions: ['can_create_item_types']
         },
         {
           id: 'manage-users',
-          label: 'Manage Users',
-          icon: <Settings size={16} />,
+          label: t('manageUsers'),
+          icon: <UserCheck size={16} />,
           href: '/dashboard/manage-users',
           requiredPermissions: ['admin']
         },
         {
           id: 'manage-permissions',
-          label: 'Manage Permissions',
-          icon: <Settings size={16} />,
+          label: t('managePermissions'),
+          icon: <Key size={16} />,
           href: '/dashboard/permissions',
           requiredPermissions: ['admin']
         }
@@ -137,7 +166,7 @@ export default function SideNavbar() {
     },
     {
       id: 'settings',
-      label: 'Settings',
+      label: t('settings'),
       icon: <Settings size={20} />,
       href: '/dashboard/settings'
     }
@@ -284,7 +313,9 @@ export default function SideNavbar() {
             </div>
             {!isCollapsed && (
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-800">Al-Mardas Saif</p>
+                <p className="text-sm font-medium text-gray-800">
+                  {user?.name || user?.first_name + ' ' + (user?.last_name || '') || user?.email || 'User'}
+                </p>
                 <p className="text-xs text-gray-500 capitalize">{userRole}</p>
               </div>
             )}
@@ -310,7 +341,7 @@ export default function SideNavbar() {
             className="w-full flex items-center px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
             <LogOut size={20} />
-            {!isCollapsed && <span className="ml-3 text-sm font-medium">Logout</span>}
+            {!isCollapsed && <span className="ml-3 text-sm font-medium">{t('logout')}</span>}
           </button>
         )}
       </div>
