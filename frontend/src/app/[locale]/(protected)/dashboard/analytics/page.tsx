@@ -11,25 +11,18 @@ import {
   BarChart3 
 } from 'lucide-react';
 import { 
-  LineChart, 
-  Line, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  ResponsiveContainer,
+  Tooltip
 } from 'recharts';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { analyticsApi } from '@/utils/api';
-import { getAccessToken } from '@/utils/tokenManager';
+import { tokenManager } from '@/utils/tokenManager';
+import { useTranslations } from 'next-intl';
 
 // Types for analytics data (matching backend response)
 interface AnalyticsSummary {
@@ -69,7 +62,7 @@ interface AnalyticsData {
 // Fetch analytics data from API
 const fetchAnalyticsData = async (startDate: Date, endDate: Date): Promise<AnalyticsData | null> => {
   try {
-    const accessToken = getAccessToken();
+    const accessToken = tokenManager.getAccessToken();
     if (!accessToken) {
       throw new Error('No access token available');
     }
@@ -98,6 +91,7 @@ export default function AnalyticsPage() {
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(false);
+  const t = useTranslations('dashboard.analytics');
 
   // Load analytics data
   useEffect(() => {
@@ -116,7 +110,7 @@ export default function AnalyticsPage() {
     loadAnalytics();
   }, [startDate, endDate]);
 
-  // Export to PDF
+  // Export to PDF - FIXED VERSION
   const exportToPDF = () => {
     if (!analyticsData) return;
 
@@ -144,7 +138,8 @@ export default function AnalyticsPage() {
       ['Return Rate', `${analyticsData.summary.return_rate.toFixed(1)}%`],
     ];
 
-    (doc as any).autoTable({
+    // Use autoTable with proper typing
+    autoTable(doc, {
       head: [summaryData[0]],
       body: summaryData.slice(1),
       startY: 55,
@@ -153,7 +148,7 @@ export default function AnalyticsPage() {
     });
 
     // Category breakdown
-    let currentY = (doc as any).lastAutoTable.finalY + 20;
+    let currentY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 20 : 100;
     doc.setFontSize(14);
     doc.text('Items by Category', 20, currentY);
     
@@ -162,7 +157,7 @@ export default function AnalyticsPage() {
       ...analyticsData.items_by_category.map(item => [item.category, item.count.toString()])
     ];
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [categoryData[0]],
       body: categoryData.slice(1),
       startY: currentY + 5,
@@ -171,7 +166,7 @@ export default function AnalyticsPage() {
     });
 
     // Return statistics
-    currentY = (doc as any).lastAutoTable.finalY + 20;
+    currentY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 20 : 150;
     doc.setFontSize(14);
     doc.text('Return Statistics', 20, currentY);
     
@@ -185,7 +180,7 @@ export default function AnalyticsPage() {
       ])
     ];
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [returnData[0]],
       body: returnData.slice(1),
       startY: currentY + 5,
@@ -314,44 +309,24 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Items Over Time */}
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Items Over Time</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={analyticsData.items_by_date.map(item => ({
-              ...item,
-              date: format(new Date(item.date), 'MMM dd')
-            }))}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="lost" stroke="#EF4444" strokeWidth={2} name="Lost Items" />
-              <Line type="monotone" dataKey="found" stroke="#10B981" strokeWidth={2} name="Found Items" />
-              <Line type="monotone" dataKey="returned" stroke="#8B5CF6" strokeWidth={2} name="Returned Items" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
+      {/* Charts Section - Only Items by Category remains */}
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         {/* Items by Category */}
         <div className="bg-white p-6 rounded-lg shadow border">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Items by Category</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={analyticsData.items_by_category}
+                data={analyticsData.items_by_category as any}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({category, percent}) => `${category} ${(percent * 100).toFixed(0)}%`}
+                label={(entry: any) => `${entry.category} ${(entry.percent * 100).toFixed(0)}%`}
                 outerRadius={80}
                 fill="#8884d8"
                 dataKey="count"
               >
-                {analyticsData.items_by_category.map((entry, index) => (
+                {analyticsData.items_by_category.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -361,49 +336,30 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Return Statistics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Return Rate Chart */}
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Return Statistics</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={analyticsData.return_stats}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="returned" fill="#10B981" name="Returned" />
-              <Bar dataKey="total" fill="#3B82F6" name="Total Lost" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Return Rate Summary */}
-        <div className="bg-white p-6 rounded-lg shadow border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Return Performance</h3>
-          <div className="space-y-4">
-            {analyticsData.return_stats.map((stat, index) => {
-              const rate = stat.rate;
-              return (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">{stat.period}</p>
-                    <p className="text-sm text-gray-600">{stat.returned} of {stat.total} items returned</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-gray-900">{rate.toFixed(1)}%</p>
-                    <div className="w-20 bg-gray-200 rounded-full h-2 mt-1">
-                      <div 
-                        className="bg-green-600 h-2 rounded-full transition-all duration-500" 
-                        style={{ width: `${rate}%` }}
-                      ></div>
-                    </div>
+      {/* Return Performance Summary */}
+      <div className="bg-white p-6 rounded-lg shadow border">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Return Performance</h3>
+        <div className="space-y-4">
+          {analyticsData.return_stats.map((stat, index) => {
+            const rate = stat.rate;
+            return (
+              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="font-medium text-gray-900">{stat.period}</p>
+                  <p className="text-sm text-gray-600">{stat.returned} of {stat.total} items returned</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-gray-900">{rate.toFixed(1)}%</p>
+                  <div className="w-20 bg-gray-200 rounded-full h-2 mt-1">
+                    <div 
+                      className="bg-green-600 h-2 rounded-full transition-all duration-500" 
+                      style={{ width: `${rate}%` }}
+                    ></div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

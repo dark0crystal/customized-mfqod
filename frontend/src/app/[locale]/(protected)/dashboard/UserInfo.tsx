@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from 'next-intl';
 
 interface User {
   id: string;
@@ -62,8 +63,9 @@ function getInitials(name?: string) {
 export default function UserInfo() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const t = useTranslations('dashboard.userInfo');
 
-  const API_BASE_URL = "http://localhost:8000";
+  const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
   useEffect(() => {
     const userFromCookie = getUserFromCookies();
@@ -76,7 +78,7 @@ export default function UserInfo() {
 
     const fetchUser = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/users/users/${userFromCookie.id}`);
+        const res = await fetch(`${API_BASE_URL}/api/users/${userFromCookie.id}`);
         if (!res.ok) throw new Error("Failed to fetch user data");
 
         const data = await res.json();
@@ -106,7 +108,7 @@ export default function UserInfo() {
   if (!user)
     return (
       <div className="flex justify-center items-center h-64">
-        <p className="text-gray-500">Unable to load user info.</p>
+        <p className="text-gray-500">{t('unableToLoad')}</p>
       </div>
     );
 
@@ -114,9 +116,9 @@ export default function UserInfo() {
   const initials = getInitials(user.name || user.email);
 
   // Prefer phone_number, fallback to phone (legacy)
-  const phone = user.phone_number || user.phone || "Not provided";
+  const phone = user.phone_number || user.phone || t('notProvided');
   // Prefer job_title, fallback to status or role
-  const jobTitle = user.job_title || user.status || user.role || "No job title";
+  const jobTitle = user.job_title || user.status || user.role || t('noJobTitle');
 
   return (
     <div className="max-w-md mx-auto mt-12 p-8 bg-gradient-to-br from-indigo-50 to-white shadow-xl rounded-3xl">
@@ -170,7 +172,7 @@ export default function UserInfo() {
               </svg>
             </span>
             <span className="text-gray-700">
-              <span className="font-medium">Created:</span>{" "}
+              <span className="font-medium">{t('created')}:</span>{" "}
               {user.created_at ? new Date(user.created_at).toLocaleString() : "N/A"}
             </span>
           </div>
@@ -182,7 +184,7 @@ export default function UserInfo() {
               </svg>
             </span>
             <span className="text-gray-700">
-              <span className="font-medium">Updated:</span>{" "}
+              <span className="font-medium">{t('updated')}:</span>{" "}
               {user.updated_at ? new Date(user.updated_at).toLocaleString() : "N/A"}
             </span>
           </div>
@@ -194,7 +196,7 @@ export default function UserInfo() {
               </svg>
             </span>
             <span className="text-gray-700">
-              <span className="font-medium">Status:</span>{" "}
+              <span className="font-medium">{t('status')}:</span>{" "}
               {user.status || "N/A"}
             </span>
           </div>
@@ -208,7 +210,7 @@ export default function UserInfo() {
                 </svg>
               </span>
               <span className="text-gray-700">
-                <span className="font-medium">Full Name:</span>{" "}
+                <span className="font-medium">{t('fullName')}:</span>{" "}
                 {[user.first_name, user.middle_name, user.last_name].filter(Boolean).join(" ")}
               </span>
             </div>
