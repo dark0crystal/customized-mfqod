@@ -113,13 +113,118 @@
       },
       "loading":{
         "loadingMessage":"لحظات..."
+      },
+      "claim": {
+        "title": "ادّعي هذا الغرض",
+        "description": "املأ النموذج أدناه لادّعاء هذا الغرض كونه ملكك",
+        "claimTitle": "عنوان الادّعاء",
+        "claimTitlePlaceholder": "عنوان موجز لادّعائك",
+        "proofOfOwnership": "إثبات الملكية",
+        "proofPlaceholder": "قدم معلومات مفصلة حول سبب انتماء هذا الغرض إليك. أضف تفاصيل محددة مثل تاريخ الشراء، الميزات الفريدة، مكان فقدانه، إلخ.",
+        "supportingImages": "صور داعمة (اختيارية)",
+        "supportingImagesDescription": "ارفع صور تساعد في إثبات الملكية (فواتير، صور مماثلة، إلخ)",
+        "submitClaim": "إرسال الادّعاء",
+        "submitting": "جاري الإرسال...",
+        "uploading": "جاري الرفع...",
+        "reviewNote": "سيتم مراجعة ادّعاؤك من قبل المشرفين. ستتلقى إشعاراً عبر البريد الإلكتروني حول الحالة.",
+        "loginRequired": "يرجى تسجيل الدخول لادّعاء هذا الغرض",
+        "signIn": "تسجيل الدخول",
+        "cancelClaim": "إلغاء الادّعاء",
+        "claimThisItem": "ادّعي هذا الغرض",
+        "loading": "جاري تحميل تفاصيل الغرض...",
+        "itemNotFound": "الغرض غير موجود",
+        "backToSearch": "العودة للبحث",
+        "itemDetails": "تفاصيل الغرض",
+        "type": "النوع",
+        "posted": "نُشر",
+        "postedBy": "نُشر من قبل",
+        "location": "الموقع",
+        "place": "المكان",
+        "country": "الدولة",
+        "noLocation": "لا يوجد موقع متاح",
+        "noImages": "لا توجد صور متاحة",
+        "submitClaimSuccess": "تم إرسال الادّعاء بنجاح!",
+        "submitClaimError": "فشل في إرسال الادّعاء. يرجى المحاولة مرة أخرى."
+      },
+      "dashboard": {
+        "title": "لوحة التحكم",
+        "sideNavbar": {
+            "dashboard": "لوحة التحكم",
+            "manageBranches": "إدارة الفروع",
+            "itemsManagement": "إدارة الأغراض",
+            "items": "الأغراض",
+            "reportFoundItem": "بلّغ عن غرض موجود",
+            "analytics": "التحليلات",
+            "adminPanel": "لوحة الإدارة",
+            "itemTypes": "أنواع الأغراض",
+            "manageUsers": "إدارة المستخدمين",
+            "managePermissions": "إدارة الصلاحيات",
+            "settings": "الإعدادات",
+            "logout": "تسجيل الخروج"
+        },
+        "userInfo": {
+            "loadingMessage": "جاري التحميل...",
+            "unableToLoad": "تعذر تحميل معلومات المستخدم.",
+            "notProvided": "غير مقدم",
+            "noJobTitle": "لا يوجد مسمى وظيفي",
+            "created": "أُنشئ",
+            "updated": "حُدّث",
+            "status": "الحالة",
+            "fullName": "الاسم الكامل",
+            "role": "الدور",
+            "email": "البريد الإلكتروني",
+            "phone": "الهاتف"
+        },
+        "analytics": {
+            "title": "لوحة التحليلات",
+            "subtitle": "تتبع أداء الأغراض المفقودة والموجودة",
+            "exportPDF": "تصدير PDF",
+            "from": "من",
+            "to": "إلى",
+            "noDataAvailable": "لا توجد بيانات تحليلات متاحة",
+            "summaryStatistics": "إحصائيات موجزة",
+            "totalItems": "إجمالي الأغراض",
+            "lostItems": "الأغراض المفقودة",
+            "foundItems": "الأغراض الموجودة",
+            "returnedItems": "الأغراض المُستردة",
+            "returnRate": "معدل الاسترداد",
+            "itemsByCategory": "الأغراض حسب الفئة",
+            "returnStatistics": "إحصائيات الاسترداد",
+            "period": "الفترة",
+            "returned": "مُسترد",
+            "total": "المجموع",
+            "rate": "المعدل",
+            "generatedOn": "تم إنشاؤه في",
+            "loading": "جاري تحميل التحليلات..."
+        },
+        "items": {
+            "title": "إدارة الأغراض",
+            "loading": "جاري تحميل الأغراض...",
+            "error": "خطأ في تحميل الأغراض",
+            "noItems": "لم يتم العثور على أغراض",
+            "expandImage": "توسيع الصورة",
+            "goToDetails": "اذهب إلى التفاصيل",
+            "close": "إغلاق"
+        },
+        "common": {
+            "loading": "جاري التحميل...",
+            "error": "خطأ",
+            "success": "نجح",
+            "save": "حفظ",
+            "cancel": "إلغاء",
+            "delete": "حذف",
+            "edit": "تعديل",
+            "view": "عرض",
+            "add": "إضافة",
+            "create": "إنشاء",
+            "update": "تحديث",
+            "search": "بحث",
+            "filter": "تصفية",
+            "clear": "مسح",
+            "submit": "إرسال",
+            "confirm": "تأكيد",
+            "yes": "نعم",
+            "no": "لا"
+        }
       }
-
-
-
-
-      
-      
-  
-    
   }
