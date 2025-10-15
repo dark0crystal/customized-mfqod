@@ -11,7 +11,7 @@ from typing import List, Optional
 from app.db.database import get_session
 from app.schemas.claim_schema import (
     ClaimCreate, ClaimUpdate, ClaimResponse, 
-    ClaimWithDetails, ClaimWithImages
+    ClaimWithDetails, ClaimWithImages, ClaimStatusUpdate
 )
 from app.services.claimService import ClaimService
 from app.middleware.auth_middleware import get_current_user_required
@@ -229,29 +229,19 @@ async def delete_claim(
 @require_permission("admin")
 async def approve_claim(
     claim_id: str,
+    status_update: ClaimStatusUpdate,
     request: Request,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_session),
     claim_service: ClaimService = Depends(get_claim_service)
 ):
-    """Approve a claim (admin only)"""
+    """Approve a claim with optional custom message (admin only)"""
     try:
-        approved_claim = claim_service.approve_claim(claim_id)
-        
-        # Send notification email to claimant
-        try:
-            from app.services.notification_service import send_item_approval_notification
-            if approved_claim.user:
-                background_tasks.add_task(
-                    send_item_approval_notification,
-                    user_email=approved_claim.user.email,
-                    user_name=f"{approved_claim.user.first_name} {approved_claim.user.last_name}".strip(),
-                    item_title=approved_claim.title,
-                    admin_message="Your claim has been approved! Please contact us to arrange item collection."
-                )
-        except Exception as e:
-            logger.warning(f"Failed to send approval notification email: {e}")
+        approved_claim = claim_service.approve_claim(
+            claim_id, 
+            custom_title=status_update.custom_title,
+            custom_description=status_update.custom_description
+        )
         
         return approved_claim
         
@@ -266,14 +256,19 @@ async def approve_claim(
 @require_permission("admin")
 async def reject_claim(
     claim_id: str,
+    status_update: ClaimStatusUpdate,
     request: Request,
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_session),
     claim_service: ClaimService = Depends(get_claim_service)
 ):
-    """Reject a claim (admin only)"""
+    """Reject a claim with optional custom message (admin only)"""
     try:
-        rejected_claim = claim_service.reject_claim(claim_id)
+        rejected_claim = claim_service.reject_claim(
+            claim_id,
+            custom_title=status_update.custom_title,
+            custom_description=status_update.custom_description
+        )
         return rejected_claim
         
     except HTTPException:
@@ -399,7 +394,7 @@ async def upload_image_to_claim(
         # Create upload directory and generate unique filename
         create_upload_directory()
         unique_filename = generate_unique_filename(file.filename, detected_format)
-        UPLOAD_DIR = "uploads/images"
+        UPLOAD_DIR = "../storage/uploads/images"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
         
         # Save the file
