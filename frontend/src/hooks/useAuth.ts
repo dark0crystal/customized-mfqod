@@ -30,8 +30,8 @@ export function useAuth(): UseAuthReturn {
         setIsLoading(false)
         
         // If not authenticated and not on login page, redirect
-        if (!isAuth && typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-          router.push('/login')
+        if (!isAuth && typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
+          router.push('/auth/login')
         }
       } catch (err) {
         console.error('Auth initialization error:', err)
@@ -67,7 +67,7 @@ export function useAuth(): UseAuthReturn {
       await tokenManager.logout()
       setUser(null)
       setError(null)
-      router.push('/login')
+      router.push('/auth/login')
     } catch (err) {
       console.error('Logout error:', err)
       setError('Logout failed')
@@ -212,7 +212,7 @@ interface UseProtectedRouteOptions {
 }
 
 export function useProtectedRoute(options: UseProtectedRouteOptions = {}) {
-  const { redirectTo = '/login', requiredRole } = options
+  const { redirectTo = '/auth/login', requiredRole } = options
   const { user, isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
 
