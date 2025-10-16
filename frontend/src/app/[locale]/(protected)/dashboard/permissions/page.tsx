@@ -184,7 +184,7 @@ const PermissionsManager = () => {
 
   return (
     <div className="max-w-5xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-4">Permission Management</h2>
+      <h2 className="text-2xl font-bold mb-4" style={{ color: '#3277AE' }}>Permission Management</h2>
 
       {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-3 flex items-center"><AlertCircle className="w-5 h-5 mr-2" />{error}</div>}
       {success && <div className="bg-green-100 text-green-700 p-3 rounded mb-3 flex items-center"><CheckCircle className="w-5 h-5 mr-2" />{success}</div>}
@@ -195,14 +195,22 @@ const PermissionsManager = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <input
             type="text"
-            className="border px-3 py-2 rounded"
+            className="border px-3 py-2 rounded focus:outline-none focus:ring-2 transition-colors"
+            style={{ 
+              '--tw-ring-color': '#3277AE',
+              '--tw-ring-offset-color': '#3277AE'
+            } as React.CSSProperties & { [key: string]: string }}
             placeholder="Permission name"
             value={newPermission.name}
             onChange={(e) => setNewPermission({ ...newPermission, name: e.target.value })}
           />
           <input
             type="text"
-            className="border px-3 py-2 rounded"
+            className="border px-3 py-2 rounded focus:outline-none focus:ring-2 transition-colors"
+            style={{ 
+              '--tw-ring-color': '#3277AE',
+              '--tw-ring-offset-color': '#3277AE'
+            } as React.CSSProperties & { [key: string]: string }}
             placeholder="Description (optional)"
             value={newPermission.description}
             onChange={(e) => setNewPermission({ ...newPermission, description: e.target.value })}
@@ -210,7 +218,10 @@ const PermissionsManager = () => {
         </div>
         <button
           onClick={handleCreate}
-          className="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          className="mt-3 text-white px-4 py-2 rounded transition-colors"
+          style={{ backgroundColor: '#3277AE' }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#2c6a9a'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = '#3277AE'}
         >
           Create Permission
         </button>
@@ -222,7 +233,11 @@ const PermissionsManager = () => {
         <select
           value={selectedRoleId}
           onChange={(e) => setSelectedRoleId(e.target.value)}
-          className="w-full border px-3 py-2 rounded"
+          className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 transition-colors"
+          style={{ 
+            '--tw-ring-color': '#3277AE',
+            '--tw-ring-offset-color': '#3277AE'
+          } as React.CSSProperties & { [key: string]: string }}
         >
           <option value="">-- Select a role --</option>
           {roles.map(role => (
@@ -241,12 +256,20 @@ const PermissionsManager = () => {
                   type="text"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full border px-2 py-1 mb-2 rounded"
+                  className="w-full border px-2 py-1 mb-2 rounded focus:outline-none focus:ring-2 transition-colors"
+                  style={{ 
+                    '--tw-ring-color': '#3277AE',
+                    '--tw-ring-offset-color': '#3277AE'
+                  } as React.CSSProperties & { [key: string]: string }}
                 />
                 <textarea
                   value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  className="w-full border px-2 py-1 mb-2 rounded"
+                  className="w-full border px-2 py-1 mb-2 rounded focus:outline-none focus:ring-2 transition-colors"
+                  style={{ 
+                    '--tw-ring-color': '#3277AE',
+                    '--tw-ring-offset-color': '#3277AE'
+                  } as React.CSSProperties & { [key: string]: string }}
                 />
                 <div className="flex justify-end gap-2">
                   <button onClick={handleUpdate} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded flex items-center gap-1">
@@ -260,9 +283,9 @@ const PermissionsManager = () => {
             ) : (
               <>
                 <div className="flex justify-between">
-                  <h4 className="font-semibold text-blue-700">{perm.name}</h4>
+                  <h4 className="font-semibold" style={{ color: '#3277AE' }}>{perm.name}</h4>
                   <div className="flex gap-2">
-                    <button onClick={() => handleEdit(perm)} className="text-blue-600 hover:text-blue-800">
+                    <button onClick={() => handleEdit(perm)} className="transition-colors" style={{ color: '#3277AE' }} onMouseEnter={(e) => e.target.style.color = '#2c6a9a'} onMouseLeave={(e) => e.target.style.color = '#3277AE'}>
                       <Edit className="w-4 h-4" />
                     </button>
                     <button onClick={() => handleDelete(perm.id)} className="text-red-600 hover:text-red-800">
@@ -292,7 +315,10 @@ const PermissionsManager = () => {
       {selectedRoleId && (
         <button
           onClick={handleAssign}
-          className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          className="mt-6 text-white px-4 py-2 rounded transition-colors"
+          style={{ backgroundColor: '#3277AE' }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#2c6a9a'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = '#3277AE'}
         >
           Save Role Permissions
         </button>
