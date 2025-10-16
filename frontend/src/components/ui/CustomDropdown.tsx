@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { MdKeyboardArrowDown } from "react-icons/md";
+import { useDirection } from "@/components/DirectionProvider";
 
 interface Option {
   value: string;
@@ -26,6 +27,7 @@ export default function CustomDropdown({
 }: CustomDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { direction, isRTL } = useDirection();
 
   const selectedOption = options.find(option => option.value === value);
 
@@ -46,18 +48,18 @@ export default function CustomDropdown({
   };
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={`relative ${className}`} ref={dropdownRef} dir={direction}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200 hover:border-blue-400 ${
+        className={`w-full px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 hover:shadow-md ${
           variant === 'light' 
-            ? 'bg-blue-50 border border-blue-200' 
-            : 'bg-white border border-gray-300'
+            ? 'bg-blue-50 border border-blue-200 hover:bg-blue-100' 
+            : 'bg-white border border-gray-300 hover:bg-gray-50'
         }`}
       >
-        <div className="flex items-center justify-between">
-          <span className={`${selectedOption ? "text-gray-900" : "text-gray-500"}`}>
+        <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
+          <span className={`text-start ${selectedOption ? "text-gray-900" : "text-gray-500"}`}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           <MdKeyboardArrowDown 
@@ -79,9 +81,9 @@ export default function CustomDropdown({
               key={option.value}
               type="button"
               onClick={() => handleSelect(option.value)}
-              className={`w-full px-4 py-3 hover:bg-blue-50 transition-colors duration-150 ${
+              className={`w-full px-4 py-3 text-start hover:bg-blue-100 hover:text-blue-800 transition-all duration-150 ${
                 option.value === value
-                  ? "bg-blue-50 text-blue-700 font-medium"
+                  ? "bg-blue-100 text-blue-800 font-medium"
                   : "text-gray-900"
               } ${
                 option === options[0] ? "rounded-t-lg" : ""

@@ -12,7 +12,8 @@ interface ItemType {
 
 interface Branch {
   id: string;
-  branch_name: string;
+  branch_name_ar?: string;
+  branch_name_en?: string;
   organization?: {
     id: string;
     name: string;
@@ -115,7 +116,10 @@ export default function FilterModal({
 
   const branchOptions = [
     { value: "", label: tSearch("allBranches") },
-    ...branches.map(branch => ({ value: branch.id, label: branch.branch_name }))
+    ...branches.map(branch => ({ 
+      value: branch.id, 
+      label: getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch' 
+    }))
   ];
 
   return (
@@ -191,7 +195,7 @@ export default function FilterModal({
               {(tempItemTypeId || tempBranchId) && (
                 <button
                   onClick={handleClearFilters}
-                  className="w-full px-4 py-3 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg font-medium transition-colors duration-200 border border-blue-200"
+                  className="w-full px-4 py-3 text-sm text-red-600 rounded-lg font-medium transition-colors duration-200 bg-white border border-red-300 hover:bg-red-50 hover:border-red-400"
                 >
                   {tSearch("clearAllFilters")}
                 </button>
@@ -203,7 +207,17 @@ export default function FilterModal({
           <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4">
             <button
               onClick={handleApplyFilters}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
+              className="w-full px-4 py-3 text-white rounded-lg transition-colors duration-200 font-medium"
+              style={{ 
+                backgroundColor: '#3277AE',
+                '--tw-ring-color': '#3277AE'
+              } as React.CSSProperties & { [key: string]: string }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#2a5f94';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#3277AE';
+              }}
             >
               {tSearch("applyFilters")}
             </button>
