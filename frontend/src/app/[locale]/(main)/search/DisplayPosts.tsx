@@ -6,7 +6,6 @@ import { useTranslations, useLocale } from "next-intl";
 import defaultImage from "../../../../../public/img1.jpeg";
 import { IoMdResize } from "react-icons/io";
 import { useState, useEffect } from "react";
-import img from "../../../../../../backend/uploads/images/8e510a2a-2829-4126-b1f3-4bdc4f3646a0.png"
 
 interface LocationData {
   organization_name_ar?: string;
@@ -95,7 +94,24 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
       location.branch_name_en
     );
     
-    const parts = [orgName, branchName, location.full_location].filter(Boolean);
+    // Build the location string with proper localization - only show locale-specific names
+    const parts = [];
+    
+    // Add organization name if available (only in selected locale)
+    if (orgName) {
+      parts.push(orgName);
+    }
+    
+    // Add branch name if available and different from organization (only in selected locale)
+    if (branchName && branchName !== orgName) {
+      parts.push(branchName);
+    }
+    
+    // Add full location if available and not already included
+    if (location.full_location && !parts.some(part => location.full_location?.includes(part))) {
+      parts.push(location.full_location);
+    }
+    
     return parts.length > 0 ? parts.join(', ') : t("location-not-specified");
   };
 
@@ -124,7 +140,7 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
   return (
     <div className="w-full p-2 md:p-6 mt-6 flex items-center flex-col">
       <h3 className="text-xl font-semibold mb-6 text-blue-600">{t("missing-items")}</h3>
-      <div className="grid md:grid-cols-1 lg:grid-cols-2 grid-cols-1 gap-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 [@media(min-width:1150px)]:grid-cols-3 gap-6 justify-items-center">
         {items.length > 0 ? (
           items.map((item, index) => {
             const imageUrl = getImageUrl(item.id);
@@ -134,24 +150,26 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
               <div key={item.id}>
                 {/* Regular card view */}
                 <div
-                  className={`bg-white min-w-[350px] shadow-lg overflow-hidden rounded-2xl hover:shadow-xl transition-shadow duration-300 ${
+                  className={`bg-white w-[350px] shadow-lg overflow-hidden rounded-2xl hover:shadow-xl transition-shadow duration-300 ${
                     isExpanded ? "hidden" : ""
                   }`}
                 >
                   {/* Content */}
-                  <div className="p-4">
-                    <h4 className="text-lg font-semibold text-gray-800">{item.title}</h4>
-                    <p className="text-gray-600 text-sm mt-2 line-clamp-2 overflow-hidden text-ellipsis">
+                  <div className="p-4 w-full">
+                    <h4 className="text-lg font-semibold text-gray-800 truncate w-full" title={item.title}>
+                      {item.title}
+                    </h4>
+                    <p className="text-gray-600 text-sm mt-2 line-clamp-2 overflow-hidden text-ellipsis w-full" title={item.description}>
                       {item.description}
                     </p>
-                    <p className="text-gray-500 text-xs mt-2">
+                    <p className="text-gray-500 text-xs mt-2 truncate w-full" title={getLocationDisplay(item.location)}>
                       {getLocationDisplay(item.location)}
                     </p>
                   </div>
 
 
                   {/* Image Section */}
-                  <div className="relative h-[250px] m-3">
+                  <div className="relative h-[250px] m-3 w-[calc(100%-24px)]">
                     {/* Go to details */}
                     <button
                       title="Go to details"
