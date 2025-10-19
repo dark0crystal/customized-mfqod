@@ -6,15 +6,28 @@ import { useState, useEffect } from "react";
 import Brand from "./Brand";
 import { RxHamburgerMenu } from "react-icons/rx";
 import { IoClose } from "react-icons/io5";
-// import Profile from "./Profile";
+import { tokenManager } from "@/utils/tokenManager";
+import { useRouter } from "next/navigation";
+import LanguageChange from "./LangChange";
+import UserProfile from "./UserProfile";
 
 export default function MobileNavbar() {
   const t = useTranslations("navbar");
   const [show, setShow] = useState(false);
+  const router = useRouter();
 
   // Toggle Navbar and Body Scroll
   const toggleNavbar = () => {
     setShow((prev) => !prev);
+  };
+
+  const handleReportClick = () => {
+    if (!tokenManager.isAuthenticated()) {
+      router.push('/auth/login');
+    } else {
+      router.push('/dashboard/report-missing-item');
+    }
+    toggleNavbar();
   };
 
   // Prevent body scroll when the navbar is open
@@ -46,21 +59,43 @@ export default function MobileNavbar() {
       {/* Dropdown Menu */}
       {show && (
         <div
-          className={`absolute top-[12vh] left-0 w-full h-screen bg-white z-50 flex flex-col  space-y-6 p-6`}
+          className={`absolute top-[12vh] left-0 w-full h-screen bg-white z-50 flex flex-col space-y-8 py-8 px-6`}
         >
-          <Link href="/search" onClick={toggleNavbar}>
-            <h1 className="text-2xl font-normal text-gray-700 hover:text-blue-600">
-              {t("search")}
-            </h1>
-          </Link>
+          {/* Main Navigation Links */}
+          <div className="space-y-6 my-4">
+            <Link href="/search" onClick={toggleNavbar}>
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-normal text-gray-700 hover:text-blue-600 transition-colors py-2">
+                {t("search")}
+              </h1>
+            </Link>
 
-          <Link href="/report-found-item" onClick={toggleNavbar}>
-            <h1 className="text-2xl font-normal text-gray-700 hover:text-blue-600">
-              {t("report")}
-            </h1>
-          </Link>
+            <Link href="/branches-info" onClick={toggleNavbar}>
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-normal text-gray-700 hover:text-blue-600 transition-colors py-2">
+                {t("branchesInfo")}
+              </h1>
+            </Link>
 
-          {/* <Profile/> */}
+            <button onClick={handleReportClick}>
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-normal text-gray-700 hover:text-blue-600 transition-colors py-2">
+                {t("report")}
+              </h1>
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-gray-200 my-8"></div>
+
+          {/* User Authentication & Language */}
+          <div className="space-y-6 my-4">
+            <div className="flex items-center justify-between gap-4 py-2">
+              <span className="text-base sm:text-lg md:text-xl font-medium text-gray-600">Language / اللغة</span>
+              <LanguageChange />
+            </div>
+            
+            <div className="flex items-center justify-center py-2">
+              <UserProfile />
+            </div>
+          </div>
         </div>
       )}
 
