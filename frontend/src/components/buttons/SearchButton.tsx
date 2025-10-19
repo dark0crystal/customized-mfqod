@@ -8,7 +8,14 @@ export function SearchButton() {
     return (
         <Link 
             href="/search" 
-            className="w-full md:w-[200px] bg-gradient-to-r from-[#2196f3] to-[#2f7ce1] p-4 rounded-xl text-white font-semibold text-center hover:shadow-lg transform hover:scale-105 transition-all duration-300 cursor-pointer"
+            className="w-full md:w-[200px] p-4 rounded-xl text-white font-semibold text-center hover:shadow-lg transform hover:scale-105 transition-all duration-300 cursor-pointer"
+            style={{ backgroundColor: '#3277AE' }}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#2a5f94';
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#3277AE';
+            }}
         >
             {t("search")}
         </Link>

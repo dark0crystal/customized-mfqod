@@ -25,7 +25,20 @@ export default function FoundButton() {
     return (
         <button 
             onClick={handleClick}
-            className="w-full md:w-[200px] bg-gradient-to-r from-white to-white border border-black p-4 rounded-xl text-black font-semibold text-center hover:shadow-lg transform hover:scale-105 transition-all duration-300 cursor-pointer"
+            className="w-full md:w-[200px] p-4 rounded-xl font-semibold text-center hover:shadow-lg transform hover:scale-105 transition-all duration-300 cursor-pointer"
+            style={{ 
+                backgroundColor: 'white',
+                border: '2px solid #3277AE',
+                color: '#3277AE'
+            }}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#3277AE';
+                e.currentTarget.style.color = 'white';
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'white';
+                e.currentTarget.style.color = '#3277AE';
+            }}
         >
             <h1>{t("report")}</h1>
         </button>

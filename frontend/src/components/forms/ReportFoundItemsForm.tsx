@@ -1,39 +1,42 @@
 "use client";
 
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { useState, useEffect, useRef } from "react";
 import ReactConfetti from "react-confetti";
 import CompressorFileInput from "./CompressorFileInput";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
 
-// Zod schema for form validation
-const itemFormSchema = z.object({
-  title: z.string().min(1, "This field is required"),
-  content: z.string().min(1, "Please provide additional details"),
-  type: z.string().min(1, "This field is required"),
-  place: z.string().min(1, "Please select a place"),
-  country: z.string().min(1, "Please select a country"),
-  orgnization: z.string().min(1, "Please select an organization"),
-  item_type_id: z.string().min(1, "Please select an item type"),
-  branch_id: z.string().min(1, "Please select a branch"),
-});
-
-type ItemFormFields = z.infer<typeof itemFormSchema>;
+// Type definitions for form fields
+type ItemFormFields = {
+  title: string;
+  content: string;
+  type: string;
+  place: string;
+  country: string;
+  orgnization: string;
+  item_type_id: string;
+  branch_id: string;
+};
 
 // Type definitions
 interface ItemType {
   id: string;
-  name: string;
-  description?: string;
+  name_ar?: string;
+  name_en?: string;
+  description_ar?: string;
+  description_en?: string;
 }
 
 interface Branch {
   id: string;
-  branch_name: string;
+  branch_name_ar?: string;
+  branch_name_en?: string;
+  description_ar?: string;
+  description_en?: string;
+  longitude?: number;
+  latitude?: number;
   organization_id: string;
   created_at?: string;
   updated_at?: string;
@@ -41,8 +44,10 @@ interface Branch {
 
 interface Organization {
   id: string;
-  name: string;
-  description?: string;
+  name_ar?: string;
+  name_en?: string;
+  description_ar?: string;
+  description_en?: string;
 }
 
 // Helper function to get token from cookies
@@ -73,21 +78,11 @@ const getAuthHeaders = (): HeadersInit => {
   return headers;
 };
 
-// Helper function for authenticated fetch without JSON content type (for FormData)
-const getAuthHeadersForFormData = (): HeadersInit => {
-  const token = getTokenFromCookies();
-  const headers: HeadersInit = {};
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  return headers;
-};
-
-// This function will be moved inside the component
+// Removed unused function
 
 export default function ReportFoundItem() {
+  const locale = useLocale();
+  
   // API configuration
   const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
@@ -97,6 +92,13 @@ export default function ReportFoundItem() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+
+  // Helper function to get localized name
+  const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
+    if (locale === 'ar' && nameAr) return nameAr;
+    if (locale === 'en' && nameEn) return nameEn;
+    return nameAr || nameEn || '';
+  };
   const [compressedFiles, setCompressedFiles] = useState<File[]>([]);
   const [confetti, setConfetti] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -106,7 +108,6 @@ export default function ReportFoundItem() {
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
 
-  const t = useTranslations("storage");
   const c = useTranslations("report-found");
   const router = useRouter();
 
@@ -181,7 +182,7 @@ export default function ReportFoundItem() {
         setIsLoading(true);
         
         // Fetch organizations with authentication
-        const organizationsResponse = await fetch(`${API_BASE_URL}/api/organizations`, {
+        const organizationsResponse = await fetch(`${API_BASE_URL}/api/organizations/`, {
           method: 'GET',
           headers: getAuthHeaders(),
         });
@@ -324,7 +325,7 @@ export default function ReportFoundItem() {
         try {
           const errorData = await itemResponse.json();
           errorMessage = errorData.detail || errorMessage;
-        } catch (e) {
+        } catch {
           console.error('Could not parse error response');
         }
         throw new Error(errorMessage);
@@ -362,7 +363,7 @@ export default function ReportFoundItem() {
         try {
           const errorData = await addressResponse.json();
           errorMessage = errorData.detail || errorMessage;
-        } catch (e) {
+        } catch {
           console.error('Could not parse error response');
         }
         throw new Error(errorMessage);
@@ -382,9 +383,10 @@ export default function ReportFoundItem() {
         router.push("/");
       }, 3000);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error submitting form:", error);
-      alert(error.message || "An unexpected error occurred");
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+      alert(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -419,7 +421,7 @@ export default function ReportFoundItem() {
           <div className="text-lg text-red-600 mb-4">{authError}</div>
           <button 
             onClick={() => router.push("/login")}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Go to Login
           </button>
@@ -453,7 +455,7 @@ export default function ReportFoundItem() {
             type="text"
             id="title"
             {...register("title")}
-            placeholder="e.g., Key, Wallet, etc."
+            placeholder={c("placeholderTitle")}
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
           {errors.title && (
@@ -469,7 +471,7 @@ export default function ReportFoundItem() {
           <textarea
             id="content"
             {...register("content")}
-            placeholder="Provide additional details about the item"
+            placeholder={c("placeholderDetails")}
             rows={4}
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
@@ -481,17 +483,17 @@ export default function ReportFoundItem() {
         {/* Item Type Selection */}
         <div>
           <label htmlFor="item_type_id" className="block text-lg font-semibold text-gray-700 mb-2">
-            Item Type
+            {c("itemType")}
           </label>
           <select
             id="item_type_id"
             {...register("item_type_id")}
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           >
-            <option value="">Select an item type</option>
+            <option value="">{c("selectItemType")}</option>
             {itemTypes.map((itemType) => (
               <option key={itemType.id} value={itemType.id}>
-                {itemType.name}
+                {getLocalizedName(itemType.name_ar, itemType.name_en) || c("unnamed")}
               </option>
             ))}
           </select>
@@ -503,7 +505,7 @@ export default function ReportFoundItem() {
         {/* File Upload Component */}
         <div>
           <label className="block text-lg font-semibold text-gray-700 mb-2">
-            Upload Images (Optional)
+            {c("uploadImagesOptional")}
           </label>
           <CompressorFileInput 
             onFilesSelected={setCompressedFiles} 
@@ -519,7 +521,7 @@ export default function ReportFoundItem() {
           {uploadProgress && (
             <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-blue-900">Uploading images...</span>
+                <span className="text-sm font-medium text-blue-900">{c("uploadingImages")}</span>
                 <span className="text-sm text-blue-700">{uploadProgress.percentage}%</span>
               </div>
               <div className="w-full bg-blue-200 rounded-full h-2">
@@ -537,7 +539,7 @@ export default function ReportFoundItem() {
           {/* Upload Errors */}
           {uploadErrors.length > 0 && (
             <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <div className="text-sm text-red-800 font-medium mb-2">Some images failed to upload:</div>
+              <div className="text-sm text-red-800 font-medium mb-2">{c("someImagesFailed")}</div>
               {uploadErrors.map((error, index) => (
                 <div key={index} className="text-sm text-red-600 mb-1">
                   <span className="font-medium">{error.error}:</span> {error.message}
@@ -548,7 +550,7 @@ export default function ReportFoundItem() {
 
           {compressedFiles.length > 0 && (
             <p className="mt-2 text-sm text-gray-600">
-              {compressedFiles.length} file(s) selected
+              {compressedFiles.length} {c("filesSelected")}
             </p>
           )}
         </div>
@@ -569,7 +571,7 @@ export default function ReportFoundItem() {
             )}
             {organizations.map((org) => (
               <option key={org.id} value={org.id}>
-                {org.name}
+                {org.name_en || org.name_ar || c("unnamedOrganization")}
               </option>
             ))}
           </select>
@@ -581,7 +583,7 @@ export default function ReportFoundItem() {
         {/* Select Branch */}
         <div>
           <label htmlFor="branch_id" className="block text-lg font-semibold text-gray-700 mb-2">
-            Branch
+            {c("branch")}
           </label>
           <select
             id="branch_id"
@@ -591,15 +593,15 @@ export default function ReportFoundItem() {
           >
             <option value="">
               {!watchedOrganization 
-                ? "Select an organization first" 
+                ? c("selectOrganizationFirst")
                 : branches.length === 0 
-                  ? "No branches available" 
-                  : "Select a branch"
+                  ? c("noBranchesAvailable")
+                  : c("selectBranch")
               }
             </option>
             {branches.map((branch) => (
               <option key={branch.id} value={branch.id}>
-                {branch.branch_name}
+                {branch.branch_name_en || branch.branch_name_ar || c("unnamedBranch")}
               </option>
             ))}
           </select>
@@ -630,7 +632,7 @@ export default function ReportFoundItem() {
           <button 
             type="submit" 
             disabled={isSubmitting || isProcessing || isLoading || !!authError} 
-            className="w-full p-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {isSubmitting || isProcessing ? (
               <span className="flex items-center justify-center">
@@ -638,10 +640,10 @@ export default function ReportFoundItem() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Processing...
+                {c("processing")}
               </span>
             ) : (
-              "Submit"
+              c("submit")
             )}
           </button>
         </div>
