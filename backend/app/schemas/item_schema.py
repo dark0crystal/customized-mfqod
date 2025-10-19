@@ -61,6 +61,9 @@ class ItemFilterRequest(BaseModel):
     approved_only: bool = Field(default=False, description="Only return approved items")
     include_deleted: bool = Field(default=False, description="Include soft-deleted items")
     item_type_id: Optional[str] = Field(None, description="Filter by item type")
+    branch_id: Optional[str] = Field(None, description="Filter by branch ID")
+    date_from: Optional[datetime] = Field(None, description="Filter items created from this date")
+    date_to: Optional[datetime] = Field(None, description="Filter items created until this date")
 
 # =========================== 
 # Response Schemas
@@ -68,8 +71,10 @@ class ItemFilterRequest(BaseModel):
 
 class ItemTypeResponse(BaseModel):
     id: str
-    name: str
-    description: Optional[str]
+    name_ar: Optional[str] = None
+    name_en: Optional[str] = None
+    description_ar: Optional[str] = None
+    description_en: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     
@@ -85,6 +90,48 @@ class UserBasicResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class ImageResponse(BaseModel):
+    id: str
+    url: str
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class OrganizationBasicResponse(BaseModel):
+    id: str
+    name_ar: Optional[str] = None
+    name_en: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+class BranchBasicResponse(BaseModel):
+    id: str
+    branch_name_ar: Optional[str] = None
+    branch_name_en: Optional[str] = None
+    organization: Optional[OrganizationBasicResponse] = None
+    
+    class Config:
+        from_attributes = True
+
+class AddressResponse(BaseModel):
+    id: str
+    is_current: bool
+    branch: Optional[BranchBasicResponse] = None
+    
+    class Config:
+        from_attributes = True
+
+class LocationResponse(BaseModel):
+    organization_name_ar: Optional[str] = None
+    organization_name_en: Optional[str] = None
+    branch_name_ar: Optional[str] = None
+    branch_name_en: Optional[str] = None
+    full_location: Optional[str] = None
+
 class ItemResponse(BaseModel):
     id: str
     title: str
@@ -96,6 +143,8 @@ class ItemResponse(BaseModel):
     user_id: Optional[str]
     created_at: datetime
     updated_at: datetime
+    location: Optional[LocationResponse] = None
+    images: List[ImageResponse] = []
     
     class Config:
         from_attributes = True
@@ -103,6 +152,7 @@ class ItemResponse(BaseModel):
 class ItemDetailResponse(ItemResponse):
     item_type: Optional[ItemTypeResponse] = None
     user: Optional[UserBasicResponse] = None
+    addresses: Optional[List[AddressResponse]] = None
     
     class Config:
         from_attributes = True
