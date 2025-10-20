@@ -2,16 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from models import Branch
-from db.database import get_session  # Your database dependency
-from schemas.organization_schemas import (
+from app.models import Branch
+from app.db.database import get_session  # Your database dependency
+from app.schemas.organization_schemas import (
     OrganizationCreate, OrganizationUpdate, OrganizationResponse, 
     OrganizationWithBranches
 )
-from services.organizationService import OrganizationService
+from app.services.organizationService import OrganizationService
 
 # Import permission decorators (if needed)
-from utils.permission_decorator import require_permission
+from app.utils.permission_decorator import require_permission
 
 router = APIRouter()
 
@@ -26,7 +26,7 @@ def get_organization_service(db: Session = Depends(get_session)) -> Organization
 # Organization Routes
 # ===========================
 
-@router.post("/organizations/", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)
 # @require_permission("can_create_organizations")  # Uncomment if permissions are needed
 def create_organization(
     organization: OrganizationCreate,
@@ -43,7 +43,7 @@ def create_organization(
         raise HTTPException(status_code=500, detail=f"Error creating organization: {str(e)}")
 
 
-@router.get("/organizations/", response_model=List[OrganizationResponse])
+@router.get("/", response_model=List[OrganizationResponse])
 # @require_permission("can_view_organizations")  # Uncomment if permissions are needed
 def get_organizations(
     request: Request,
@@ -59,7 +59,7 @@ def get_organizations(
         raise HTTPException(status_code=500, detail=f"Error retrieving organizations: {str(e)}")
 
 
-@router.get("/organizations/{organization_id}", response_model=OrganizationWithBranches)
+@router.get("/{organization_id}", response_model=OrganizationWithBranches)
 # @require_permission("can_view_organizations")  # Uncomment if permissions are needed
 def get_organization(
     organization_id: str,
@@ -80,14 +80,17 @@ def get_organization(
         # Convert to response format with branches
         result = {
             "id": organization.id,
-            "name": organization.name,
-            "description": organization.description,
+            "name_ar": organization.name_ar,
+            "name_en": organization.name_en,
+            "description_ar": organization.description_ar,
+            "description_en": organization.description_en,
             "created_at": organization.created_at,
             "updated_at": organization.updated_at,
             "branches": [
                 {
                     "id": branch.id,
-                    "branch_name": branch.branch_name,
+                    "branch_name_ar": branch.branch_name_ar,
+                    "branch_name_en": branch.branch_name_en,
                     "created_at": branch.created_at,
                     "updated_at": branch.updated_at
                 } for branch in organization.branches
@@ -101,7 +104,7 @@ def get_organization(
         raise HTTPException(status_code=500, detail=f"Error retrieving organization: {str(e)}")
 
 
-@router.put("/organizations/{organization_id}", response_model=OrganizationResponse)
+@router.put("/{organization_id}", response_model=OrganizationResponse)
 # @require_permission("can_edit_organizations")  # Uncomment if permissions are needed
 def update_organization(
     organization_id: str,
@@ -119,7 +122,7 @@ def update_organization(
         raise HTTPException(status_code=500, detail=f"Error updating organization: {str(e)}")
 
 
-@router.delete("/organizations/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
 # @require_permission("can_delete_organizations")  # Uncomment if permissions are needed
 def delete_organization(
     organization_id: str,
@@ -153,7 +156,7 @@ def delete_organization(
 #         raise HTTPException(status_code=500, detail=f"Error searching organizations: {str(e)}")
 
 
-@router.get("/organizations/{organization_id}/branches/", response_model=List[dict])
+@router.get("/{organization_id}/branches/", response_model=List[dict])
 # @require_permission("can_view_branches")  # Uncomment if permissions are needed
 def get_organization_branches(
     organization_id: str,
@@ -184,7 +187,8 @@ def get_organization_branches(
         for branch in branches:
             branch_dict = {
                 "id": branch.id,
-                "branch_name": branch.branch_name,
+                "branch_name_ar": branch.branch_name_ar,
+                "branch_name_en": branch.branch_name_en,
                 "organization_id": branch.organization_id,
                 "created_at": branch.created_at,
                 "updated_at": branch.updated_at

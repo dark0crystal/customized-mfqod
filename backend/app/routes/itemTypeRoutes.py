@@ -63,14 +63,14 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from db.database import get_session
-from services.itemTypeService import ItemTypeService
-from schemas.item_type_schema import (
+from app.db.database import get_session
+from app.services.itemTypeService import ItemTypeService
+from app.schemas.item_type_schema import (
     CreateItemTypeRequest,
     UpdateItemTypeRequest,
     ItemTypeResponse
 )
-from utils.permission_decorator import require_permission, require_any_permission, require_all_permissions
+from app.utils.permission_decorator import require_permission, require_any_permission, require_all_permissions
 
 router = APIRouter()
 
@@ -90,10 +90,23 @@ async def create_item_type(
         raise HTTPException(status_code=400, detail=str(e))
 
 # ================= 
-# List all item types
+# Public endpoint for item types (no authentication required)
+# ================= 
+@router.get("/public", response_model=list[ItemTypeResponse])
+async def get_public_item_types(
+    db: Session = Depends(get_session)
+):
+    """Get all item types for public viewing (no authentication required)"""
+    try:
+        return ItemTypeService(db).list_item_types()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving public item types: {str(e)}")
+
+# ================= 
+# List all item types (authenticated)
 # ================= 
 @router.get("/", response_model=list[ItemTypeResponse])
-# @require_permission("can_view_item_types")
+@require_permission("can_view_item_types")
 async def list_item_types(
     request: Request,  # Token extracted automatically from this
     db: Session = Depends(get_session)

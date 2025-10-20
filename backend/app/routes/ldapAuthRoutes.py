@@ -2,8 +2,8 @@
 # routes/ldap_auth_routes.py
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from services.ldapAuthService import LDAPAuthService
-from schemas.ldap_auth_schemas import LoginRequest, TokenResponse, UserInfo, UserSearchResponse
+from app.services.ldapAuthService import LDAPAuthService
+from app.schemas.ldap_auth_schemas import LoginRequest, TokenResponse, UserInfo, UserSearchResponse
 from typing import List, Optional
 
 router = APIRouter(prefix="/auth", tags=["LDAP Authentication"])

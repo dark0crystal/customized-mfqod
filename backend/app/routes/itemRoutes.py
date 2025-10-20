@@ -2,11 +2,11 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, timezone
-from db.database import get_session
+from app.db.database import get_session
 
 # Import dependencies (adjust import paths as needed)
-from services.itemService import ItemService
-from schemas.item_schema import (
+from app.services.itemService import ItemService
+from app.schemas.item_schema import (
     CreateItemRequest,
     UpdateItemRequest, 
     ItemFilterRequest,
@@ -21,11 +21,18 @@ from schemas.item_schema import (
 )
 
 # Import permission decorators
-from utils.permission_decorator import (
+from app.utils.permission_decorator import (
     require_permission,
     require_any_permission,
     require_all_permissions
 )
+
+# Import branch-based authorization
+from app.middleware.branch_auth_middleware import (
+    require_branch_access,
+    require_branch_access_for_bulk_operations
+)
+from app.middleware.auth_middleware import get_current_user_required
 
 router = APIRouter()
 
@@ -64,26 +71,46 @@ async def create_item(
 # Read Operations
 # ===========================
 
-@router.get("/{item_id}", response_model=ItemDetailResponse)
-@require_permission("can_view_items")
-async def get_item(
-    item_id: str,
-    request: Request,
-    include_deleted: bool = Query(False, description="Include soft-deleted items"),
-    db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+@router.get("/public-test")
+async def get_public_test():
+    """Test endpoint with no authentication required"""
+    return {"message": "Public test endpoint works!", "status": "success"}
+
+@router.get("/public", response_model=ItemListResponse)
+async def get_public_items(
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
+    item_type_id: Optional[str] = Query(None, description="Filter by item type"),
+    db: Session = Depends(get_session)
 ):
     """
-    Get a single item by ID with related data
-    Requires: can_view_items permission
+    Get approved items for public viewing (no authentication required)
+    Only returns approved items and excludes deleted items
     """
     try:
-        item = item_service.get_item_by_id(item_id, include_deleted)
-        if not item:
-            raise HTTPException(status_code=404, detail="Item not found")
-        return item
+        # Create ItemService directly to avoid any middleware issues
+        item_service = ItemService(db)
+        
+        filters = ItemFilterRequest(
+            skip=skip,
+            limit=limit,
+            user_id=None,
+            approved_only=True,  # Always only approved items for public access
+            include_deleted=False,  # Never include deleted items for public access
+            item_type_id=item_type_id
+        )
+        
+        items, total = item_service.get_items(filters)
+        
+        return ItemListResponse(
+            items=items,
+            total=total,
+            skip=skip,
+            limit=limit,
+            has_more=(skip + limit) < total
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving item: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving public items: {str(e)}")
 
 @router.get("/", response_model=ItemListResponse)
 @require_permission("can_view_items")
@@ -95,24 +122,49 @@ async def get_items(
     approved_only: bool = Query(False, description="Only return approved items"),
     include_deleted: bool = Query(False, description="Include soft-deleted items"),
     item_type_id: Optional[str] = Query(None, description="Filter by item type"),
+    branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
+    date_from: Optional[str] = Query(None, description="Filter items created from this date (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(None, description="Filter items created until this date (YYYY-MM-DD)"),
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    current_user = Depends(get_current_user_required)
 ):
     """
     Get items with filtering and pagination
     Requires: can_view_items permission
     """
     try:
+        # Parse date strings to datetime objects
+        parsed_date_from = None
+        parsed_date_to = None
+        
+        if date_from:
+            try:
+                parsed_date_from = datetime.strptime(date_from, "%Y-%m-%d")
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date_from format. Use YYYY-MM-DD")
+        
+        if date_to:
+            try:
+                parsed_date_to = datetime.strptime(date_to, "%Y-%m-%d")
+                # Set to end of day for inclusive filtering
+                parsed_date_to = parsed_date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date_to format. Use YYYY-MM-DD")
+        
         filters = ItemFilterRequest(
             skip=skip,
             limit=limit,
             user_id=user_id,
             approved_only=approved_only,
             include_deleted=include_deleted,
-            item_type_id=item_type_id
+            item_type_id=item_type_id,
+            branch_id=branch_id,
+            date_from=parsed_date_from,
+            date_to=parsed_date_to
         )
         
-        items, total = item_service.get_items(filters)
+        items, total = item_service.get_items(filters, current_user.id)
         
         return ItemListResponse(
             items=items,
@@ -135,24 +187,49 @@ async def search_items(
     approved_only: bool = Query(False, description="Only return approved items"),
     include_deleted: bool = Query(False, description="Include soft-deleted items"),
     item_type_id: Optional[str] = Query(None, description="Filter by item type"),
+    branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
+    date_from: Optional[str] = Query(None, description="Filter items created from this date (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(None, description="Filter items created until this date (YYYY-MM-DD)"),
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    current_user = Depends(get_current_user_required)
 ):
     """
     Search items by title or description
     Requires: can_view_items permission
     """
     try:
+        # Parse date strings to datetime objects
+        parsed_date_from = None
+        parsed_date_to = None
+        
+        if date_from:
+            try:
+                parsed_date_from = datetime.strptime(date_from, "%Y-%m-%d")
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date_from format. Use YYYY-MM-DD")
+        
+        if date_to:
+            try:
+                parsed_date_to = datetime.strptime(date_to, "%Y-%m-%d")
+                # Set to end of day for inclusive filtering
+                parsed_date_to = parsed_date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date_to format. Use YYYY-MM-DD")
+        
         filters = ItemFilterRequest(
             skip=skip,
             limit=limit,
             user_id=user_id,
             approved_only=approved_only,
             include_deleted=include_deleted,
-            item_type_id=item_type_id
+            item_type_id=item_type_id,
+            branch_id=branch_id,
+            date_from=parsed_date_from,
+            date_to=parsed_date_to
         )
         
-        items, total = item_service.search_items(q, filters)
+        items, total = item_service.search_items(q, filters, current_user.id)
         
         return ItemListResponse(
             items=items,
@@ -212,6 +289,56 @@ async def get_item_statistics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving statistics: {str(e)}")
 
+@router.get("/public/{item_id}", response_model=ItemDetailResponse)
+async def get_public_item(
+    item_id: str,
+    db: Session = Depends(get_session)
+):
+    """
+    Get a single item by ID for public viewing (no authentication required)
+    Only returns approved items and excludes deleted items
+    """
+    try:
+        # Create ItemService directly to avoid any middleware issues
+        item_service = ItemService(db)
+        
+        # Get item detail with approved_only=True and include_deleted=False
+        item = item_service.get_item_detail_by_id(item_id, include_deleted=False)
+        
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found or not approved for public viewing")
+        
+        # Additional check to ensure item is approved
+        if not item.approval:
+            raise HTTPException(status_code=404, detail="Item not approved for public viewing")
+            
+        return item
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving public item: {str(e)}")
+
+@router.get("/{item_id}", response_model=ItemDetailResponse)
+@require_permission("can_view_items")
+async def get_item(
+    item_id: str,
+    request: Request,
+    include_deleted: bool = Query(False, description="Include soft-deleted items"),
+    db: Session = Depends(get_session),
+    item_service: ItemService = Depends(get_item_service)
+):
+    """
+    Get a single item by ID with related data
+    Requires: can_view_items permission
+    """
+    try:
+        item = item_service.get_item_detail_by_id(item_id, include_deleted)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+        return item
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving item: {str(e)}")
+
 # =========================== 
 # Update Operations
 # ===========================
@@ -223,7 +350,8 @@ async def update_item(
     update_data: UpdateItemRequest,
     request: Request,
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access())
 ):
     """
     Update an existing item
@@ -237,13 +365,36 @@ async def update_item(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating item: {str(e)}")
 
+@router.patch("/{item_id}", response_model=ItemResponse)
+@require_permission("can_edit_items")
+async def patch_item(
+    item_id: str,
+    update_data: dict,
+    request: Request,
+    db: Session = Depends(get_session),
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access())
+):
+    """
+    Partially update an existing item with location history tracking
+    Requires: can_edit_items permission
+    """
+    try:
+        item = item_service.patch_item(item_id, update_data)
+        return item
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error patching item: {str(e)}")
+
 @router.patch("/{item_id}/toggle-approval", response_model=ItemResponse)
 @require_permission("can_approve_items")
 async def toggle_item_approval(
     item_id: str,
     request: Request,
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access())
 ):
     """
     Toggle the approval status of an item
@@ -263,7 +414,8 @@ async def update_claims_count(
     item_id: str,
     request: Request,
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access())
 ):
     """
     Update the claims count for an item based on actual claims
@@ -288,7 +440,8 @@ async def delete_item(
     request: Request,
     permanent: bool = Query(False, description="Permanently delete the item"),
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access())
 ):
     """
     Delete an item (soft delete by default, permanent if specified)
@@ -313,7 +466,8 @@ async def restore_item(
     item_id: str,
     request: Request,
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access())
 ):
     """
     Restore a soft-deleted item
@@ -337,7 +491,8 @@ async def bulk_delete_items(
     request: BulkDeleteRequest,
     req: Request,
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access_for_bulk_operations())
 ):
     """
     Bulk delete multiple items
@@ -359,7 +514,8 @@ async def bulk_update_items(
     request: BulkUpdateRequest,
     req: Request,
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access_for_bulk_operations())
 ):
     """
     Bulk update multiple items
@@ -381,7 +537,8 @@ async def bulk_approval_items(
     request: BulkApprovalRequest,
     req: Request,
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access_for_bulk_operations())
 ):
     """
     Bulk update approval status for multiple items
