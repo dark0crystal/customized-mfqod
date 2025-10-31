@@ -4,15 +4,19 @@ from datetime import datetime
 
 
 class OrganizationBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = Field(None, max_length=1000)
+    name_ar: Optional[str] = Field(None, max_length=255)
+    name_en: Optional[str] = Field(None, max_length=255)
+    description_ar: Optional[str] = Field(None, max_length=1000)
+    description_en: Optional[str] = Field(None, max_length=1000)
 
 class OrganizationCreate(OrganizationBase):
     pass
 
 class OrganizationUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = Field(None, max_length=1000)
+    name_ar: Optional[str] = Field(None, max_length=255)
+    name_en: Optional[str] = Field(None, max_length=255)
+    description_ar: Optional[str] = Field(None, max_length=1000)
+    description_en: Optional[str] = Field(None, max_length=1000)
 
 class OrganizationResponse(OrganizationBase):
     id: str
