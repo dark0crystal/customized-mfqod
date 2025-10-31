@@ -52,11 +52,12 @@ export default function CustomDropdown({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full px-4 py-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 hover:shadow-md ${
+        className={`w-full px-4 py-3 rounded-lg focus:ring-2 focus:border-[#3277AE] transition-all duration-200 hover:border-[#3277AE] ${
           variant === 'light' 
-            ? 'bg-blue-50 border border-blue-200 hover:bg-blue-100' 
+            ? 'bg-gray-50 border border-gray-300 hover:bg-gray-100' 
             : 'bg-white border border-gray-300 hover:bg-gray-50'
         }`}
+        style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
       >
         <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
           <span className={`text-start ${selectedOption ? "text-gray-900" : "text-gray-500"}`}>
@@ -71,19 +72,19 @@ export default function CustomDropdown({
       </button>
 
       {isOpen && (
-        <div className={`absolute z-50 w-full mt-1 border rounded-lg shadow-lg max-h-60 overflow-y-auto ${
+        <div className={`absolute z-50 w-full mt-1 border rounded-lg shadow-md max-h-60 overflow-y-auto ${
           variant === 'light' 
-            ? 'bg-blue-50 border-blue-200' 
-            : 'bg-white border-gray-200'
+            ? 'bg-gray-50 border-gray-300' 
+            : 'bg-white border-gray-300'
         }`}>
           {options.map((option) => (
             <button
               key={option.value}
               type="button"
               onClick={() => handleSelect(option.value)}
-              className={`w-full px-4 py-3 text-start hover:bg-blue-100 hover:text-blue-800 transition-all duration-150 ${
+              className={`w-full px-4 py-3 text-start hover:bg-gray-100 hover:text-gray-900 transition-all duration-150 ${
                 option.value === value
-                  ? "bg-blue-100 text-blue-800 font-medium"
+                  ? "bg-gray-100 text-gray-900 font-medium"
                   : "text-gray-900"
               } ${
                 option === options[0] ? "rounded-t-lg" : ""

@@ -223,7 +223,8 @@ export function useProtectedRoute(options: UseProtectedRouteOptions = {}) {
         return
       }
 
-      if (requiredRole && user?.role !== requiredRole) {
+      // Super Admin bypass: Allow super_admin users to access any role-protected route
+      if (requiredRole && user?.role !== requiredRole && user?.role !== 'super_admin') {
         router.push('/unauthorized')
         return
       }
@@ -234,6 +235,6 @@ export function useProtectedRoute(options: UseProtectedRouteOptions = {}) {
     isAuthenticated,
     isLoading,
     user,
-    hasRequiredRole: !requiredRole || user?.role === requiredRole,
+    hasRequiredRole: !requiredRole || user?.role === requiredRole || user?.role === 'super_admin',
   }
 }

@@ -134,14 +134,14 @@ export default function FilterModal({
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div 
           ref={modalRef}
-          className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto transform transition-transform duration-300 shadow-2xl border border-gray-200 pointer-events-auto"
+          className="bg-white rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto transform transition-transform duration-300 shadow-md border border-gray-300 pointer-events-auto"
           style={{ 
             animation: isOpen ? "fadeInScale 0.3s ease-out" : "fadeOutScale 0.3s ease-in"
           }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-2xl">
+          <div className="sticky top-0 bg-white border-b border-gray-300 px-6 py-4 rounded-t-lg">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">{tSearch("filterOptions")}</h2>
               <button
@@ -204,7 +204,7 @@ export default function FilterModal({
           </div>
 
           {/* Footer */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4">
+          <div className="sticky bottom-0 bg-white border-t border-gray-300 px-6 py-4">
             <button
               onClick={handleApplyFilters}
               className="w-full px-4 py-3 text-white rounded-lg transition-colors duration-200 font-medium"
