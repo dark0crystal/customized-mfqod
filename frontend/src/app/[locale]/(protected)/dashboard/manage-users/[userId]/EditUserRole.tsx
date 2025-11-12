@@ -1,6 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { tokenManager } from '@/utils/tokenManager';
+
+// Helper function to create authenticated headers
+const getAuthHeaders = (): HeadersInit => {
+  const token = tokenManager.getAccessToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  return headers;
+};
 
 type Role = {
   id: string;
@@ -37,20 +52,25 @@ export default function EditUserRole({ userId }: { userId: string }) {
         setIsLoading(true);
         
         // Fetch available roles from your FastAPI backend
-        const rolesResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/roles/all`);
+        const rolesResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/roles/all`, {
+          headers: getAuthHeaders()
+        });
         if (!rolesResponse.ok) throw new Error("Failed to fetch roles");
         const rolesData: Role[] = await rolesResponse.json();
         setRoles(rolesData);
 
         // Fetch current user data to get current role
-        const userResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}`);
+        const userResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}`, {
+          headers: getAuthHeaders()
+        });
         if (!userResponse.ok) throw new Error("Failed to fetch user data");
         const userData: UserData = await userResponse.json();
         
         setCurrentRole(userData.role_name);
         setSelectedRole(userData.role_name);
-      } catch (error: any) {
-        setErrorMessage(error.message || "An error occurred while fetching data");
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "An error occurred while fetching data";
+        setErrorMessage(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -79,7 +99,7 @@ export default function EditUserRole({ userId }: { userId: string }) {
       const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}/role`, {
         method: "PUT",
         body: JSON.stringify({ role_name: selectedRole }),
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -87,11 +107,11 @@ export default function EditUserRole({ userId }: { userId: string }) {
         throw new Error(errorData.detail || "Failed to update user role");
       }
 
-      const result = await response.json();
       setSuccessMessage("User role updated successfully!");
       setCurrentRole(selectedRole);
-    } catch (error: any) {
-      setErrorMessage(error.message || "An error occurred while updating the role");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "An error occurred while updating the role";
+      setErrorMessage(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
