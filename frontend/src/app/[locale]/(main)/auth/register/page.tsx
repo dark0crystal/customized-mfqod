@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -56,7 +56,23 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [showOtpStep, setShowOtpStep] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [otpEmail, setOtpEmail] = useState('')
+  const [otpError, setOtpError] = useState<string | null>(null)
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
+  const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [resendTimer, setResendTimer] = useState(0)
+  const [formData, setFormData] = useState<SignupFormData | null>(null)
   const router = useRouter()
+
+  // Resend timer countdown
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resendTimer])
 
   const {
     register,
@@ -72,32 +88,81 @@ export default function Register() {
   const password = watch('password')
 
   const onSubmit = async (data: SignupFormData) => {
-    setIsLoading(true)
+    setIsSendingOtp(true)
     setApiError(null)
-    setSuccessMessage(null)
+    setOtpError(null)
 
     try {
-      // Prepare the payload according to backend schema
-      const payload = {
-        email: data.email,
-        password: data.password,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        ...(data.username && { username: data.username }),
-        ...(data.phone_number && { phone_number: data.phone_number })
-      }
-
-      const response = await authApi.register(payload)
+      // Send OTP to email
+      const response = await authApi.sendOtp(data.email)
 
       if (response.error) {
+        setApiError(response.error)
+        return
+      }
+
+      // Store form data for later registration
+      setFormData(data)
+      setOtpEmail(data.email)
+      setShowOtpStep(true)
+      setResendTimer(60) // 60 seconds before resend allowed
+
+    } catch (error) {
+      console.error('Send OTP error:', error)
+      setApiError(t("networkError"))
+    } finally {
+      setIsSendingOtp(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) {
+      setOtpError(t("otpInvalid"))
+      return
+    }
+
+    setIsVerifyingOtp(true)
+    setOtpError(null)
+
+    try {
+      // Verify OTP
+      const verifyResponse = await authApi.verifyOtp(otpEmail, otpCode)
+
+      if (verifyResponse.error) {
+        setOtpError(verifyResponse.error)
+        return
+      }
+
+      // OTP verified, now complete registration
+      if (!formData) {
+        setOtpError(t("networkError"))
+        return
+      }
+
+      setIsLoading(true)
+      setOtpError(null)
+
+      // Prepare the payload according to backend schema
+      const payload = {
+        email: formData.email,
+        password: formData.password,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        ...(formData.username && { username: formData.username }),
+        ...(formData.phone_number && { phone_number: formData.phone_number })
+      }
+
+      const registerResponse = await authApi.register(payload)
+
+      if (registerResponse.error) {
         // Handle validation errors
-        if (response.validationErrors) {
-          Object.entries(response.validationErrors).forEach(([field, message]) => {
+        if (registerResponse.validationErrors) {
+          Object.entries(registerResponse.validationErrors).forEach(([field, message]) => {
             setError(field as keyof SignupFormData, { message })
           })
         }
         
-        setApiError(response.error)
+        setOtpError(registerResponse.error)
         return
       }
 
@@ -110,10 +175,35 @@ export default function Register() {
       }, 2000)
 
     } catch (error) {
-      console.error('Registration error:', error)
-      setApiError(t("networkError"))
+      console.error('Verify OTP/Registration error:', error)
+      setOtpError(t("networkError"))
     } finally {
+      setIsVerifyingOtp(false)
       setIsLoading(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    if (resendTimer > 0 || !otpEmail) return
+
+    setIsSendingOtp(true)
+    setOtpError(null)
+
+    try {
+      const response = await authApi.sendOtp(otpEmail)
+
+      if (response.error) {
+        setOtpError(response.error)
+        return
+      }
+
+      setResendTimer(60) // Reset timer
+      setOtpCode('') // Clear OTP input
+    } catch (error) {
+      console.error('Resend OTP error:', error)
+      setOtpError(t("networkError"))
+    } finally {
+      setIsSendingOtp(false)
     }
   }
 
@@ -150,7 +240,109 @@ export default function Register() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* OTP Step */}
+      {showOtpStep ? (
+        <div className="space-y-6">
+          <div className="mb-6 p-4 rounded-lg bg-blue-50 text-blue-800 border border-blue-200">
+            <p className="text-sm">
+              {t("otpDescription").replace('{email}', otpEmail)}
+            </p>
+          </div>
+
+          {otpError && (
+            <div className="mb-6 p-4 rounded-lg bg-red-50 text-red-800 border border-red-200 flex items-center">
+              <XCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+              <span>{otpError}</span>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-lg font-semibold text-gray-700 mb-2">
+              {t("enterOtp")} *
+            </label>
+            <input
+              type="text"
+              value={otpCode}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 6)
+                setOtpCode(value)
+                setOtpError(null)
+              }}
+              className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors text-center text-2xl tracking-widest font-mono ${
+                otpError
+                  ? 'border-red-500 focus:ring-red-500 bg-red-50'
+                  : 'border-gray-300 focus:ring-blue-500'
+              }`}
+              style={{ 
+                '--tw-ring-color': '#3277AE',
+                '--tw-ring-offset-color': '#3277AE'
+              } as React.CSSProperties & { [key: string]: string }}
+              placeholder="000000"
+              disabled={isVerifyingOtp || isLoading}
+              maxLength={6}
+            />
+          </div>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={handleVerifyOtp}
+              disabled={otpCode.length !== 6 || isVerifyingOtp || isLoading}
+              className="w-full p-3 text-white font-semibold rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              style={{ 
+                backgroundColor: '#3277AE',
+                '--tw-ring-color': '#3277AE'
+              } as React.CSSProperties & { [key: string]: string }}
+            >
+              {isVerifyingOtp || isLoading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {isLoading ? t("registering") : t("verifyingOtp")}
+                </span>
+              ) : (
+                t("verifyOtp")
+              )}
+            </button>
+          </div>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={resendTimer > 0 || isSendingOtp}
+              className="text-sm text-gray-600 hover:text-blue-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+              style={{ color: resendTimer > 0 ? '#9CA3AF' : '#3277AE' }}
+            >
+              {isSendingOtp ? (
+                t("sendingOtp")
+              ) : resendTimer > 0 ? (
+                `${t("resendIn")} ${resendTimer}s`
+              ) : (
+                t("resendOtp")
+              )}
+            </button>
+          </div>
+
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setShowOtpStep(false)
+                setOtpCode('')
+                setOtpError(null)
+                setFormData(null)
+              }}
+              className="text-sm text-gray-600 hover:text-gray-800"
+            >
+              ← Back to form
+            </button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Email */}
         <div>
           <label className="block text-lg font-semibold text-gray-700 mb-2">
@@ -371,13 +563,13 @@ export default function Register() {
               }
             }}
           >
-            {isLoading ? (
+            {isSendingOtp ? (
               <span className="flex items-center justify-center">
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                {t("registering")}
+                {t("sendingOtp")}
               </span>
             ) : (
               t("registerButton")
@@ -385,6 +577,7 @@ export default function Register() {
           </button>
         </div>
       </form>
+      )}
 
       {/* Footer */}
       <div className="mt-6 text-center">
