@@ -1,10 +1,14 @@
 'use client';
 
 import { useRouter } from '@/i18n/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import Image from 'next/image';
 import { tokenManager } from '@/utils/tokenManager';
+import LocationTracking from '@/components/LocationTracking';
+import CustomDropdown from '@/components/ui/CustomDropdown';
+import HydrationSafeWrapper from '@/components/HydrationSafeWrapper';
+import { useTranslations, useLocale } from 'next-intl';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -14,11 +18,11 @@ const getAuthHeaders = (): HeadersInit => {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
+
   return headers;
 };
 
@@ -34,6 +38,8 @@ interface ItemFormFields {
   location: string;
   organization_id: string;
   branch_id: string;
+  approval: boolean;
+  temporary_deletion: boolean;
 }
 
 interface Organization {
@@ -44,7 +50,12 @@ interface Organization {
 
 interface Branch {
   id: string;
-  branch_name: string;
+  branch_name_ar?: string;
+  branch_name_en?: string;
+  description_ar?: string;
+  description_en?: string;
+  longitude?: number;
+  latitude?: number;
   organization_id: string;
 }
 
@@ -56,6 +67,23 @@ interface ItemData {
   type: string;
   location?: LocationData;
   uploadedPostPhotos?: { postUrl: string }[];
+  addresses?: Array<{
+    id: string;
+    is_current: boolean;
+    branch?: {
+      id: string;
+      branch_name_ar?: string;
+      branch_name_en?: string;
+      organization?: {
+        id: string;
+        name_ar?: string;
+        name_en?: string;
+      };
+    };
+    full_location?: string;
+    created_at: string;
+    updated_at: string;
+  }>;
 }
 
 interface EditPostProps {
@@ -64,6 +92,16 @@ interface EditPostProps {
 
 export default function EditPost({ params }: EditPostProps) {
   const router = useRouter();
+  const t = useTranslations('editPost');
+  const locale = useLocale();
+  
+  // Helper function to get localized name
+  const getLocalizedName = useCallback((nameAr?: string, nameEn?: string): string => {
+    if (locale === 'ar' && nameAr) return nameAr;
+    if (locale === 'en' && nameEn) return nameEn;
+    return nameAr || nameEn || '';
+  }, [locale]);
+  
   const [item, setItem] = useState<ItemData | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -72,12 +110,53 @@ export default function EditPost({ params }: EditPostProps) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
+  const [approvalStatus, setApprovalStatus] = useState<string>('true');
+  const [deletionStatus, setDeletionStatus] = useState<string>('false');
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ItemFormFields>();
 
   const watchedOrganization = watch('organization_id');
 
-  const watchedLocation = watch('location');
+  const fetchOrganizations = useCallback(async () => {
+    setLoadingOrgs(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/organizations`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setOrganizations(data);
+      } else {
+        console.error('Failed to fetch organizations:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching organizations:', error);
+    } finally {
+      setLoadingOrgs(false);
+    }
+  }, []);
+
+  const fetchBranches = useCallback(async (organizationId: string) => {
+    setLoadingBranches(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/organizations/${organizationId}/branches`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setBranches(data);
+        setValue('branch_id', ''); // Reset branch when org changes
+      } else {
+        console.error('Failed to fetch branches:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+    } finally {
+      setLoadingBranches(false);
+    }
+  }, [setValue]);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -89,20 +168,23 @@ export default function EditPost({ params }: EditPostProps) {
           const data = await response.json();
           setItem(data);
           setOriginalLocation(data.location?.full_location || '');
-          
+
           // Set form values
           setValue('title', data.title);
-          setValue('description', data.description || data.content);
-          // setValue('type', data.type); // Type editing removed
+          setValue('description', data.description || data.content || '');
           setValue('location', data.location?.full_location || '');
-          
+          setValue('approval', data.approval ?? true);
+          setValue('temporary_deletion', data.temporary_deletion ?? false);
+          setApprovalStatus(data.approval ? 'true' : 'false');
+          setDeletionStatus(data.temporary_deletion ? 'true' : 'false');
+
           // Set organization and branch IDs if available from addresses
           if (data.addresses && data.addresses.length > 0) {
-            const currentAddress = data.addresses.find((addr: any) => addr.is_current) || data.addresses[0];
+            const currentAddress = data.addresses.find((addr: { is_current: boolean }) => addr.is_current) || data.addresses[0];
             if (currentAddress?.branch) {
-              setValue('branch_id', currentAddress.branch.id);
+              setValue('branch_id', currentAddress.branch.id ?? '');
               if (currentAddress.branch.organization) {
-                setValue('organization_id', currentAddress.branch.organization.id);
+                setValue('organization_id', currentAddress.branch.organization.id ?? '');
               }
             }
           }
@@ -116,31 +198,8 @@ export default function EditPost({ params }: EditPostProps) {
 
     fetchItem();
     fetchOrganizations();
-  }, [params.itemId, setValue]);
+  }, [params.itemId, setValue, fetchOrganizations]);
 
-  // Fetch organizations
-  const fetchOrganizations = async () => {
-    setLoadingOrgs(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/organizations`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setOrganizations(data);
-        console.log('Organizations fetched:', data.length);
-      } else {
-        console.error('Failed to fetch organizations:', response.status, response.statusText);
-      }
-    } catch (error) {
-      console.error('Error fetching organizations:', error);
-    } finally {
-      setLoadingOrgs(false);
-    }
-  };
-
-  // Fetch branches when organization changes
   useEffect(() => {
     if (watchedOrganization) {
       fetchBranches(watchedOrganization);
@@ -148,47 +207,24 @@ export default function EditPost({ params }: EditPostProps) {
       setBranches([]);
       setValue('branch_id', '');
     }
-  }, [watchedOrganization, setValue]);
-
-  const fetchBranches = async (organizationId: string) => {
-    setLoadingBranches(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/organizations/${organizationId}/branches`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setBranches(data);
-        console.log('Branches fetched:', data.length);
-        // Reset branch selection when organization changes
-        setValue('branch_id', '');
-      } else {
-        console.error('Failed to fetch branches:', response.status, response.statusText);
-      }
-    } catch (error) {
-      console.error('Error fetching branches:', error);
-    } finally {
-      setLoadingBranches(false);
-    }
-  };
+  }, [watchedOrganization, fetchBranches, setValue]);
 
   const onSubmit: SubmitHandler<ItemFormFields> = async (data) => {
     setSubmitting(true);
-    
+
     try {
-      // Check if location has changed
       const locationChanged = data.location !== originalLocation;
-      
+
       const updateData = {
         title: data.title,
         description: data.description,
         locationChanged,
         originalLocation: locationChanged ? originalLocation : undefined,
-        // Include organization and branch info
         organization_id: data.organization_id,
         branch_id: data.branch_id,
-        location: data.location
+        location: data.location,
+        approval: approvalStatus === 'true',
+        temporary_deletion: deletionStatus === 'true',
       };
 
       const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
@@ -211,174 +247,240 @@ export default function EditPost({ params }: EditPostProps) {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-xl">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="text-lg font-medium text-gray-700">{t('loading')}</div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!item) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-xl text-red-500">Item not found</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <div className="text-lg font-medium text-gray-700">{t('itemNotFound')}</div>
+            <button
+              onClick={() => router.push('/dashboard/items')}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {t('backToItems')}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
-      <h2 className="text-2xl font-bold text-center text-indigo-600 mb-6">Edit Item</h2>
+    <div className="p-6 sm:p-8">
+      <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">
+        {t('title')}
+      </h2>
 
-      {/* Display current images */}
-      {item.uploadedPostPhotos && item.uploadedPostPhotos.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold mb-3">Current Images</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {item.uploadedPostPhotos.map((photo, index) => (
-              <div key={index} className="relative h-32">
-                <Image
-                  src={photo.postUrl}
-                  alt={`Item image ${index + 1}`}
-                  fill
-                  className="object-cover rounded-lg"
-                />
+          {/* Images Section */}
+          {item.uploadedPostPhotos && item.uploadedPostPhotos.length > 0 && (
+            <div className="mb-6">
+              <label className="block text-lg font-semibold text-gray-700 mb-2">
+                {t('currentImages')} ({item.uploadedPostPhotos.length})
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {item.uploadedPostPhotos.map((photo, index) => (
+                  <div key={index} className="relative">
+                    <div className="relative h-32 sm:h-28 lg:h-32 rounded-lg overflow-hidden">
+                      <Image
+                        src={photo.postUrl}
+                        alt={`Item image ${index + 1}`}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Title */}
-        <div>
-          <label htmlFor="title" className="block text-lg font-semibold text-gray-700 mb-2">
-            Title
-          </label>
-          <input
-            type="text"
-            id="title"
-            {...register('title', { required: 'Title is required' })}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          />
-          {errors.title && <p className="mt-2 text-sm text-red-500">{errors.title.message}</p>}
-        </div>
+          {/* Location History Section */}
+          {item.addresses && item.addresses.length > 0 && (
+            <div className="mb-6">
+              <LocationTracking addresses={item.addresses} />
+            </div>
+          )}
 
-        {/* Description */}
-        <div>
-          <label htmlFor="description" className="block text-lg font-semibold text-gray-700 mb-2">
-            Description
-          </label>
-          <textarea
-            id="description"
-            rows={4}
-            {...register('description', { required: 'Description is required' })}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          />
-          {errors.description && <p className="mt-2 text-sm text-red-500">{errors.description.message}</p>}
-        </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* Title */}
+            <div>
+              <label htmlFor="title" className="block text-lg font-semibold text-gray-700 mb-2">
+                {t('titleLabel')} *
+              </label>
+              <input
+                type="text"
+                id="title"
+                {...register('title', { required: t('titleRequired') })}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder={t('titlePlaceholder')}
+              />
+              {errors.title && (
+                <p className="mt-2 text-sm text-red-500">{errors.title.message}</p>
+              )}
+            </div>
 
-        {/* Type field removed as requested */
+            {/* Description */}
+            <div>
+              <label htmlFor="description" className="block text-lg font-semibold text-gray-700 mb-2">
+                {t('descriptionLabel')} *
+              </label>
+              <textarea
+                id="description"
+                rows={4}
+                {...register('description', { required: t('descriptionRequired') })}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder={t('descriptionPlaceholder')}
+              />
+              {errors.description && (
+                <p className="mt-2 text-sm text-red-500">{errors.description.message}</p>
+              )}
+            </div>
 
-        {/* Location Fields */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-gray-700 mb-4">Location Information</h3>
-          
-          {/* Full Location */}
-          <div className="mb-4">
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-              Full Location
-            </label>
-            <input
-              type="text"
-              id="location"
-              {...register('location', { required: 'Location is required' })}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Enter full address or location"
-            />
-            {errors.location && <p className="mt-2 text-sm text-red-500">{errors.location.message}</p>}
-            
-            {/* Location change indicator */}
-            {watchedLocation && watchedLocation !== originalLocation && (
-              <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded">
-                <p className="text-sm text-yellow-800">
-                  <strong>Location Change Detected:</strong> This will be tracked in the location history.
-                </p>
-                <p className="text-xs text-yellow-700 mt-1">
-                  Previous: {originalLocation}
-                </p>
+            {/* Approval Status */}
+            <div>
+              <label className="block text-lg font-semibold text-gray-700 mb-2">
+                {t('approvalStatus')}
+              </label>
+              <div className="relative">
+                <HydrationSafeWrapper fallback={<div className="w-full h-12 bg-gray-100 rounded-lg animate-pulse"></div>}>
+                  <CustomDropdown
+                    options={[
+                      { value: 'true', label: t('approved') },
+                      { value: 'false', label: t('pending') }
+                    ]}
+                    value={approvalStatus}
+                    onChange={setApprovalStatus}
+                    placeholder={t('selectApprovalStatus')}
+                    className="w-full"
+                  />
+                </HydrationSafeWrapper>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Organization */}
-          <div className="mb-4">
-            <label htmlFor="organization_id" className="block text-sm font-medium text-gray-700 mb-2">
-              Organization
-            </label>
-            <select
-              id="organization_id"
-              {...register('organization_id')}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="">
-                {loadingOrgs ? 'Loading organizations...' : 'Select an organization'}
-              </option>
-              {organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Temporary Deletion */}
+            <div>
+              <label className="block text-lg font-semibold text-gray-700 mb-2">
+                {t('deletionStatus')}
+              </label>
+              <div className="relative">
+                <HydrationSafeWrapper fallback={<div className="w-full h-12 bg-gray-100 rounded-lg animate-pulse"></div>}>
+                  <CustomDropdown
+                    options={[
+                      { value: 'false', label: t('active') },
+                      { value: 'true', label: t('markedForDeletion') }
+                    ]}
+                    value={deletionStatus}
+                    onChange={setDeletionStatus}
+                    placeholder={t('selectDeletionStatus')}
+                    className="w-full"
+                  />
+                </HydrationSafeWrapper>
+              </div>
+            </div>
 
-          {/* Branch */}
-          <div>
-            <label htmlFor="branch_id" className="block text-sm font-medium text-gray-700 mb-2">
-              Branch
-            </label>
-            <select
-              id="branch_id"
-              {...register('branch_id')}
-              disabled={!watchedOrganization || branches.length === 0}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-            >
-              <option value="">
-                {!watchedOrganization ? 'Select an organization first' : 
-                 loadingBranches ? 'Loading branches...' :
-                 branches.length === 0 ? 'No branches available' :
-                 'Select a branch'}
-              </option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.branch_name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+            {/* Location */}
+            <div>
+              <label htmlFor="location" className="block text-lg font-semibold text-gray-700 mb-2">
+                {t('locationLabel')} *
+              </label>
+              <input
+                type="text"
+                id="location"
+                {...register('location', { required: t('locationRequired') })}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder={t('locationPlaceholder')}
+              />
+              {errors.location && (
+                <p className="mt-2 text-sm text-red-500">{errors.location.message}</p>
+              )}
+            </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-end space-x-4">
-          <button
-            type="button"
-            onClick={() => router.push('/dashboard/items')}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className={`px-6 py-2 rounded-lg text-white font-semibold ${
-              submitting 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-indigo-600 hover:bg-indigo-700 transition-colors'
-            }`}
-          >
-            {submitting ? 'Updating...' : 'Update Item'}
-          </button>
-        </div>
-      </form>
+            {/* Organization and Branch - Responsive Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Organization */}
+              <div>
+                <label htmlFor="organization_id" className="block text-lg font-semibold text-gray-700 mb-2">
+                  {t('organizationLabel')}
+                </label>
+                <select
+                  id="organization_id"
+                  {...register('organization_id')}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">
+                    {loadingOrgs ? t('loadingOrganizations') : t('selectOrganization')}
+                  </option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Branch */}
+              <div>
+                <label htmlFor="branch_id" className="block text-lg font-semibold text-gray-700 mb-2">
+                  {t('branchLabel')}
+                </label>
+                <select
+                  id="branch_id"
+                  {...register('branch_id')}
+                  disabled={!watchedOrganization || branches.length === 0}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {!watchedOrganization ? t('selectOrganizationFirst') :
+                      loadingBranches ? t('loadingBranches') :
+                        branches.length === 0 ? t('noBranchesAvailable') :
+                          t('selectBranch')}
+                  </option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="text-center">
+              <button 
+                type="submit" 
+                disabled={submitting} 
+                className="w-full sm:w-auto px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {t('updating')}
+                  </span>
+                ) : (
+                  t('updateItem')
+                )}
+              </button>
+            </div>
+          </form>
     </div>
   );
 }
