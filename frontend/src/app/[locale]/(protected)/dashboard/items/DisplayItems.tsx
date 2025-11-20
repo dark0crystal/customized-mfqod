@@ -1,220 +1,281 @@
 'use client';
 
 import { useRouter } from '@/i18n/navigation';
-import { useSearchParams } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { MdArrowOutward } from 'react-icons/md';
-import { useAuth } from '@/hooks/useAuth';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
+import { IoMdResize } from 'react-icons/io';
+import { useTranslations, useLocale } from 'next-intl';
+import defaultImage from '../../../../../../public/img1.jpeg';
 
 interface LocationData {
-  organization_name?: string;
-  branch_name?: string;
+  organization_name_ar?: string;
+  organization_name_en?: string;
+  branch_name_ar?: string;
+  branch_name_en?: string;
   full_location?: string;
 }
 
-interface ImageData {
+interface Item {
   id: string;
-  url: string;
-  description?: string;
-}
-
-type Post = {
-  approval: any;
-  id: string;
-  temporary_deletion: boolean;
   title: string;
   description: string;
-  claims_count: number;
   location?: LocationData;
-  images: ImageData[];
-};
+  approval?: boolean;
+  temporary_deletion?: boolean;
+  claims_count?: number;
+}
 
-export default function DisplayPosts() {
+interface ItemImage {
+  id: string;
+  url: string;
+  imageable_type: string;
+  imageable_id: string;
+}
+
+interface DisplayItemsProps {
+  items: Item[];
+  images: Record<string, ItemImage[]>;
+}
+
+export default function DisplayItems({ items, images }: DisplayItemsProps) {
+  const t = useTranslations("dashboard.items");
+  const locale = useLocale();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user } = useAuth();
-  const orgName = searchParams.get('orgName');
-  const placeName = searchParams.get('placeName');
 
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Track which image is expanded (by item id), or null if none
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
 
+  // Handle ESC key to close expanded image
   useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && expandedItemId) {
+        setExpandedItemId(null);
+      }
+    };
+    
+    if (expandedItemId) {
+      document.addEventListener('keydown', handleEsc);
+      // Prevent body scroll when image is expanded
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.removeEventListener('keydown', handleEsc);
+      document.body.style.overflow = 'unset';
+    };
+  }, [expandedItemId]);
+
+  const handlePostClick = (postId: string) => {
+    router.push(`/dashboard/items/${postId}`);
+  };
+
+  const handleImageSize = (itemId: string) => {
+    setExpandedItemId(expandedItemId === itemId ? null : itemId);
+  };
+
+  // Helper to get localized name based on current locale
+  const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
+    if (locale === 'ar' && nameAr) return nameAr;
+    if (locale === 'en' && nameEn) return nameEn;
+    return nameAr || nameEn || '';
+  };
+
+  // Helper to format location with localized organization and branch names
+  const getLocationDisplay = (location?: LocationData): string => {
+    if (!location) return t("location.notSpecified");
+    
+    const orgName = getLocalizedName(
+      location.organization_name_ar,
+      location.organization_name_en
+    );
+    
+    const branchName = getLocalizedName(
+      location.branch_name_ar,
+      location.branch_name_en
+    );
+    
+    // Build the location string with proper localization - only show locale-specific names
+    const parts = [];
+    
+    // Add organization name if available (only in selected locale)
     if (orgName) {
-      const fetchPosts = async () => {
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/items?approved_only=true&limit=100`);
-          const data = await response.json();
-          // Backend returns { items: [...], total: number } format
-          setPosts(data.items || []);
-        } catch (error) {
-          console.error('Error fetching posts:', error);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchPosts();
+      parts.push(orgName);
     }
-  }, [orgName, placeName]);
-
-  const handleHide = async (postId: string) => {
-    const isConfirmed = window.confirm("Are you sure you want to hide this post?");
-    if (!isConfirmed) return;
-  
-    try {
-      await fetch(`${API_BASE_URL}/api/items/${postId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ temporary_deletion: true }),
-      });
-  
-      setPosts((prevPosts) =>
-        prevPosts.map((post) =>
-          post.id === postId ? { ...post, temporary_deletion: true } : post
-        )
-      );
-    } catch (error) {
-      console.error('Error hiding post:', error);
+    
+    // Add branch name if available and different from organization (only in selected locale)
+    if (branchName && branchName !== orgName) {
+      parts.push(branchName);
     }
+    
+    // Add full location if available and not already included
+    if (location.full_location && !parts.some(part => location.full_location?.includes(part))) {
+      parts.push(location.full_location);
+    }
+    
+    return parts.length > 0 ? parts.join(', ') : t("location.notSpecified");
   };
-  
-  const handleDelete = async (postId: string) => {
-    const isConfirmed = window.confirm("Are you sure you want to delete this post permanently?");
-    if (!isConfirmed) return;
-  
-    try {
-      await fetch(`${API_BASE_URL}/api/items/${postId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-      });
-  
-      setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId));
-    } catch (error) {
-      console.error('Error deleting post:', error);
-    }
-  };
-  
 
-  if (loading) {
-    return <div className="text-center text-xl mt-8">Loading...</div>;
-  }
+  const getImageUrl = (itemId: string) => {
+    const itemImages = images?.[itemId] && images[itemId].length > 0 ? images[itemId] : null;
+    if (itemImages && itemImages[0]?.url) {
+      // If the url is already absolute, use as is
+      if (/^https?:\/\//.test(itemImages[0].url)) return itemImages[0].url;
+      
+      // Convert database URL format to static file serving format
+      let imageUrl = itemImages[0].url.replace('/uploads/images/', '/static/images/');
+      
+      // Ensure the imageUrl starts with a forward slash
+      if (!imageUrl.startsWith('/')) {
+        imageUrl = '/' + imageUrl;
+      }
+      
+      // Get base URL and ensure it doesn't end with a slash
+      const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
+      
+      return `${baseUrl}${imageUrl}`;
+    }
+    return defaultImage;
+  };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-center mb-6">User Posts</h1>
-      {posts.length === 0 ? (
-        <p className="text-center text-gray-600">No posts available</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {posts.map((post) => (
-            <div
-              key={post.id}
-              className={`relative rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 w-[350px] min-w-[350px] ${
-                post.temporary_deletion ? 'hidden' : 'block'} ${post.approval ? 'bg-white':'bg-red-300'}`}
-            >
-              {/* Image Section */}
-              <div className="relative h-40">
-                {post.images.length > 0 && post.images[0].url ? (
-                  <Image
-                    src={`${API_BASE_URL}${post.images[0].url}`}
-                    alt={post.title}
-                    fill
-                    style={{ objectFit: 'cover' }}
-                    className="rounded-t-2xl"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full bg-gray-200 text-gray-500">
-                    No Image Available
+    <div className="w-full flex items-center flex-col">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {items.length > 0 ? (
+          items.map((item, index) => {
+            const imageUrl = getImageUrl(item.id);
+            const isExpanded = expandedItemId === item.id;
+
+            return (
+              <div key={item.id}>
+                {/* Regular card view */}
+                <div
+                  className={`bg-white w-full shadow-lg overflow-hidden rounded-2xl hover:shadow-xl transition-shadow duration-300 ${
+                    isExpanded ? "hidden" : ""
+                  }`}
+                >
+                  {/* Content */}
+                  <div className="p-4">
+                    <h4 className="text-lg font-semibold text-gray-800 truncate" title={item.title}>
+                      {item.title}
+                    </h4>
+                    <p className="text-gray-600 text-sm mt-2 line-clamp-2 overflow-hidden text-ellipsis" title={item.description}>
+                      {item.description}
+                    </p>
+                    <p className="text-gray-500 text-xs mt-2 truncate" title={getLocationDisplay(item.location)}>
+                      {getLocationDisplay(item.location)}
+                    </p>
+                    {item.claims_count !== undefined && (
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-xs text-gray-500">{item.claims_count} {t("status.claims")}</span>
+                        <span className={`text-xs px-2 py-1 rounded ${item.approval ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {item.approval ? t("status.approved") : t("status.pending")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Image Section */}
+                  <div className="relative h-[250px] m-3">
+                    {/* Go to details */}
+                    <button
+                      title={t("goToDetails")}
+                      onClick={() => handlePostClick(item.id)}
+                      className="absolute bottom-2 right-2 p-3 bg-white z-20 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
+                    >
+                      <MdArrowOutward />
+                    </button>
+
+                    {/* Expand image */}
+                    <button
+                      title={t("expandImage")}
+                      onClick={() => handleImageSize(item.id)}
+                      className="absolute top-2 left-2 p-3 bg-white z-20 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
+                    >
+                      <IoMdResize />
+                    </button>
+
+                    <Image
+                      src={imageUrl}
+                      alt={`Item image ${index}`}
+                      fill
+                      style={{ objectFit: "cover" }}
+                      className="rounded-2xl cursor-zoom-in"
+                      onClick={() => handleImageSize(item.id)}
+                      sizes="400px"
+                    />
+                  </div>
+                </div>
+
+                {/* Expanded image modal */}
+                {isExpanded && (
+                  <div 
+                    className="fixed inset-0 bg-black bg-opacity-90 z-50 flex justify-center items-center p-4"
+                    style={{ animation: "fadeIn .2s" }}
+                    onClick={() => setExpandedItemId(null)}
+                  >
+                    <div className="relative max-w-[90vw] max-h-[90vh] w-full h-full flex justify-center items-center">
+                      {/* Close button */}
+                      <button
+                        title={t("close")}
+                        onClick={() => setExpandedItemId(null)}
+                        className="absolute top-4 right-4 p-3 bg-white z-30 text-black text-xl rounded-full hover:bg-gray-200 transition-colors shadow-md"
+                      >
+                        ×
+                      </button>
+
+                      {/* Go to details */}
+                      <button
+                        title={t("goToDetails")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePostClick(item.id);
+                        }}
+                        className="absolute bottom-4 right-4 p-3 bg-white z-30 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
+                      >
+                        <MdArrowOutward />
+                      </button>
+
+                      {/* Expanded image */}
+                      <div 
+                        className="relative w-full h-full"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Image
+                          src={imageUrl}
+                          alt={`Item image ${index} - expanded`}
+                          fill
+                          style={{ objectFit: "contain" }}
+                          className="cursor-zoom-out"
+                          onClick={() => setExpandedItemId(null)}
+                          sizes="90vw"
+                          priority
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
-                <button
-                  title="Go to details"
-                  onClick={() => router.push(`/dashboard/items/${post.id}`)}
-                  className="absolute bottom-2 right-2 p-3 bg-white text-black text-xl rounded-full hover:bg-indigo-200 transition-colors shadow-md"
-                >
-                  <MdArrowOutward />
-                </button>
               </div>
+            );
+          })
+        ) : (
+          <p className="text-gray-500">{t("noItems")}</p>
+        )}
+      </div>
 
-              {/* Content Section */}
-              <div className="p-4">
-                <h2 className="text-lg font-bold text-gray-800">{post.title}</h2>
-                <p className="text-gray-600 text-sm mt-2 line-clamp-2 overflow-hidden text-ellipsis">
-                  {post.description}
-                </p>
-                <p className="text-gray-500 text-xs mt-2">
-                  {post.location?.full_location || "Location not specified"}
-                </p>
-                <div className="flex justify-between items-center mt-2">
-                  <span className="text-xs text-gray-500">{post.claims_count} Claims</span>
-                  <span className={`text-xs px-2 py-1 rounded ${post.approval ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {post.approval ? 'Approved' : 'Pending'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              {(user?.role === 'TECHADMIN' || user?.role === 'ADMIN') && (
-                <div className="absolute top-2 right-2 space-x-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/dashboard/items/${post.id}`);
-                    }}
-                    className="text-sm text-white bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded shadow"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleHide(post.id);
-                    }}
-                    className="text-sm text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded shadow"
-                  >
-                    Hide
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(post.id);
-                    }}
-                    className="text-sm text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded shadow"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-              {user?.role === 'VERIFIED' && (
-                <div className="absolute top-2 right-2 space-x-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/dashboard/items/${post.id}`);
-                    }}
-                    className="text-sm text-white bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded shadow"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleHide(post.id);
-                    }}
-                    className="text-sm text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded shadow"
-                  >
-                    Hide
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Add some CSS for fade-in animation */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 }
