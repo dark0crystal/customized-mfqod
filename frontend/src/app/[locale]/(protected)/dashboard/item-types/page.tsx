@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, AlertCircle, CheckCircle } from 'lucide-react';
 import { usePermissions } from "@/PermissionsContext"
+import { useLocale } from "next-intl";
 
 const ItemTypesManager = () => {
+  const locale = useLocale();
   const [itemTypes, setItemTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -13,12 +15,17 @@ const ItemTypesManager = () => {
   const [editingItem, setEditingItem] = useState(null);
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
 
+  // Helper function to get localized name
+  const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
+    if (locale === 'ar' && nameAr) return nameAr;
+    if (locale === 'en' && nameEn) return nameEn;
+    return nameAr || nameEn || '';
+  };
+
   // Form state
   const [formData, setFormData] = useState({
-    name: '',
     name_ar: '',
     name_en: '',
-    description: '',
     description_ar: '',
     description_en: '',
     category: '',
@@ -183,8 +190,8 @@ const ItemTypesManager = () => {
 
   // Handle form submission
   const handleSubmit = async () => {
-    if (!formData.name.trim()) {
-      setError('Name is required');
+    if (!formData.name_ar.trim() && !formData.name_en.trim()) {
+      setError('At least one name (Arabic or English) is required');
       return;
     }
 
@@ -198,10 +205,8 @@ const ItemTypesManager = () => {
   // Start editing
   const startEdit = (item) => {
     setFormData({
-      name: item.name,
       name_ar: item.name_ar || '',
       name_en: item.name_en || '',
-      description: item.description || '',
       description_ar: item.description_ar || '',
       description_en: item.description_en || '',
       category: item.category || '',
@@ -213,8 +218,10 @@ const ItemTypesManager = () => {
 
   // Filter items based on search term
   const filteredItems = itemTypes.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    (item.name_ar && item.name_ar.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (item.name_en && item.name_en.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (item.description_ar && item.description_ar.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (item.description_en && item.description_en.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // Load data on component mount
@@ -250,12 +257,13 @@ const ItemTypesManager = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
-      <div className="bg-white rounded-lg shadow-lg">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-xl shadow-lg">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-lg">
-          <h1 className="text-3xl font-bold">Item Types Manager</h1>
-          <p className="text-blue-100 mt-2">Manage your item types and categories</p>
+        <div className="mb-8 p-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Item Types Manager</h1>
+          <p className="text-gray-600">Manage your item types and categories</p>
         </div>
 
         {/* Messages */}
@@ -277,7 +285,7 @@ const ItemTypesManager = () => {
         <div className="p-6 border-b border-gray-200">
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-blue-600" />
               <input
                 type="text"
                 placeholder="Search item types..."
@@ -290,9 +298,19 @@ const ItemTypesManager = () => {
             {hasPermission("can_create_item_types") && (
               <button
                 onClick={() => setShowCreateForm(!showCreateForm)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                className="px-4 py-2 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105"
+                style={{ 
+                  backgroundColor: '#3277AE',
+                  '--tw-ring-color': '#3277AE'
+                } as React.CSSProperties & { [key: string]: string }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#2a5f94';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#3277AE';
+                }}
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 inline mr-2" />
                 Add Item Type
               </button>
             )}
@@ -306,19 +324,6 @@ const ItemTypesManager = () => {
               {editingItem ? 'Edit Item Type' : 'Create New Item Type'}
             </h2>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter item type name"
-                  required
-                />
-              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -390,14 +395,38 @@ const ItemTypesManager = () => {
                   type="button"
                   onClick={handleSubmit}
                   disabled={loading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50 transition-colors"
+                  className="px-4 py-2 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  style={{ 
+                    backgroundColor: '#3277AE',
+                    '--tw-ring-color': '#3277AE'
+                  } as React.CSSProperties & { [key: string]: string }}
+                  onMouseEnter={(e) => {
+                    if (!loading) {
+                      e.currentTarget.style.backgroundColor = '#2a5f94';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!loading) {
+                      e.currentTarget.style.backgroundColor = '#3277AE';
+                    }
+                  }}
                 >
                   {loading ? 'Processing...' : editingItem ? 'Update' : 'Create'}
                 </button>
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
+                  className="px-4 py-2 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105"
+                  style={{ 
+                    backgroundColor: '#6B7280',
+                    '--tw-ring-color': '#6B7280'
+                  } as React.CSSProperties & { [key: string]: string }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#4B5563';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#6B7280';
+                  }}
                 >
                   Cancel
                 </button>
@@ -427,10 +456,10 @@ const ItemTypesManager = () => {
           {!loading && filteredItems.length > 0 && (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredItems.map((item) => (
-                <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                <div key={item.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] border-l-4 border-gray-200 p-4">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                      <h3 className="font-semibold text-gray-900">{getLocalizedName(item.name_ar, item.name_en) || 'Unnamed'}</h3>
                     </div>
                     <div className="flex gap-2">
                       {/* ✅ Added permission checks for edit and delete buttons */}
@@ -471,6 +500,7 @@ const ItemTypesManager = () => {
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>
