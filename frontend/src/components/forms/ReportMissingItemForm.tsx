@@ -1,16 +1,16 @@
 "use client";
 
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState, useEffect, useRef } from "react";
 import ReactConfetti from "react-confetti";
 import CompressorFileInput from "./CompressorFileInput";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
 
-// Zod schema for form validation
+// Zod schema for form validation (used for type inference)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const missingItemFormSchema = z.object({
   title: z.string().min(1, "This field is required"),
   content: z.string().min(1, "Please provide additional details"),
@@ -27,14 +27,20 @@ type MissingItemFormFields = z.infer<typeof missingItemFormSchema>;
 // Type definitions
 interface ItemType {
   id: string;
-  name: string;
-  description?: string;
+  name_ar?: string;
+  name_en?: string;
+  description_ar?: string;
+  description_en?: string;
 }
 
 interface Branch {
   id: string;
   branch_name_ar?: string;
   branch_name_en?: string;
+  description_ar?: string;
+  description_en?: string;
+  longitude?: number;
+  latitude?: number;
   organization_id: string;
   created_at?: string;
   updated_at?: string;
@@ -76,19 +82,9 @@ const getAuthHeaders = (): HeadersInit => {
   return headers;
 };
 
-// Helper function for authenticated fetch without JSON content type (for FormData)
-const getAuthHeadersForFormData = (): HeadersInit => {
-  const token = getTokenFromCookies();
-  const headers: HeadersInit = {};
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  return headers;
-};
-
 export default function ReportMissingItem() {
+  const locale = useLocale();
+  
   // API configuration
   const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
@@ -98,6 +94,13 @@ export default function ReportMissingItem() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+
+  // Helper function to get localized name
+  const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
+    if (locale === 'ar' && nameAr) return nameAr;
+    if (locale === 'en' && nameEn) return nameEn;
+    return nameAr || nameEn || '';
+  };
   const [compressedFiles, setCompressedFiles] = useState<File[]>([]);
   const [confetti, setConfetti] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -107,7 +110,6 @@ export default function ReportMissingItem() {
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
 
-  const t = useTranslations("storage");
   const c = useTranslations("report-missing");
   const router = useRouter();
 
@@ -326,7 +328,7 @@ export default function ReportMissingItem() {
         try {
           const errorData = await missingItemResponse.json();
           errorMessage = errorData.detail || errorMessage;
-        } catch (e) {
+        } catch {
           console.error('Could not parse error response');
         }
         throw new Error(errorMessage);
@@ -364,7 +366,7 @@ export default function ReportMissingItem() {
         try {
           const errorData = await addressResponse.json();
           errorMessage = errorData.detail || errorMessage;
-        } catch (e) {
+        } catch {
           console.error('Could not parse error response');
         }
         throw new Error(errorMessage);
@@ -384,9 +386,9 @@ export default function ReportMissingItem() {
         router.push("/");
       }, 3000);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error submitting form:", error);
-      alert(error.message || "An unexpected error occurred");
+      alert(error instanceof Error ? error.message : "An unexpected error occurred");
     } finally {
       setIsProcessing(false);
     }
@@ -421,7 +423,14 @@ export default function ReportMissingItem() {
           <div className="text-lg text-red-600 mb-4">{authError}</div>
           <button 
             onClick={() => router.push("/login")}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            className="px-4 py-2 text-white rounded-lg transition-colors"
+            style={{ backgroundColor: '#3277AE' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#2a5f94';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#3277AE';
+            }}
           >
             Go to Login
           </button>
@@ -441,7 +450,7 @@ export default function ReportMissingItem() {
         />
       )}
       
-      <h2 className="text-2xl font-bold text-center text-indigo-600 mb-6">
+      <h2 className="text-2xl font-bold text-center mb-6" style={{ color: '#3277AE' }}>
         {c("title")}
       </h2>
 
@@ -456,7 +465,14 @@ export default function ReportMissingItem() {
             id="title"
             {...register("title")}
             placeholder="e.g., Key, Wallet, etc."
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+            style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = '#3277AE';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#d1d5db';
+            }}
           />
           {errors.title && (
             <p className="mt-2 text-sm text-red-500">{errors.title.message}</p>
@@ -473,7 +489,14 @@ export default function ReportMissingItem() {
             {...register("content")}
             placeholder="Provide additional details about the missing item"
             rows={4}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+            style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = '#3277AE';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#d1d5db';
+            }}
           />
           {errors.content && (
             <p className="mt-2 text-sm text-red-500">{errors.content.message}</p>
@@ -488,12 +511,19 @@ export default function ReportMissingItem() {
           <select
             id="item_type_id"
             {...register("item_type_id")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+            style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = '#3277AE';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#d1d5db';
+            }}
           >
             <option value="">Select an item type</option>
             {itemTypes.map((itemType) => (
               <option key={itemType.id} value={itemType.id}>
-                {itemType.name}
+                {getLocalizedName(itemType.name_ar, itemType.name_en) || 'Unnamed'}
               </option>
             ))}
           </select>
@@ -519,18 +549,18 @@ export default function ReportMissingItem() {
           
           {/* Upload Progress */}
           {uploadProgress && (
-            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="mt-2 p-3 border rounded-lg" style={{ backgroundColor: '#f0f7ff', borderColor: '#3277AE' }}>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-blue-900">Uploading images...</span>
-                <span className="text-sm text-blue-700">{uploadProgress.percentage}%</span>
+                <span className="text-sm font-medium" style={{ color: '#3277AE' }}>Uploading images...</span>
+                <span className="text-sm" style={{ color: '#3277AE' }}>{uploadProgress.percentage}%</span>
               </div>
-              <div className="w-full bg-blue-200 rounded-full h-2">
+              <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                  style={{ width: `${uploadProgress.percentage}%` }}
+                  className="h-2 rounded-full transition-all duration-300" 
+                  style={{ backgroundColor: '#3277AE', width: `${uploadProgress.percentage}%` }}
                 ></div>
               </div>
-              <div className="text-xs text-blue-600 mt-1">
+              <div className="text-xs mt-1" style={{ color: '#3277AE' }}>
                 {Math.round(uploadProgress.loaded / 1024)} KB / {Math.round(uploadProgress.total / 1024)} KB
               </div>
             </div>
@@ -563,8 +593,17 @@ export default function ReportMissingItem() {
           <select
             id="orgnization"
             {...register("orgnization")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
             disabled={orgSelectDisabled}
+            style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
+            onFocus={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.borderColor = '#3277AE';
+              }
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#d1d5db';
+            }}
           >
             {!orgSelectDisabled && (
               <option value="">{c("selectOrganization")}</option>
@@ -589,7 +628,16 @@ export default function ReportMissingItem() {
             id="branch_id"
             {...register("branch_id")}
             disabled={!watchedOrganization || branches.length === 0}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+            style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
+            onFocus={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.borderColor = '#3277AE';
+              }
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#d1d5db';
+            }}
           >
             <option value="">
               {!watchedOrganization 
@@ -618,7 +666,14 @@ export default function ReportMissingItem() {
           <select
             id="country"
             {...register("country")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+            style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = '#3277AE';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = '#d1d5db';
+            }}
           >
             <option value="Oman">Oman</option>
           </select>
@@ -632,7 +687,21 @@ export default function ReportMissingItem() {
           <button 
             type="submit" 
             disabled={isSubmitting || isProcessing || isLoading || !!authError} 
-            className="w-full p-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full p-3 text-white font-semibold rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            style={{ 
+              backgroundColor: '#3277AE',
+              '--tw-ring-color': '#3277AE'
+            } as React.CSSProperties & { [key: string]: string }}
+            onMouseEnter={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.backgroundColor = '#2a5f94';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.backgroundColor = '#3277AE';
+              }
+            }}
           >
             {isSubmitting || isProcessing ? (
               <span className="flex items-center justify-center">
@@ -648,10 +717,6 @@ export default function ReportMissingItem() {
           </button>
         </div>
         
-        {/* Note */}
-        <div className="text-center">
-          <p className="text-sm text-gray-600">{c("note")}</p>
-        </div>
       </form>
     </div>
   );

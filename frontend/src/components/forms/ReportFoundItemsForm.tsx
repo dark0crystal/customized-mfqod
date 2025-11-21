@@ -175,38 +175,62 @@ export default function ReportFoundItem() {
     }
   }, []);
 
-  // Fetch data on component mount
+  // Fetch data on component mount - get user's managed branches and derive organizations
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         
-        // Fetch organizations with authentication
-        const organizationsResponse = await fetch(`${API_BASE_URL}/api/organizations/`, {
+        // Fetch user's managed branches
+        const branchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
           method: 'GET',
           headers: getAuthHeaders(),
         });
         
-        if (organizationsResponse.ok) {
-          const organizationsData = await organizationsResponse.json();
-          setOrganizations(organizationsData);
+        if (branchesResponse.ok) {
+          const branchesData = await branchesResponse.json();
+          setBranches(branchesData);
+          
+          // Extract unique organizations from managed branches
+          const orgMap = new Map();
+          branchesData.forEach((branch: Branch) => {
+            if (branch.organization_id && branch.organization) {
+              if (!orgMap.has(branch.organization_id)) {
+                orgMap.set(branch.organization_id, {
+                  id: branch.organization_id,
+                  name_ar: branch.organization.name_ar,
+                  name_en: branch.organization.name_en,
+                  description_ar: branch.organization.description_ar,
+                  description_en: branch.organization.description_en,
+                });
+              }
+            }
+          });
+          
+          const uniqueOrganizations = Array.from(orgMap.values());
+          setOrganizations(uniqueOrganizations);
 
-          // Set default orgnization to first if available and not already set
+          // Set default organization to first if available and not already set
           if (
-            organizationsData.length > 0 &&
+            uniqueOrganizations.length > 0 &&
             !hasSetDefaultOrg.current
           ) {
-            setValue("orgnization", organizationsData[0].id);
+            setValue("orgnization", uniqueOrganizations[0].id);
             hasSetDefaultOrg.current = true;
           }
 
           // If only one organization, disable the select
-          setOrgSelectDisabled(organizationsData.length === 1);
-        } else if (organizationsResponse.status === 401) {
+          setOrgSelectDisabled(uniqueOrganizations.length === 1);
+          
+          // If only one branch available, select it
+          if (branchesData.length === 1) {
+            setValue("branch_id", branchesData[0].id);
+          }
+        } else if (branchesResponse.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
           return;
         } else {
-          console.error('Failed to fetch organizations');
+          console.error('Failed to fetch managed branches');
         }
 
         // Fetch item types with authentication
@@ -240,52 +264,51 @@ export default function ReportFoundItem() {
     }
   }, [authError, API_BASE_URL, setValue]);
 
-  // If organizations change (e.g. after fetch), set default if not set
-  useEffect(() => {
-    if (
-      organizations.length > 0 &&
-      !hasSetDefaultOrg.current
-    ) {
-      setValue("orgnization", organizations[0].id);
-      hasSetDefaultOrg.current = true;
-    }
-    setOrgSelectDisabled(organizations.length === 1);
-  }, [organizations, setValue]);
 
-  // Fetch branches when organization changes
+  // Fetch user's managed branches instead of organization branches
   useEffect(() => {
-    const fetchBranches = async () => {
-      if (!watchedOrganization) {
-        setBranches([]);
-        setValue("branch_id", "");
-        return;
-      }
-
+    const fetchManagedBranches = async () => {
       try {
-        const branchesResponse = await fetch(`${API_BASE_URL}/api/organizations/${watchedOrganization}/branches`, {
+        const branchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
           method: 'GET',
           headers: getAuthHeaders(),
         });
         
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
-          setBranches(branchesData);
-          // Reset branch selection when organization changes
-          setValue("branch_id", "");
+          // Filter branches by selected organization if one is selected
+          let filteredBranches = branchesData;
+          if (watchedOrganization) {
+            filteredBranches = branchesData.filter(
+              (branch: Branch) => branch.organization_id === watchedOrganization
+            );
+          }
+          setBranches(filteredBranches);
+          
+          // If only one branch available and matches organization, select it
+          if (filteredBranches.length === 1 && watchedOrganization) {
+            setValue("branch_id", filteredBranches[0].id);
+          } else if (!watchedOrganization && filteredBranches.length > 0 && !hasSetDefaultOrg.current) {
+            // Set first organization if not set
+            setValue("orgnization", filteredBranches[0].organization_id);
+            hasSetDefaultOrg.current = true;
+          } else {
+            setValue("branch_id", "");
+          }
         } else if (branchesResponse.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
         } else {
-          console.error('Failed to fetch branches for organization');
+          console.error('Failed to fetch managed branches');
           setBranches([]);
         }
       } catch (error) {
-        console.error('Error fetching branches:', error);
+        console.error('Error fetching managed branches:', error);
         setBranches([]);
       }
     };
 
-    if (watchedOrganization && !authError) {
-      fetchBranches();
+    if (!authError) {
+      fetchManagedBranches();
     }
   }, [watchedOrganization, API_BASE_URL, authError, setValue]);
 
@@ -421,7 +444,10 @@ export default function ReportFoundItem() {
           <div className="text-lg text-red-600 mb-4">{authError}</div>
           <button 
             onClick={() => router.push("/login")}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 text-white rounded-lg transition-colors"
+            style={{ backgroundColor: '#3277AE' }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#2563eb'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#3277AE'; }}
           >
             Go to Login
           </button>
@@ -441,7 +467,7 @@ export default function ReportFoundItem() {
         />
       )}
       
-      <h2 className="text-2xl font-bold text-center text-indigo-600 mb-6">
+      <h2 className="text-2xl font-bold text-center mb-6" style={{ color: '#3277AE' }}>
         {c("title")}
       </h2>
 
@@ -456,7 +482,8 @@ export default function ReportFoundItem() {
             id="title"
             {...register("title")}
             placeholder={c("placeholderTitle")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
+            style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           />
           {errors.title && (
             <p className="mt-2 text-sm text-red-500">{errors.title.message}</p>
@@ -473,7 +500,8 @@ export default function ReportFoundItem() {
             {...register("content")}
             placeholder={c("placeholderDetails")}
             rows={4}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
+            style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           />
           {errors.content && (
             <p className="mt-2 text-sm text-red-500">{errors.content.message}</p>
@@ -488,7 +516,8 @@ export default function ReportFoundItem() {
           <select
             id="item_type_id"
             {...register("item_type_id")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
+            style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           >
             <option value="">{c("selectItemType")}</option>
             {itemTypes.map((itemType) => (
@@ -563,7 +592,8 @@ export default function ReportFoundItem() {
           <select
             id="orgnization"
             {...register("orgnization")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
+            style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
             disabled={orgSelectDisabled}
           >
             {!orgSelectDisabled && (
@@ -589,7 +619,8 @@ export default function ReportFoundItem() {
             id="branch_id"
             {...register("branch_id")}
             disabled={!watchedOrganization || branches.length === 0}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           >
             <option value="">
               {!watchedOrganization 
@@ -599,11 +630,13 @@ export default function ReportFoundItem() {
                   : c("selectBranch")
               }
             </option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.branch_name_en || branch.branch_name_ar || c("unnamedBranch")}
-              </option>
-            ))}
+            {branches
+              .filter((branch: Branch) => !watchedOrganization || branch.organization_id === watchedOrganization)
+              .map((branch: Branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || c("unnamedBranch")}
+                </option>
+              ))}
           </select>
           {errors.branch_id && (
             <p className="mt-2 text-sm text-red-500">{errors.branch_id.message}</p>
@@ -618,7 +651,8 @@ export default function ReportFoundItem() {
           <select
             id="country"
             {...register("country")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
+            style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           >
             <option value="Oman">Oman</option>
           </select>
@@ -632,7 +666,10 @@ export default function ReportFoundItem() {
           <button 
             type="submit" 
             disabled={isSubmitting || isProcessing || isLoading || !!authError} 
-            className="w-full p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full p-3 text-white font-semibold rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            style={{ backgroundColor: '#3277AE', "--tw-ring-color": "#3277AE" } as React.CSSProperties}
+            onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.backgroundColor = '#2563eb'; }}
+            onMouseLeave={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.backgroundColor = '#3277AE'; }}
           >
             {isSubmitting || isProcessing ? (
               <span className="flex items-center justify-center">
