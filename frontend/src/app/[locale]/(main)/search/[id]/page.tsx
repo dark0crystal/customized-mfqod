@@ -7,12 +7,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import ReactConfetti from 'react-confetti';
 import CompressorFileInput from "@/components/forms/CompressorFileInput";
 import Image from 'next/image';
+import LocationTracking from "@/components/LocationTracking";
 import Footer from "@/components/Footer";
 import { Link } from '@/i18n/navigation';
 import { tokenManager } from '@/utils/tokenManager';
-import imageUploadService, { UploadError, UploadProgress } from '@/services/imageUploadService';
-import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import imageUploadService, { UploadProgress } from '@/services/imageUploadService';
+import { useTranslations, useLocale } from 'next-intl';
 import { apiRequest } from '@/utils/api';
 
 const claimSchema = z.object({
@@ -28,7 +28,56 @@ type ClaimFormFields = {
 interface ItemImage {
   id: string;
   url: string;
-  filename: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ItemType {
+  id: string;
+  name_ar?: string;
+  name_en?: string;
+  description_ar?: string;
+  description_en?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface User {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
+interface Organization {
+  id: string;
+  name_ar?: string;
+  name_en?: string;
+}
+
+interface Branch {
+  id: string;
+  branch_name_ar?: string;
+  branch_name_en?: string;
+  organization?: Organization;
+}
+
+interface Address {
+  id: string;
+  is_current: boolean;
+  branch?: Branch;
+  full_location?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Location {
+  organization_name_ar?: string;
+  organization_name_en?: string;
+  branch_name_ar?: string;
+  branch_name_en?: string;
+  full_location?: string;
 }
 
 interface ItemData {
@@ -37,13 +86,16 @@ interface ItemData {
   description: string;
   created_at: string;
   updated_at: string;
-  item_type_name: string;
-  user_name?: string;
-  images?: ItemImage[];
-  addresses?: Array<{
-    place: string;
-    country: string;
-  }>;
+  claims_count: number;
+  temporary_deletion: boolean;
+  approval: boolean;
+  item_type_id?: string;
+  user_id?: string;
+  item_type?: ItemType;
+  user?: User;
+  images: ItemImage[];
+  addresses?: Address[];
+  location?: Location;
 }
 
 export default function ItemDetailsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -56,10 +108,29 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  const [session, setSession] = useState<{ access_token: string; user: any } | null>(null);
+  const [session, setSession] = useState<{ access_token: string; user: { id: string; email: string; first_name: string; last_name: string } } | null>(null);
   const t = useTranslations('claim');
-  const router = useRouter();
+  const locale = useLocale();
   const { id } = use(params);
+
+  // Helper function to get localized name
+  const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
+    if (locale === 'ar' && nameAr) return nameAr;
+    if (locale === 'en' && nameEn) return nameEn;
+    return nameAr || nameEn || '';
+  };
+
+  // Helper function to get image URL
+  const getImageUrl = (imageUrl: string): string => {
+    if (!imageUrl) return '';
+    if (/^https?:\/\//.test(imageUrl)) return imageUrl;
+    let processedUrl = imageUrl.replace('/uploads/images/', '/static/images/');
+    if (!processedUrl.startsWith('/')) {
+      processedUrl = '/' + processedUrl;
+    }
+    const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
+    return `${baseUrl}${processedUrl}`;
+  };
 
   const {
     register,
@@ -75,18 +146,45 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
       try {
         setIsLoading(true);
         setError(null);
+
+        const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
         
-        const response = await apiRequest(`/api/items/public`);
+        // Get authentication token
+        const getTokenFromCookies = (): string | null => {
+          if (typeof document === "undefined") return null;
+          const cookies = document.cookie.split(';');
+          for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'token' || name === 'access_token' || name === 'auth_token') {
+              return decodeURIComponent(value);
+            }
+          }
+          return null;
+        };
+
+        const token = getTokenFromCookies();
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
         
-        if (response.data) {
-          const foundItem = response.data.items?.find((item: any) => item.id === id);
-          if (foundItem) {
-            setItem(foundItem);
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/items/${id}`, {
+          method: 'GET',
+          headers,
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            setError('Item not found or not approved for public viewing');
           } else {
-            setError('Item not found');
+            setError(`Failed to fetch item details: ${response.status}`);
           }
         } else {
-          setError(response.error || 'Failed to fetch item details');
+          const data = await response.json();
+          setItem(data);
         }
       } catch (error) {
         console.error('Error fetching item details:', error);
@@ -95,21 +193,34 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
         setIsLoading(false);
       }
     };
-    
+
     if (id) {
       fetchItemDetails();
     }
   }, [id]);
 
-  // Initialize session from token manager
   useEffect(() => {
     const accessToken = tokenManager.getAccessToken();
     const user = tokenManager.getUser();
-    
     if (accessToken && user) {
       setSession({ access_token: accessToken, user });
     }
   }, []);
+
+  useEffect(() => {
+    if (confetti) {
+      setTimeout(() => setConfetti(false), 7000);
+    }
+  }, [confetti]);
+
+  useEffect(() => {
+    const isAuthenticated = tokenManager.isAuthenticated();
+    if (!isAuthenticated) {
+      setSession(null);
+    }
+  }, []);
+
+  const [claimSuccessMessage, setClaimSuccessMessage] = useState<string | null>(null);
 
   const onSubmit: SubmitHandler<ClaimFormFields> = async (data) => {
     if (!session?.access_token) {
@@ -120,6 +231,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
     try {
       setIsUploading(true);
       setError(null);
+      setClaimSuccessMessage(null);
 
       const claimResponse = await apiRequest('/api/claims/', {
         method: 'POST',
@@ -138,9 +250,14 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
       }
 
       const claimResult = claimResponse.data;
-      
+
+      // eslint-disable-next-line prefer-const
+      let uploadedFilesList: string[] = [];
+      // eslint-disable-next-line prefer-const
+      let failedUploads: { filename: string; error: string }[] = [];
+
       if (compressedFiles.length > 0) {
-        const uploadResults = await Promise.allSettled(
+        await Promise.allSettled(
           compressedFiles.map(async (file, index) => {
             try {
               const uploadResponse = await imageUploadService.uploadImage(
@@ -155,64 +272,43 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                   });
                 }
               );
+              uploadedFilesList.push(file.name);
               return { success: true, filename: file.name, response: uploadResponse };
-            } catch (uploadError: any) {
-              console.error(`Upload failed for ${file.name}:`, uploadError);
-              return { 
-                success: false, 
-                filename: file.name, 
-                error: uploadError.message || 'Upload failed' 
+            } catch (uploadError: unknown) {
+              failedUploads.push({
+                filename: file.name,
+                error: uploadError instanceof Error ? uploadError.message : 'Upload failed'
+              });
+              return {
+                success: false,
+                filename: file.name,
+                error: uploadError instanceof Error ? uploadError.message : 'Upload failed'
               };
             }
           })
         );
-
-        const failedUploads = uploadResults
-          .map((result, index) => ({ result, index }))
-          .filter(({ result }) => result.status === 'rejected' || 
-            (result.status === 'fulfilled' && !result.value.success))
-          .map(({ result, index }) => {
-            if (result.status === 'rejected') {
-              return { filename: compressedFiles[index].name, error: 'Upload failed' };
-            } else {
-              return { 
-                filename: result.value.filename, 
-                error: result.value.error 
-              };
-            }
-          });
-
-        if (failedUploads.length > 0) {
-          const failedFilenames = failedUploads.map(f => f.filename).join(', ');
-          setError(`Claim created but ${failedUploads.length} image(s) failed to upload: ${failedFilenames}`);
-        }
       }
 
       setConfetti(true);
+      setClaimSuccessMessage(t('claimSubmitted') || 'Claim submitted successfully!');
       reset();
       setCompressedFiles([]);
       setShowForm(false);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting claim:', error);
-      setError(error.message || 'Failed to submit claim');
+      setError(error instanceof Error ? error.message : 'Failed to submit claim');
     } finally {
       setIsUploading(false);
       setUploadProgress([]);
     }
   };
 
-  useEffect(() => {
-    if (confetti) {
-      setTimeout(() => setConfetti(false), 7000);
-    }
-  }, [confetti]);
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#3277AE' }}></div>
           <p className="text-gray-500">{t('loading')}</p>
         </div>
       </div>
@@ -224,7 +320,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-500 mb-4">{error || t('itemNotFound')}</p>
-          <Link href="/search" className="text-indigo-600 hover:text-indigo-700">
+          <Link href="/search" className="hover:opacity-80 transition-opacity" style={{ color: '#3277AE' }}>
             {t('backToSearch')}
           </Link>
         </div>
@@ -233,180 +329,314 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
-      <div>
-
-    <div className="max-w-4xl mx-auto mt-10 p-6 bg-white shadow-lg rounded-3xl h-fit md:mt-24">
+    <div className="min-h-screen">
       {confetti && <ReactConfetti width={window.innerWidth} height={window.innerHeight} />}
 
-      <div className='grid grid-rows-2 grid-cols-1 md:grid-rows-1 md:grid-cols-2'>
-        <div className='order-2 row-span-1 md:col-span-1 md:order-1 mt-4'>
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">{item.title}</h2>
-          <p className="text-gray-600 mb-4"><strong>Description:</strong> {item.description}</p>
-          
-          <div className="mb-4">
-            <p className="text-gray-600 mb-2"><strong>{t('type')}:</strong> {item.item_type_name || 'N/A'}</p>
-            <p className="text-gray-600 mb-2"><strong>{t('posted')}:</strong> {new Date(item.created_at).toLocaleDateString()}</p>
-            {item.user_name && (
-              <p className="text-gray-600 mb-2"><strong>{t('postedBy')}:</strong> {item.user_name}</p>
-            )}
-          </div>
-
-          {item.addresses && item.addresses.length > 0 && (
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">{t('location')}:</h3>
-              {item.addresses.map((addr, index) => (
-                <div key={index} className="text-gray-600 mb-2">
-                  <p><strong>{t('place')}:</strong> {addr.place}</p>
-                  <p><strong>{t('country')}:</strong> {addr.country}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {session?.user ? (
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="mb-6 px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              {showForm ? t('cancelClaim') : t('claimThisItem')}
-            </button>
-          ) : (
-            <div className="mb-6">
-              <p className="text-gray-600 mb-2">{t('loginRequired')}</p>
-              <Link 
-                href="/auth/signin" 
-                className="inline-block px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                {t('signIn')}
-              </Link>
-            </div>
-          )}
+      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+        {/* Back Button */}
+        <div className="mb-6">
+          <Link
+            href="/search"
+            className="inline-flex items-center hover:opacity-80 transition-opacity"
+            style={{ color: '#3277AE' }}
+          >
+            {t('backToSearch')}
+          </Link>
         </div>
 
-        <div className='order-1 md:order-2 row-span-1 md:col-span-1'>
-          <div className="w-full h-full">
-            {item.images && item.images.length > 0 ? (
-              <div className="grid gap-2">
-                {item.images.map((image, index) => (
-                  <div key={image.id} className='relative w-full h-64 rounded-3xl overflow-hidden'>
-                    <Image
-                      fill 
-                      style={{ objectFit: 'cover' }}
-                      src={image.url}
-                      alt={`Item image ${index + 1}`}
-                      className="absolute"
+        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+          <div className='grid grid-rows-2 grid-cols-1 lg:grid-rows-1 lg:grid-cols-2 gap-8 p-8'>
+            {/* Content Section */}
+            <div className='order-2 lg:order-1 space-y-6'>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-4 leading-tight">{item.title}</h1>
+                <div className="h-px w-20 bg-gray-300 mb-6"></div>
+              </div>
+
+              <div className="prose prose-lg max-w-none">
+                <p className="text-gray-700 leading-relaxed">{item.description}</p>
+              </div>
+
+              {/* Item Details */}
+              <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">{t('itemDetails')}</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-500">{t('type')}</p>
+                    <p className="font-medium text-gray-900">{item.item_type ? getLocalizedName(item.item_type.name_ar, item.item_type.name_en) || 'N/A' : 'N/A'}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-500">{t('posted')}</p>
+                    <p className="font-medium text-gray-900">{new Date(item.created_at).toLocaleDateString()}</p>
+                  </div>
+
+                  {item.user && (
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-500">{t('postedBy')}</p>
+                      <p className="font-medium text-gray-900">{item.user.first_name} {item.user.last_name}</p>
+                    </div>
+                  )}
+
+                  {item.claims_count > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-500">{t('claims')}</p>
+                      <p className="font-medium text-gray-900">{item.claims_count}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Location History Section */}
+              {item.addresses && item.addresses.length > 0 && (
+                <LocationTracking addresses={item.addresses} />
+              )}
+
+              {/* Claim Section: Show success message */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                {claimSuccessMessage && (
+                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded">
+                    <span className="text-green-700 font-semibold">
+                      {claimSuccessMessage}
+                    </span>
+                  </div>
+                )}
+
+                {session?.user ? (
+                  <div className="text-center">
+                    <button
+                      onClick={() => setShowForm(!showForm)}
+                      className="w-full px-8 py-4 bg-white border-2 font-semibold rounded-lg hover:opacity-90 transition-all duration-200"
+                      style={{ borderColor: '#3277AE', color: '#3277AE' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f0f7ff';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white';
+                      }}
+                    >
+                      {showForm ? (
+                        <span className="flex items-center justify-center">
+                          {t('cancelClaim')}
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center">
+                          {t('claimThisItem')}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-gray-600 mb-4">{t('loginRequired')}</p>
+                    <Link
+                      href="/auth/login"
+                      className="inline-block px-8 py-4 bg-white border-2 font-semibold rounded-lg hover:opacity-90 transition-all duration-200"
+                      style={{ borderColor: '#3277AE', color: '#3277AE' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f0f7ff';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white';
+                      }}
+                    >
+                      <span className="flex items-center justify-center">
+                        {t('signIn')}
+                      </span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Image Section */}
+            <div className='order-1 lg:order-2'>
+              <div className="sticky top-8">
+                {item.images && item.images.length > 0 ? (
+                  <div className="space-y-6">
+                    {item.images.map((image, index) => {
+                      const imageUrl = getImageUrl(image.url);
+                      return (
+                        <div key={image.id} className='relative group'>
+                          <div className='relative w-full h-96 rounded-2xl overflow-hidden shadow-xl'>
+                            <Image
+                              fill
+                              style={{ objectFit: 'cover' }}
+                              src={imageUrl}
+                              alt={image.description || `Item image ${index + 1}`}
+                              className="absolute transition-transform duration-300 group-hover:scale-105"
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                              onError={() => {
+                                console.error('Image failed to load:', imageUrl);
+                              }}
+                            />
+                            {image.description && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-white p-4">
+                                <p className="text-sm font-medium">{image.description}</p>
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="w-full h-96 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-gray-500 text-lg font-medium">{t('noImages')}</p>
+                      <p className="text-gray-400 text-sm mt-1">{t('noImagesDescription')}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mt-8 p-6 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-700 font-medium">{error}</p>
+          </div>
+        )}
+
+        {/* Claim Form */}
+        {showForm && session?.user && (
+          <div className="mt-8 bg-white rounded-lg shadow-lg overflow-hidden">
+            <div className="bg-gray-50 p-6 border-b">
+              <h3 className="text-2xl font-bold text-gray-800">
+                {t('title')}
+              </h3>
+            </div>
+            <div className="p-8">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                <div>
+                  <label htmlFor="title" className="block text-lg font-semibold text-gray-800 mb-3">
+                    {t('claimTitle')} *
+                  </label>
+                  <input
+                    id="title"
+                    {...register("title")}
+                    type="text"
+                    placeholder={t('claimTitlePlaceholder')}
+                    className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-lg"
+                    style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = '#3277AE';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = '#d1d5db';
+                    }}
+                  />
+                  {errors.title && <p className="mt-2 text-sm text-red-600 font-medium">{errors.title.message}</p>}
+                </div>
+
+                <div>
+                  <label htmlFor="description" className="block text-lg font-semibold text-gray-800 mb-3">
+                    {t('proofOfOwnership')} *
+                  </label>
+                  <textarea
+                    id="description"
+                    {...register("description")}
+                    rows={6}
+                    placeholder={t('proofPlaceholder')}
+                    className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-lg resize-none"
+                    style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = '#3277AE';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = '#d1d5db';
+                    }}
+                  />
+                  {errors.description && <p className="mt-2 text-sm text-red-600 font-medium">{errors.description.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-lg font-semibold text-gray-800 mb-3">
+                    {t('supportingImages')}
+                  </label>
+                  <p className="text-gray-600 mb-4 text-base">
+                    {t('supportingImagesDescription')}
+                  </p>
+                  <div className="border border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors duration-200">
+                    <CompressorFileInput
+                      onFilesSelected={setCompressedFiles}
+                      maxFiles={5}
+                      showValidation={true}
                     />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="w-full h-64 bg-gray-100 rounded-3xl flex items-center justify-center">
-                <p className="text-gray-500">{t('noImages')}</p>
-              </div>
-            )}
-          </div>
-        </div>
+                </div>
 
-     
-      </div>
-     
-
-      {error && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600">{error}</p>
-        </div>
-      )}
-
-      {showForm && session?.user && (
-        <div className="mt-8 p-6 bg-gray-50 rounded-lg">
-          <h3 className="text-xl font-semibold text-gray-800 mb-6">{t('title')}</h3>
-          
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                {t('claimTitle')} *
-              </label>
-              <input
-                id="title"
-                {...register("title")}
-                type="text"
-                placeholder={t('claimTitlePlaceholder')}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              {errors.title && <p className="mt-1 text-sm text-red-500">{errors.title.message}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                {t('proofOfOwnership')} *
-              </label>
-              <textarea
-                id="description"
-                {...register("description")}
-                rows={4}
-                placeholder={t('proofPlaceholder')}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              {errors.description && <p className="mt-1 text-sm text-red-500">{errors.description.message}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('supportingImages')}
-              </label>
-              <p className="text-sm text-gray-500 mb-3">
-                {t('supportingImagesDescription')}
-              </p>
-              <CompressorFileInput 
-                onFilesSelected={setCompressedFiles}
-                maxFiles={5}
-                showValidation={true}
-              />
-            </div>
-
-            {isUploading && uploadProgress.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600">{t('uploading')}</p>
-                {uploadProgress.map((progress, index) => (
-                  <div key={index} className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-indigo-600 h-2 rounded-full transition-all duration-300" 
-                      style={{ width: `${progress.percentage}%` }}
-                    ></div>
+                {isUploading && uploadProgress.length > 0 && (
+                  <div className="space-y-4">
+                    <p className="text-lg font-semibold text-gray-700">{t('uploading')}</p>
+                    {uploadProgress.map((progress, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex justify-between text-sm text-gray-600">
+                          <span>File {index + 1}</span>
+                          <span>{progress.percentage}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div
+                            className="h-3 rounded-full transition-all duration-300"
+                            style={{ backgroundColor: '#3277AE', width: `${progress.percentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-
-            <div>
-              <button
-                type="submit"
-                disabled={isSubmitting || isUploading}
-                className="w-full py-3 px-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSubmitting || isUploading ? (
-                  <span className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    {isUploading ? t('uploading') : t('submitting')}
-                  </span>
-                ) : (
-                  t('submitClaim')
                 )}
-              </button>
+
+                <div>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || isUploading}
+                    className="w-full py-4 px-6 text-white font-bold text-lg rounded-lg focus:outline-none focus:ring-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+                    style={{ 
+                      backgroundColor: '#3277AE',
+                      '--tw-ring-color': '#3277AE'
+                    } as React.CSSProperties & { [key: string]: string }}
+                    onMouseEnter={(e) => {
+                      if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = '#2a5f94';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!e.currentTarget.disabled) {
+                        e.currentTarget.style.backgroundColor = '#3277AE';
+                      }
+                    }}
+                  >
+                    {isSubmitting || isUploading ? (
+                      <span className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
+                        {isUploading ? t('uploading') : t('submitting')}
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center">
+                        {t('submitClaim')}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                <div className="border rounded-lg p-4" style={{ backgroundColor: '#f0f7ff', borderColor: '#3277AE' }}>
+                  <p className="text-sm font-medium" style={{ color: '#3277AE' }}>
+                    {t('reviewNote')}
+                  </p>
+                </div>
+              </form>
             </div>
+          </div>
+        )}
+      </div>
 
-            <p className="text-sm text-gray-500">
-              {t('reviewNote')}
-            </p>
-          </form>
-        </div>
-      )}
-
-      
-    </div>
-      <div className='md:mt-40'>
-        <Footer/>
-        </div>
+      <div className='mt-16'>
+        <Footer />
+      </div>
     </div>
   );
 }
