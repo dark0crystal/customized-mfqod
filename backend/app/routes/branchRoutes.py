@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from app.middleware.auth_middleware import get_current_user_required
+from app.models import User
 
 from app.db.database import get_session  #database dependency
 from app.schemas.branch_schemas import (
@@ -30,7 +32,7 @@ def get_address_service(db: Session = Depends(get_session)) -> AddressService:
 # ===========================
 
 @router.post("/", response_model=BranchResponse, status_code=status.HTTP_201_CREATED)
-# @require_permission("can_create_branches")  # Uncomment if permissions are needed
+@require_permission("can_create_branches")
 def create_branch(
     branch: BranchCreate,
     request: Request,
@@ -46,8 +48,49 @@ def create_branch(
         raise HTTPException(status_code=500, detail=f"Error creating branch: {str(e)}")
 
 
+@router.get("/public/", response_model=List[BranchWithOrganization])
+def get_public_branches(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    organization_id: Optional[str] = Query(None),
+    db: Session = Depends(get_session),
+    branch_service: BranchService = Depends(get_branch_service)
+):
+    """Get all branches for public viewing (no authentication required)"""
+    try:
+        branches = branch_service.get_branches(skip=skip, limit=limit, organization_id=organization_id)
+        
+        # Convert to response format with organization details
+        result = []
+        for branch in branches:
+            branch_dict = {
+                "id": branch.id,
+                "branch_name_ar": branch.branch_name_ar,
+                "branch_name_en": branch.branch_name_en,
+                "description_ar": branch.description_ar,
+                "description_en": branch.description_en,
+                "longitude": branch.longitude,
+                "latitude": branch.latitude,
+                "organization_id": branch.organization_id,
+                "created_at": branch.created_at,
+                "updated_at": branch.updated_at,
+                "organization": {
+                    "id": branch.organization.id,
+                    "name_ar": branch.organization.name_ar,
+                    "name_en": branch.organization.name_en,
+                    "description_ar": branch.organization.description_ar,
+                    "description_en": branch.organization.description_en
+                } if branch.organization else None
+            }
+            result.append(branch_dict)
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving branches: {str(e)}")
+
+
 @router.get("/", response_model=List[BranchWithOrganization])
-# @require_permission("can_view_branches")  # Uncomment if permissions are needed
+@require_permission("can_view_branches")
 def get_branches(
     request: Request,
     skip: int = Query(0, ge=0),
@@ -65,14 +108,21 @@ def get_branches(
         for branch in branches:
             branch_dict = {
                 "id": branch.id,
-                "branch_name": branch.branch_name,
+                "branch_name_ar": branch.branch_name_ar,
+                "branch_name_en": branch.branch_name_en,
+                "description_ar": branch.description_ar,
+                "description_en": branch.description_en,
+                "longitude": branch.longitude,
+                "latitude": branch.latitude,
                 "organization_id": branch.organization_id,
                 "created_at": branch.created_at,
                 "updated_at": branch.updated_at,
                 "organization": {
                     "id": branch.organization.id,
-                    "name": branch.organization.name,
-                    "description": branch.organization.description
+                    "name_ar": branch.organization.name_ar,
+                    "name_en": branch.organization.name_en,
+                    "description_ar": branch.organization.description_ar,
+                    "description_en": branch.organization.description_en
                 } if branch.organization else None
             }
             result.append(branch_dict)
@@ -83,7 +133,7 @@ def get_branches(
 
 
 @router.get("/{branch_id}", response_model=BranchWithOrganization)
-# @require_permission("can_view_branches")  # Uncomment if permissions are needed
+@require_permission("can_view_branches")
 def get_branch(
     branch_id: str,
     request: Request,
@@ -102,14 +152,21 @@ def get_branch(
         
         return {
             "id": branch.id,
-            "branch_name": branch.branch_name,
+            "branch_name_ar": branch.branch_name_ar,
+            "branch_name_en": branch.branch_name_en,
+            "description_ar": branch.description_ar,
+            "description_en": branch.description_en,
+            "longitude": branch.longitude,
+            "latitude": branch.latitude,
             "organization_id": branch.organization_id,
             "created_at": branch.created_at,
             "updated_at": branch.updated_at,
             "organization": {
                 "id": branch.organization.id,
-                "name": branch.organization.name,
-                "description": branch.organization.description
+                "name_ar": branch.organization.name_ar,
+                "name_en": branch.organization.name_en,
+                "description_ar": branch.organization.description_ar,
+                "description_en": branch.organization.description_en
             } if branch.organization else None
         }
     except HTTPException:
@@ -119,7 +176,7 @@ def get_branch(
 
 
 @router.put("/{branch_id}", response_model=BranchResponse)
-# @require_permission("can_edit_branches")  # Uncomment if permissions are needed
+@require_permission("can_edit_branches")
 def update_branch(
     branch_id: str,
     branch_update: BranchUpdate,
@@ -137,7 +194,7 @@ def update_branch(
 
 
 @router.delete("/{branch_id}", status_code=status.HTTP_204_NO_CONTENT)
-# @require_permission("can_delete_branches")  # Uncomment if permissions are needed
+@require_permission("can_delete_branches")
 def delete_branch(
     branch_id: str,
     request: Request,
@@ -159,7 +216,7 @@ def delete_branch(
 # ===========================
 
 @router.post("/addresses/", response_model=AddressResponse, status_code=status.HTTP_201_CREATED)
-# @require_permission("can_create_addresses")  # Uncomment if permissions are needed
+@require_permission("can_create_addresses")
 def create_address(
     address: AddressCreate,
     request: Request,
@@ -176,7 +233,7 @@ def create_address(
 
 
 @router.get("/addresses/", response_model=List[AddressWithDetails])
-# @require_permission("can_view_addresses")  # Uncomment if permissions are needed
+@require_permission("can_view_addresses")
 def get_addresses(
     request: Request,
     skip: int = Query(0, ge=0),
@@ -207,7 +264,12 @@ def get_addresses(
                 } if address.item else None,
                 "branch": {
                     "id": address.branch.id,
-                    "branch_name": address.branch.branch_name,
+                    "branch_name_ar": address.branch.branch_name_ar,
+                    "branch_name_en": address.branch.branch_name_en,
+                    "description_ar": address.branch.description_ar,
+                    "description_en": address.branch.description_en,
+                    "longitude": address.branch.longitude,
+                    "latitude": address.branch.latitude,
                     "organization_id": address.branch.organization_id
                 } if address.branch else None
             }
@@ -250,7 +312,12 @@ def get_address(
             } if address.item else None,
             "branch": {
                 "id": address.branch.id,
-                "branch_name": address.branch.branch_name,
+                "branch_name_ar": address.branch.branch_name_ar,
+                "branch_name_en": address.branch.branch_name_en,
+                "description_ar": address.branch.description_ar,
+                "description_en": address.branch.description_en,
+                "longitude": address.branch.longitude,
+                "latitude": address.branch.latitude,
                 "organization_id": address.branch.organization_id
             } if address.branch else None
         }
@@ -342,7 +409,12 @@ def get_branch_addresses(
                 } if address.item else None,
                 "branch": {
                     "id": address.branch.id,
-                    "branch_name": address.branch.branch_name,
+                    "branch_name_ar": address.branch.branch_name_ar,
+                    "branch_name_en": address.branch.branch_name_en,
+                    "description_ar": address.branch.description_ar,
+                    "description_en": address.branch.description_en,
+                    "longitude": address.branch.longitude,
+                    "latitude": address.branch.latitude,
                     "organization_id": address.branch.organization_id
                 } if address.branch else None
             }
@@ -377,14 +449,21 @@ def get_user_managed_branches(
         for branch in branches:
             branch_dict = {
                 "id": branch.id,
-                "branch_name": branch.branch_name,
+                "branch_name_ar": branch.branch_name_ar,
+                "branch_name_en": branch.branch_name_en,
+                "description_ar": branch.description_ar,
+                "description_en": branch.description_en,
+                "longitude": branch.longitude,
+                "latitude": branch.latitude,
                 "organization_id": branch.organization_id,
                 "created_at": branch.created_at,
                 "updated_at": branch.updated_at,
                 "organization": {
                     "id": branch.organization.id,
-                    "name": branch.organization.name,
-                    "description": branch.organization.description
+                    "name_ar": branch.organization.name_ar,
+                    "name_en": branch.organization.name_en,
+                    "description_ar": branch.organization.description_ar,
+                    "description_en": branch.organization.description_en
                 } if branch.organization else None
             }
             result.append(branch_dict)
@@ -479,30 +558,33 @@ def get_my_managed_branches(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_session),
-    branch_service: BranchService = Depends(get_branch_service)
+    branch_service: BranchService = Depends(get_branch_service),
+    current_user: User = Depends(get_current_user_required)
 ):
     """Get all branches managed by the current user"""
-    # Note: You'll need to implement user authentication and get current user ID
-    # This is just a placeholder - replace with your actual authentication logic
     try:
-        # Get current user ID from authentication (implement based on your auth system)
-        current_user_id = "your_auth_logic_here"  # Replace with actual implementation
-        
-        branches = branch_service.get_user_managed_branches(current_user_id, skip=skip, limit=limit)
+        branches = branch_service.get_user_managed_branches(current_user.id, skip=skip, limit=limit)
         
         # Convert to response format with organization details
         result = []
         for branch in branches:
             branch_dict = {
                 "id": branch.id,
-                "branch_name": branch.branch_name,
+                "branch_name_ar": branch.branch_name_ar,
+                "branch_name_en": branch.branch_name_en,
+                "description_ar": branch.description_ar,
+                "description_en": branch.description_en,
+                "longitude": branch.longitude,
+                "latitude": branch.latitude,
                 "organization_id": branch.organization_id,
                 "created_at": branch.created_at,
                 "updated_at": branch.updated_at,
                 "organization": {
                     "id": branch.organization.id,
-                    "name": branch.organization.name,
-                    "description": branch.organization.description
+                    "name_ar": branch.organization.name_ar,
+                    "name_en": branch.organization.name_en,
+                    "description_ar": branch.organization.description_ar,
+                    "description_en": branch.organization.description_en
                 } if branch.organization else None
             }
             result.append(branch_dict)
