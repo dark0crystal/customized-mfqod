@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from 'next-intl';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 interface User {
   id: string;
@@ -17,41 +18,13 @@ interface User {
   status_id?: string;
   created_at?: string;
   updated_at?: string;
-  job_title?: string; // for backward compatibility if present
-  phone?: string; // for backward compatibility if present
+  job_title?: string;
+  phone?: string;
+  user_type?: string;
+  active?: boolean;
+  last_login?: string;
+  ad_sync_date?: string;
 } 
-
-const getUserFromCookies = (): User | null => {
-  if (typeof document !== "undefined") {
-    const cookies = document.cookie.split(";");
-    for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split("=");
-      if (name === "user") {
-        try {
-          return JSON.parse(decodeURIComponent(value));
-        } catch {
-          console.error("Failed to parse user cookie");
-          return null;
-        }
-      }
-    }
-  }
-  return null;
-};
-
-function stringToColor(str: string) {
-  // Simple hash to color
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  let color = "#";
-  for (let i = 0; i < 3; i++) {
-    const value = (hash >> (i * 8)) & 0xff;
-    color += ("00" + value.toString(16)).slice(-2);
-  }
-  return color;
-}
 
 function getInitials(name?: string) {
   if (!name) return "";
@@ -63,158 +36,182 @@ function getInitials(name?: string) {
 export default function UserInfo() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
   const t = useTranslations('dashboard.userInfo');
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
+  // Initialize client-side state
   useEffect(() => {
-    const userFromCookie = getUserFromCookies();
+    setIsClient(true);
+  }, []);
 
-    if (!userFromCookie || !userFromCookie.id) {
-      console.error("User info or ID not found in cookies");
-      setLoading(false);
-      return;
-    }
+  useEffect(() => {
+    if (!isClient) return;
 
     const fetchUser = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/users/${userFromCookie.id}`);
-        if (!res.ok) throw new Error("Failed to fetch user data");
+        setLoading(true);
+        setError(null);
+
+        // Get token from cookies
+        const getTokenFromCookies = (): string | null => {
+          if (typeof document === "undefined") return null;
+          
+          const cookies = document.cookie.split(';');
+          for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'token' || name === 'access_token' || name === 'auth_token') {
+              return decodeURIComponent(value);
+            }
+          }
+          return null;
+        };
+
+        const token = getTokenFromCookies();
+        if (!token) {
+          throw new Error("No authentication token found");
+        }
+
+        // Use /api/auth/me endpoint to get current user data
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          },
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.detail || `Failed to fetch user data: ${res.status}`);
+        }
 
         const data = await res.json();
 
-        // Combine first and last name if name is missing
-        if (!data.name && data.first_name && data.last_name) {
-          data.name = `${data.first_name} ${data.last_name}`;
+        // Ensure we have the required fields
+        if (!data || !data.id || !data.email) {
+          throw new Error("Invalid user data received from server");
+        }
+
+        // Build full name from components if name is missing
+        if (!data.name && (data.first_name || data.last_name)) {
+          const nameParts = [data.first_name, data.middle_name, data.last_name].filter(Boolean);
+          data.name = nameParts.join(' ').trim();
+        }
+
+        // Ensure active field is boolean (default to true if undefined/null)
+        if (data.active === undefined || data.active === null) {
+          data.active = true;
         }
 
         setUser(data);
       } catch (error) {
         console.error("Error fetching user:", error);
+        setError(error instanceof Error ? error.message : "Failed to load user information");
       } finally {
         setLoading(false);
       }
     };
 
     fetchUser();
-  }, []);
+  }, [isClient, API_BASE_URL]);
 
-  if (loading)
+  if (loading) {
+    return <LoadingSpinner size="md" className="h-64" />;
+  }
+
+  if (error || !user) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+        <div className="text-center">
+          <p className="text-red-500 mb-2">{error || t('unableToLoad')}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-blue-600 hover:text-blue-800 underline"
+          >
+            {t('retry') || 'Retry'}
+          </button>
+        </div>
       </div>
     );
-  if (!user)
-    return (
-      <div className="flex justify-center items-center h-64">
-        <p className="text-gray-500">{t('unableToLoad')}</p>
-      </div>
-    );
+  }
 
-  const avatarColor = stringToColor(user.name || user.email);
   const initials = getInitials(user.name || user.email);
 
-  // Prefer phone_number, fallback to phone (legacy)
+  // Get phone number - prefer phone_number, fallback to phone (legacy)
   const phone = user.phone_number || user.phone || t('notProvided');
-  // Prefer job_title, fallback to status or role
+  
+  // Get job title - prefer job_title, fallback to status or role
   const jobTitle = user.job_title || user.status || user.role || t('noJobTitle');
+  
+  // Build display name
+  const displayName = user.name || 
+    (user.first_name && user.last_name 
+      ? `${user.first_name} ${user.middle_name || ''} ${user.last_name}`.trim()
+      : user.email?.split('@')[0] || 'N/A');
 
   return (
-    <div className="max-w-md mx-auto mt-12 p-8 bg-gradient-to-br from-indigo-50 to-white shadow-xl rounded-3xl">
-      <div className="flex flex-col items-center">
-        <div
-          className="w-24 h-24 rounded-full flex items-center justify-center text-4xl font-bold shadow-lg mb-4"
-          style={{
-            background: `linear-gradient(135deg, ${avatarColor} 60%, #6366f1 100%)`,
-            color: "#fff",
-            border: "4px solid #fff",
-          }}
-        >
-          {initials}
+    <div className="w-full max-w-7xl mx-auto mt-2 sm:mt-4 p-3 sm:p-5 bg-white border border-gray-200 rounded-2xl sm:rounded-3xl">
+      {/* Header Section */}
+      <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 mb-6">
+        {/* Avatar and Basic Info */}
+        <div className="flex flex-col items-center text-center lg:text-left lg:items-start">
+          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full flex items-center justify-center text-3xl sm:text-5xl font-bold text-white mb-4 border-2" style={{ backgroundColor: '#3277AE', borderColor: '#3277AE' }}>
+            {initials}
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{displayName}</h2>
+          <span className="text-gray-600 font-medium text-base sm:text-lg mb-4">
+            {jobTitle}
+          </span>
+          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
+            (user.active === true || user.active === undefined) ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
+            <div className={`w-2 h-2 rounded-full mr-2 ${(user.active === true || user.active === undefined) ? 'bg-green-400' : 'bg-red-400'}`}></div>
+            {(user.active === true || user.active === undefined) ? t('active') : t('inactive')}
+          </div>
         </div>
-        <h2 className="text-2xl font-extrabold text-gray-900 mb-1">{user.name || "N/A"}</h2>
-        <span className="text-indigo-600 font-medium text-sm mb-2">
-          {jobTitle}
-        </span>
-        <div className="flex flex-col w-full mt-4 space-y-3">
-          <div className="flex items-center space-x-3">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                <path d="M12 14c-4.418 0-8 1.79-8 4v2h16v-2c0-2.21-3.582-4-8-4z" />
-              </svg>
-            </span>
-            <span className="text-gray-700 font-medium">{user.role || "N/A"}</span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-600">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path d="M3 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H5a2 2 0 01-2-2V5zM15 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM3 15a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2zM15 15a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
-            </span>
-            <span className="text-gray-700">{user.email}</span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-yellow-100 text-yellow-600">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8" />
-                <path d="M21 8v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8" />
-              </svg>
-            </span>
-            <span className="text-gray-700">{phone}</span>
-          </div>
-          {/* More user info */}
-          <div className="flex items-center space-x-3">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path d="M8 7V3m8 4V3M3 11h18M5 19h14a2 2 0 002-2v-7a2 2 0 00-2-2H5a2 2 0 00-2 2v7a2 2 0 002 2z" />
-              </svg>
-            </span>
-            <span className="text-gray-700">
-              <span className="font-medium">{t('created')}:</span>{" "}
-              {user.created_at ? new Date(user.created_at).toLocaleString() : "N/A"}
-            </span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-600">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path d="M12 8v4l3 3" />
-                <circle cx="12" cy="12" r="10" />
-              </svg>
-            </span>
-            <span className="text-gray-700">
-              <span className="font-medium">{t('updated')}:</span>{" "}
-              {user.updated_at ? new Date(user.updated_at).toLocaleString() : "N/A"}
-            </span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-pink-100 text-pink-600">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-            </span>
-            <span className="text-gray-700">
-              <span className="font-medium">{t('status')}:</span>{" "}
-              {user.status || "N/A"}
-            </span>
-          </div>
-         
-          {(user.first_name || user.middle_name || user.last_name) && (
-            <div className="flex items-center space-x-3">
-              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-teal-100 text-teal-600">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z" />
-                  <path d="M6.343 17.657A8 8 0 0112 16a8 8 0 015.657 1.657" />
-                </svg>
-              </span>
-              <span className="text-gray-700">
-                <span className="font-medium">{t('fullName')}:</span>{" "}
-                {[user.first_name, user.middle_name, user.last_name].filter(Boolean).join(" ")}
-              </span>
+
+        {/* Contact Information */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('contactInfo')}</h3>
+            
+            <div className="space-y-2">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">{t('email')}</p>
+                <p className="text-base text-gray-900 font-medium">{user.email}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500 mb-1">{t('phone')}</p>
+                <p className="text-base text-gray-900 font-medium">{phone}</p>
+              </div>
             </div>
-          )}
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('accountInfo')}</h3>
+            
+            <div className="space-y-2">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">{t('role')}</p>
+                <p className="text-base text-gray-900 font-medium">{user.role || "N/A"}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500 mb-1">{t('userType')}</p>
+                <p className="text-base text-gray-900 font-medium capitalize">{user.user_type || "N/A"}</p>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500 mb-1">{t('status')}</p>
+                <p className="text-base text-gray-900 font-medium">{user.status || "N/A"}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
