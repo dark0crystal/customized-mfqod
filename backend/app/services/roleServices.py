@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 import uuid
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from schemas.user_schema import UserRegister
-from models import Role, User
+from app.schemas.user_schema import UserRegister
+from app.models import Role, User
 from sqlalchemy import select
 
 

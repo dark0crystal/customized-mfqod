@@ -4,8 +4,8 @@ import uuid
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
-from models import Permission, Role, RolePermissions
-from schemas.permission_schema import PermissionRequestSchema
+from app.models import Permission, Role, RolePermissions
+from app.schemas.permission_schema import PermissionRequestSchema
 from typing import List, Optional
 
 # ============================= 
@@ -236,11 +236,28 @@ def get_role_permissions(session: Session, role_id: str) -> List[Permission]:
     return role.permissions
 
 # ============================= 
+# Check if User is Super Admin
+# ============================= 
+def is_super_admin(session: Session, user_id: str) -> bool:
+    """Check if a user has super admin role (super_admin or admin role)"""
+    from app.models import User
+    
+    # Get user with role
+    user_statement = select(User).where(User.id == user_id)
+    user = session.execute(user_statement).scalars().first()
+    
+    if not user or not user.role:
+        return False
+    
+    # Check for both super_admin and admin roles for backward compatibility
+    return user.role.name.lower() in ["super_admin", "admin"]
+
+# ============================= 
 # Check User Permission
 # ============================= 
 def check_user_permission(session: Session, user_id: str, permission_name: str) -> bool:
     """Check if a user has a specific permission through their role"""
-    from models import User
+    from app.models import User
     
     # Get user with role and permissions
     user_statement = select(User).where(User.id == user_id)
@@ -248,6 +265,10 @@ def check_user_permission(session: Session, user_id: str, permission_name: str) 
     
     if not user or not user.role:
         return False
+    
+    # Super Admin bypass: If user has super_admin or admin role, grant access to everything
+    if user.role.name.lower() in ["super_admin", "admin"]:
+        return True
     
     # Check if user's role has the permission
     for permission in user.role.permissions:
