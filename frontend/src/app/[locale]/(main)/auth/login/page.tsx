@@ -5,20 +5,23 @@ import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { useTranslations } from "next-intl"
 import { tokenManager } from "@/utils/tokenManager" // Import the token manager
 
-const loginSchema = z.object({
-  identifier: z.string().min(3, "Username or Email is required"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-})
-
-type LoginFormData = z.infer<typeof loginSchema>
-
 export default function Login() {
+  const t = useTranslations("auth.login")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const router = useRouter()
+
+  const loginSchema = z.object({
+    identifier: z.string().min(3, t("validation.usernameOrEmailRequired")),
+    password: z.string().min(6, t("validation.passwordRequired")),
+  })
+
+  type LoginFormData = z.infer<typeof loginSchema>
 
   const {
     register,
@@ -45,7 +48,7 @@ export default function Login() {
       // Use the enhanced login method from token manager
       const result = await tokenManager.login(data.identifier, data.password)
       
-      setSuccess("Login successful!")
+      setSuccess(t("loginSuccess"))
       console.log("Login success:", result)
       
       // Redirect user after successful login
@@ -54,7 +57,7 @@ export default function Login() {
       }, 1000)
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed")
+      setError(err instanceof Error ? err.message : t("loginFailed"))
       console.error("Error during login:", err)
     } finally {
       setIsLoading(false)
@@ -62,8 +65,8 @@ export default function Login() {
   }
 
   return (
-    <div className="max-w-sm mx-auto mt-10 p-4 border rounded shadow">
-      <h2 className="text-2xl font-bold mb-4 text-center">Login</h2>
+    <div className="max-w-md mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
+      <h2 className="text-2xl font-bold text-center mb-6" style={{ color: '#3277AE' }}>{t("title")}</h2>
       
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -77,55 +80,98 @@ export default function Login() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div>
-          <label className="block text-sm font-medium mb-1">Username or Email</label>
+          <label className="block text-lg font-semibold text-gray-700 mb-2">{t("usernameOrEmail")}</label>
           <input
             type="text"
             {...register("identifier")}
-            className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder={t("usernameOrEmailPlaceholder")}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+            style={{ 
+              '--tw-ring-color': '#3277AE',
+              '--tw-ring-offset-color': '#3277AE'
+            } as React.CSSProperties & { [key: string]: string }}
             disabled={isLoading}
           />
           {errors.identifier && (
-            <p className="text-red-500 text-sm mt-1">{errors.identifier.message}</p>
+            <p className="mt-2 text-sm text-red-500">{errors.identifier.message}</p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Password</label>
+          <label className="block text-lg font-semibold text-gray-700 mb-2">{t("password")}</label>
           <input
             type="password"
             {...register("password")}
-            className="w-full border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder={t("passwordPlaceholder")}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+            style={{ 
+              '--tw-ring-color': '#3277AE',
+              '--tw-ring-offset-color': '#3277AE'
+            } as React.CSSProperties & { [key: string]: string }}
             disabled={isLoading}
           />
           {errors.password && (
-            <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
+            <p className="mt-2 text-sm text-red-500">{errors.password.message}</p>
           )}
         </div>
 
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          {isLoading ? "Logging in..." : "Login"}
-        </button>
+        <div className="text-center">
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full p-3 text-white font-semibold rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            style={{ 
+              backgroundColor: '#3277AE',
+              '--tw-ring-color': '#3277AE'
+            } as React.CSSProperties & { [key: string]: string }}
+            onMouseEnter={(e) => {
+              if (!isLoading) {
+                e.currentTarget.style.backgroundColor = '#2a5f94';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isLoading) {
+                e.currentTarget.style.backgroundColor = '#3277AE';
+              }
+            }}
+          >
+            {isLoading ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {t("loggingIn")}
+              </span>
+            ) : (
+              t("loginButton")
+            )}
+          </button>
+        </div>
       </form>
 
       {/* Sign up link */}
       <div className="mt-6 text-center">
         <p className="text-sm text-gray-600">
-          Don't have an account?{' '}
-          <a 
+          {t("noAccount")}{' '}
+          <Link 
             href="/auth/register" 
-            className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            className="font-medium transition-colors"
+            style={{ color: '#3277AE' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#2a5f94';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#3277AE';
+            }}
           >
-            Sign up
-          </a>
+            {t("signUp")}
+          </Link>
         </p>
         <p className="text-xs text-gray-500 mt-2">
-          External users only - University users login with existing credentials
+          {t("externalUsersOnly")}
         </p>
       </div>
     </div>
