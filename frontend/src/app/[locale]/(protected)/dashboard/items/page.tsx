@@ -1,66 +1,176 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Image from "next/image";
-import defaultImage from "../../../../../../public/img1.jpeg";
-import { MdArrowOutward } from "react-icons/md";
-import { IoMdResize } from "react-icons/io";
-import { useRouter } from '@/i18n/navigation';
+import { useTranslations, useLocale } from 'next-intl';
+import DisplayItems from './DisplayItems';
 
 // Define the Item type
 type Item = {
   id: string;
-  name: string;
-  description?: string;
+  title: string;
+  description: string;
   image_url?: string;
-  [key: string]: any;
+  item_type_id?: string;
+  location?: {
+    organization_name_ar?: string;
+    organization_name_en?: string;
+    branch_name_ar?: string;
+    branch_name_en?: string;
+    full_location?: string;
+  };
+  approval?: boolean;
+  temporary_deletion?: boolean;
+  claims_count?: number;
+  [key: string]: unknown;
 };
 
+interface ItemType {
+  id: string;
+  name_ar?: string;
+  name_en?: string;
+}
+
+interface Branch {
+  id: string;
+  branch_name_ar?: string;
+  branch_name_en?: string;
+  organization_id: string;
+  organization?: {
+    id: string;
+    name: string;
+    name_ar?: string;
+    name_en?: string;
+  };
+}
+
+interface ItemImage {
+  id: string;
+  url: string;
+  imageable_type: string;
+  imageable_id: string;
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
-const IMAGE_HOST =
-  process.env.NEXT_PUBLIC_IMAGE_HOST?.replace(/\/+$/, "") ||
-  `${process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000"}/backend`;
 
 // Helper to get token from cookies
 function getTokenFromCookies(): string | null {
   if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|;\s*)token=([^;]*)/);
+  
+  // Try multiple cookie names for token
+  const match = document.cookie.match(/(?:^|;\s*)(?:token|access_token)=([^;]*)/);
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-// Helper to prepend host to image URLs if needed
-const getImageUrl = (url?: string) => {
-  if (!url) return defaultImage;
-  if (/^https?:\/\//.test(url)) return url;
-  return `${IMAGE_HOST}${url.startsWith("/") ? "" : "/"}${url}`;
-};
-
 export default function ItemsPage() {
-  const router = useRouter();
+  const t = useTranslations("dashboard.items");
+  const locale = useLocale();
   const [items, setItems] = useState<Item[]>([]);
+  const [itemImages, setItemImages] = useState<Record<string, ItemImage[]>>({});
+  const [currentItemTypeId, setCurrentItemTypeId] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
 
-  // Fetch all items
-  useEffect(() => {
-    fetchItems();
-     
-  }, []);
+  // Helper function to get localized name
+  const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
+    if (locale === 'ar' && nameAr) return nameAr;
+    if (locale === 'en' && nameEn) return nameEn;
+    return nameAr || nameEn || '';
+  };
 
-  const fetchItems = async () => {
+  // Get today's date in YYYY-MM-DD format for max date validation
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
+  const API_BASE = `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/item-types/`;
+
+  // Fetch images for a list of item IDs
+  const fetchImagesForItems = async (itemsList: Item[]) => {
+    const newImages: Record<string, ItemImage[]> = {};
+    await Promise.all(
+      itemsList.map(async (item) => {
+        try {
+          const token = getTokenFromCookies();
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/images/items/${item.id}/images`,
+            {
+              headers: token
+                ? {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  }
+                : { "Content-Type": "application/json" },
+            }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            newImages[item.id] = Array.isArray(data) ? data : data.images || [];
+          } else {
+            newImages[item.id] = [];
+          }
+        } catch {
+          newImages[item.id] = [];
+        }
+      })
+    );
+    setItemImages(newImages);
+  };
+
+  const fetchItems = async (filters?: {
+    itemTypeId?: string;
+    searchQuery?: string;
+    branchId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) => {
     setLoading(true);
     setError(null);
     try {
       const token = getTokenFromCookies();
-      const res = await fetch(`${API_BASE_URL}/api/items`, {
+      
+      // Determine which endpoint to use based on search query
+      let url = `${API_BASE_URL}/api/items`;
+      if (filters?.searchQuery && filters.searchQuery.trim()) {
+        url = `${API_BASE_URL}/api/items/search/`;
+      }
+      
+      const params = new URLSearchParams();
+      
+      // Add search query if provided
+      if (filters?.searchQuery && filters.searchQuery.trim()) {
+        params.append("q", filters.searchQuery.trim());
+      }
+      
+      // Add other filters
+      if (filters?.itemTypeId) params.append("item_type_id", filters.itemTypeId);
+      if (filters?.branchId) params.append("branch_id", filters.branchId);
+      if (filters?.dateFrom) params.append("date_from", filters.dateFrom);
+      if (filters?.dateTo) params.append("date_to", filters.dateTo);
+      
+      params.append("skip", "0");
+      params.append("limit", "100");
+
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      const res = await fetch(url, {
         headers: token
           ? {
               Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
             }
-          : {},
+          : { "Content-Type": "application/json" },
         credentials: "include",
       });
+      
       if (!res.ok) throw new Error("Failed to fetch items");
       const data = await res.json();
 
@@ -77,145 +187,289 @@ export default function ItemsPage() {
       }
 
       setItems(itemsArray);
-    } catch (err: any) {
-      setError(err.message || "Error fetching items");
+
+      // Fetch images for these items
+      if (itemsArray.length > 0) {
+        await fetchImagesForItems(itemsArray);
+      } else {
+        setItemImages({});
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error fetching items");
       setItems([]);
+      setItemImages({});
     } finally {
       setLoading(false);
     }
   };
 
-  // Delete item
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this item?")) return;
+  const fetchItemTypes = async () => {
     try {
       const token = getTokenFromCookies();
-      const res = await fetch(`${API_BASE_URL}/api/items/${id}`, {
-        method: "DELETE",
+      const response = await fetch(API_BASE, {
         headers: token
           ? {
               Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
             }
-          : {},
-        credentials: "include",
+          : { "Content-Type": "application/json" },
       });
-      if (!res.ok) throw new Error("Failed to delete item");
-      setItems((prev) =>
-        Array.isArray(prev) ? prev.filter((item) => item.id !== id) : []
-      );
-    } catch (err: any) {
-      alert(err.message || "Error deleting item");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setItemTypes(data);
+    } catch (err) {
+      setError(`Failed to fetch item types: ${(err as Error).message}`);
     }
   };
 
-  // Navigate to edit page
-  const handleEdit = (item: Item) => {
-    router.push(`/dashboard/items/${item.id}`);
+  const fetchBranches = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/branches/public/`, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setBranches(data);
+    } catch (err) {
+      setError(`Failed to fetch branches: ${(err as Error).message}`);
+    }
   };
 
-  // Expand/Shrink image
-  const handleImageSize = (itemId: string) => {
-    setExpandedItemId(expandedItemId === itemId ? null : itemId);
+  const handleItemTypeClick = (itemTypeId: string) => {
+    setCurrentItemTypeId(itemTypeId);
+    applyFilters({ itemTypeId });
   };
 
-  // Defensive: ensure items is always an array before rendering
-  const safeItems: Item[] = Array.isArray(items) ? items : [];
+  const handleShowAll = () => {
+    setCurrentItemTypeId("");
+    applyFilters({ itemTypeId: "" });
+  };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    applyFilters({ searchQuery: query });
+  };
+
+  const handleBranchChange = (branchId: string) => {
+    setSelectedBranchId(branchId);
+    applyFilters({ branchId });
+  };
+
+  const handleDateFromChange = (date: string) => {
+    // Validate that the date is not in the future
+    if (date && date > getTodayDate()) {
+      setError(t("validation.noFutureDates"));
+      return;
+    }
+    
+    // Validate that from date is not after to date
+    if (date && dateTo && date > dateTo) {
+      setError(t("validation.fromDateAfterToDate"));
+      return;
+    }
+    
+    setDateFrom(date);
+    setError(null);
+    applyFilters({ dateFrom: date });
+  };
+
+  const handleDateToChange = (date: string) => {
+    // Validate that the date is not in the future
+    if (date && date > getTodayDate()) {
+      setError(t("validation.noFutureDates"));
+      return;
+    }
+    
+    // Validate that to date is not before from date
+    if (date && dateFrom && date < dateFrom) {
+      setError(t("validation.toDateBeforeFromDate"));
+      return;
+    }
+    
+    setDateTo(date);
+    setError(null);
+    applyFilters({ dateTo: date });
+  };
+
+  const applyFilters = (newFilters?: {
+    itemTypeId?: string;
+    searchQuery?: string;
+    branchId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) => {
+    const filters = {
+      itemTypeId: newFilters?.itemTypeId !== undefined ? newFilters.itemTypeId : currentItemTypeId,
+      searchQuery: newFilters?.searchQuery !== undefined ? newFilters.searchQuery : searchQuery,
+      branchId: newFilters?.branchId !== undefined ? newFilters.branchId : selectedBranchId,
+      dateFrom: newFilters?.dateFrom !== undefined ? newFilters.dateFrom : dateFrom,
+      dateTo: newFilters?.dateTo !== undefined ? newFilters.dateTo : dateTo,
+    };
+    
+    fetchItems(filters);
+  };
+
+  const clearAllFilters = () => {
+    setCurrentItemTypeId("");
+    setSearchQuery("");
+    setSelectedBranchId("");
+    setDateFrom("");
+    setDateTo("");
+    fetchItems();
+  };
+
+  useEffect(() => {
+    fetchItemTypes();
+    fetchBranches();
+    fetchItems();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="w-full p-2 md:p-6 mt-6 flex items-center flex-col">
-      <h1 className="text-2xl font-bold mb-6">My Items</h1>
-      {loading ? (
-        <div className="text-center py-8">Loading items...</div>
-      ) : error ? (
-        <div className="text-red-500 text-center py-8">{error}</div>
-      ) : (
-        <div className="grid md:grid-cols-1 lg:grid-cols-2 grid-cols-1 gap-12 w-full max-w-5xl">
-          {safeItems.length === 0 ? (
-            <div className="text-gray-500 text-center col-span-full">No items found.</div>
-          ) : (
-            safeItems.map((item, index) => {
-              const imageUrl = getImageUrl(item.image_url);
-              const isExpanded = expandedItemId === item.id;
+    <div className="relative w-full min-h-[88vh]">
+      {/* Header with title and filters */}
+      <div className="w-full p-4 bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">{t("myItems")}</h1>
+            
+            {/* Clear Filters Button */}
+            <button
+              onClick={clearAllFilters}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 self-start lg:self-auto"
+            >
+              {t("filters.clearAllFilters")}
+            </button>
+          </div>
 
-              return (
-                <div
-                  key={item.id}
-                  className={`bg-white min-w-[350px] shadow-lg overflow-hidden ${
-                    isExpanded
-                      ? "fixed inset-0 bg-black bg-opacity-80 z-50 flex justify-center items-center"
-                      : "hover:shadow-xl rounded-2xl transition-shadow duration-300"
-                  }`}
-                  style={isExpanded ? { animation: "fadeIn .2s" } : {}}
-                >
-                  {/* Content */}
-                  <div className={`p-4 ${isExpanded ? "hidden" : ""}`}>
-                    <h4 className="text-lg font-semibold text-gray-800">{item.name}</h4>
-                    <p className="text-gray-500 text-sm">{item.description || "-"}</p>
-                  </div>
+          {/* Filters Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Search Input */}
+            <div className="lg:col-span-1">
+              <label htmlFor="search-input" className="block text-sm font-medium text-gray-700 mb-2">
+                {t("filters.searchItems")}
+              </label>
+              <input
+                id="search-input"
+                type="text"
+                placeholder={t("filters.searchPlaceholder")}
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-all duration-200 hover:bg-gray-50 hover:border-gray-400"
+                style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
+              />
+            </div>
 
-                  {/* Action Buttons */}
-                  <div className={`flex items-center justify-between py-2 px-4 ${isExpanded ? "hidden" : ""}`}>
-                    <div className="space-x-2">
-                      <button
-                        className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                        onClick={() => handleEdit(item)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
+            {/* Item Type Filter */}
+            <div>
+              <label htmlFor="item-type-filter" className="block text-sm font-medium text-gray-700 mb-2">
+                {t("filters.itemType")}
+              </label>
+              <select
+                id="item-type-filter"
+                value={currentItemTypeId}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "") {
+                    handleShowAll();
+                  } else {
+                    handleItemTypeClick(value);
+                  }
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-all duration-200 hover:bg-gray-50 hover:border-gray-400"
+                style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
+              >
+                <option value="">{t("filters.allTypes")}</option>
+                {itemTypes.map((itemType) => (
+                  <option key={itemType.id} value={itemType.id}>
+                    {getLocalizedName(itemType.name_ar, itemType.name_en) || 'Unnamed'}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                  {/* Image Section */}
-                  <div
-                    className={`relative ${
-                      isExpanded
-                        ? "w-[98vw] h-[88vh] md:w-[500px] md:h-[600px] lg:w-[500px] lg:h-[700px]"
-                        : "h-[250px] m-3"
-                    }`}
-                  >
-                    {/* Expand image */}
-                    <button
-                      title={isExpanded ? "Shrink Image" : "Expand Image"}
-                      onClick={() => handleImageSize(item.id)}
-                      className="absolute top-2 left-2 p-3 bg-white z-20 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
-                    >
-                      <IoMdResize />
-                    </button>
+            {/* Branch Filter */}
+            <div>
+              <label htmlFor="branch-filter" className="block text-sm font-medium text-gray-700 mb-2">
+                {t("filters.branch")}
+              </label>
+              <select
+                id="branch-filter"
+                value={selectedBranchId}
+                onChange={(e) => handleBranchChange(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-all duration-200 hover:bg-gray-50 hover:border-gray-400"
+                style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
+              >
+                <option value="">{t("filters.allBranches")}</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch'}
+                    {branch.organization && ` - ${branch.organization.name}`}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                    {/* Go to details */}
-                    <button
-                      title="Go to details"
-                      onClick={() => router.push(`/dashboard/items/${item.id}`)}
-                      className="absolute bottom-2 right-2 p-3 bg-white z-20 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
-                    >
-                      <MdArrowOutward />
-                    </button>
+            {/* Date Range Filters */}
+            <div className="md:col-span-2 lg:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t("filters.dateRange")}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  placeholder={t("filters.fromDate")}
+                  value={dateFrom}
+                  max={getTodayDate()}
+                  onChange={(e) => handleDateFromChange(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
+                  style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
+                />
+                <input
+                  type="date"
+                  placeholder={t("filters.toDate")}
+                  value={dateTo}
+                  max={getTodayDate()}
+                  onChange={(e) => handleDateToChange(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
+                  style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
+                />
+              </div>
+            </div>
+          </div>
 
-                    <Image
-                      src={typeof imageUrl === "string" ? imageUrl : defaultImage}
-                      alt={`Item image ${index}`}
-                      fill
-                      objectFit={isExpanded ? "contain" : "cover"}
-                      className={`rounded-2xl transition-transform ${
-                        isExpanded ? "cursor-zoom-out w-auto h-auto max-w-full max-h-full" : ""
-                      }`}
-                      onClick={() => handleImageSize(item.id)}
-                      sizes={isExpanded ? "90vw" : "400px"}
-                      priority={isExpanded}
-                    />
-                  </div>
-                </div>
-              );
-            })
+          {error && (
+            <div className="w-full mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+              {t("error")}: {error}
+            </div>
           )}
         </div>
-      )}
+      </div>
+
+      {/* Main content */}
+      <div className="w-full p-4 overflow-y-auto">
+        <div className="max-w-7xl mx-auto">
+          <div className="w-full pb-20">
+            {loading ? (
+              <div className="text-center text-gray-500 py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3277AE] mx-auto"></div>
+                <p className="mt-2">{t("loading")}</p>
+              </div>
+            ) : items.length === 0 ? (
+              <div className="text-center py-8">
+                <p style={{ color: '#3277AE' }}>{t("noItemsFound")}</p>
+              </div>
+            ) : (
+              <DisplayItems items={items} images={itemImages} />
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
