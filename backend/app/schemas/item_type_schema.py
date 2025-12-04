@@ -3,17 +3,23 @@ from datetime import datetime
 from typing import Optional
 
 class CreateItemTypeRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = Field(None, max_length=500)
+    name_ar: Optional[str] = Field(None, max_length=100)
+    name_en: Optional[str] = Field(None, max_length=100)
+    description_ar: Optional[str] = Field(None, max_length=500)
+    description_en: Optional[str] = Field(None, max_length=500)
 
 class UpdateItemTypeRequest(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    description: Optional[str] = Field(None, max_length=500)
+    name_ar: Optional[str] = Field(None, max_length=100)
+    name_en: Optional[str] = Field(None, max_length=100)
+    description_ar: Optional[str] = Field(None, max_length=500)
+    description_en: Optional[str] = Field(None, max_length=500)
 
 class ItemTypeResponse(BaseModel):
     id: str
-    name: str
-    description: Optional[str]
+    name_ar: Optional[str]
+    name_en: Optional[str]
+    description_ar: Optional[str]
+    description_en: Optional[str]
     created_at: datetime
     updated_at: datetime
 

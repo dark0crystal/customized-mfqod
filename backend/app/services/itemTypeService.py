@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from models import ItemType
-from schemas.item_type_schema import CreateItemTypeRequest, UpdateItemTypeRequest
+from app.models import ItemType
+from app.schemas.item_type_schema import CreateItemTypeRequest, UpdateItemTypeRequest
 from datetime import datetime, timezone
 import uuid
 
@@ -11,8 +11,10 @@ class ItemTypeService:
     def create_item_type(self, data: CreateItemTypeRequest) -> ItemType:
         new_type = ItemType(
             id=str(uuid.uuid4()),
-            name=data.name,
-            description=data.description,
+            name_ar=data.name_ar,
+            name_en=data.name_en,
+            description_ar=data.description_ar,
+            description_en=data.description_en,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
         )
