@@ -164,7 +164,12 @@ async def get_items(
             date_to=parsed_date_to
         )
         
-        items, total = item_service.get_items(filters, current_user.id)
+        # When approved_only is True, show all approved items (skip branch-based access control)
+        # This allows the public search page to display all approved items
+        # Otherwise, apply branch-based access control for regular queries
+        user_id_for_access_control = None if approved_only else current_user.id
+        
+        items, total = item_service.get_items(filters, user_id_for_access_control)
         
         return ItemListResponse(
             items=items,
@@ -229,7 +234,12 @@ async def search_items(
             date_to=parsed_date_to
         )
         
-        items, total = item_service.search_items(q, filters, current_user.id)
+        # When approved_only is True, show all approved items (skip branch-based access control)
+        # This allows the public search page to display all approved items
+        # Otherwise, apply branch-based access control for regular queries
+        user_id_for_access_control = None if approved_only else current_user.id
+        
+        items, total = item_service.search_items(q, filters, user_id_for_access_control)
         
         return ItemListResponse(
             items=items,
