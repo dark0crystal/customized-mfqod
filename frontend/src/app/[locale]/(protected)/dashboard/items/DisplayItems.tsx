@@ -7,6 +7,7 @@ import { MdArrowOutward } from 'react-icons/md';
 import { IoMdResize } from 'react-icons/io';
 import { useTranslations, useLocale } from 'next-intl';
 import defaultImage from '../../../../../../public/img1.jpeg';
+import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
 
 interface LocationData {
   organization_name_ar?: string;
@@ -140,6 +141,39 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
     return defaultImage;
   };
 
+  // Helper to format all images for carousel
+  const getCarouselImages = (itemId: string): CarouselImage[] => {
+    const itemImages = images?.[itemId] || [];
+    if (itemImages.length === 0) {
+      return [{ url: defaultImage, alt: 'Default image' }];
+    }
+
+    const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
+    
+    return itemImages.map((img) => {
+      let imageUrl = img.url;
+      
+      // If the url is already absolute, use as is
+      if (!/^https?:\/\//.test(imageUrl)) {
+        // Convert database URL format to static file serving format
+        imageUrl = imageUrl.replace('/uploads/images/', '/static/images/');
+        
+        // Ensure the imageUrl starts with a forward slash
+        if (!imageUrl.startsWith('/')) {
+          imageUrl = '/' + imageUrl;
+        }
+        
+        imageUrl = `${baseUrl}${imageUrl}`;
+      }
+      
+      return {
+        id: img.id,
+        url: imageUrl,
+        alt: `Item image ${itemId}`,
+      };
+    });
+  };
+
   return (
     <div className="w-full flex items-center flex-col">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -171,7 +205,7 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                       <div className="flex justify-between items-center mt-2">
                         <span className="text-xs text-gray-500">{item.claims_count} {t("status.claims")}</span>
                         <span className={`text-xs px-2 py-1 rounded ${item.approval ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {item.approval ? t("status.approved") : t("status.pending")}
+                          {item.approval ? t("status.approved") : t("status.cancelled")}
                         </span>
                       </div>
                     )}
@@ -209,14 +243,14 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                   </div>
                 </div>
 
-                {/* Expanded image modal */}
+                {/* Expanded image modal with carousel */}
                 {isExpanded && (
                   <div 
                     className="fixed inset-0 bg-black bg-opacity-90 z-50 flex justify-center items-center p-4"
                     style={{ animation: "fadeIn .2s" }}
                     onClick={() => setExpandedItemId(null)}
                   >
-                    <div className="relative max-w-[90vw] max-h-[90vh] w-full h-full flex justify-center items-center">
+                    <div className="relative w-full h-full flex justify-center items-center">
                       {/* Close button */}
                       <button
                         title={t("close")}
@@ -238,20 +272,17 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                         <MdArrowOutward />
                       </button>
 
-                      {/* Expanded image */}
+                      {/* Image Carousel */}
                       <div 
-                        className="relative w-full h-full"
+                        className="relative w-full h-full max-w-[90vw] max-h-[90vh]"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <Image
-                          src={imageUrl}
-                          alt={`Item image ${index} - expanded`}
-                          fill
-                          style={{ objectFit: "contain" }}
-                          className="cursor-zoom-out"
-                          onClick={() => setExpandedItemId(null)}
-                          sizes="90vw"
-                          priority
+                        <ImageCarousel
+                          images={getCarouselImages(item.id)}
+                          isModal={true}
+                          onClose={() => setExpandedItemId(null)}
+                          showCounter={true}
+                          showDots={true}
                         />
                       </div>
                     </div>

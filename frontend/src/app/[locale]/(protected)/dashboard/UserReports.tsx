@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from 'next-intl';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRouter } from '@/i18n/navigation';
+import { formatDateOnly } from '@/utils/dateFormatter';
 
 interface MissingItem {
   id: string;
@@ -39,6 +40,7 @@ interface Claim {
   approval: boolean;
   created_at: string;
   updated_at: string;
+  is_assigned?: boolean;  // Whether this claim is assigned as the correct claim for the item
   item?: {
     id: string;
     title: string;
@@ -213,9 +215,8 @@ export default function UserReports() {
     );
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  // Using utility function for consistent date formatting
+  const formatDate = formatDateOnly;
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -473,10 +474,20 @@ export default function UserReports() {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getApprovalColor(claim.approval)}`}>
                           {claim.approval ? t('approved') : t('pending')}
                         </span>
+                        {claim.is_assigned && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            {t('assigned') || 'Assigned'}
+                          </span>
+                        )}
                         <button
                           onClick={() => handleEditClaim(claim.id)}
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-                          title={t('edit')}
+                          disabled={claim.approval && claim.is_assigned}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
+                            claim.approval && claim.is_assigned
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                          }`}
+                          title={claim.approval && claim.is_assigned ? (t('cannotEditAssigned') || 'Cannot edit approved and assigned claim') : t('edit')}
                         >
                           <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
