@@ -1,16 +1,24 @@
+"use client";
 import { Link } from "@/i18n/navigation";
 import Brand from "./Brand";
-// import Profile from "./Profile";
-// import { FaSearch } from "react-icons/fa";
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 import MobileNavbar from "./MobileNavbar";
+import { tokenManager } from "@/utils/tokenManager";
+import { useRouter } from "next/navigation";
+import LanguageChange from "./LangChange";
+import UserProfile from "./UserProfile";
 
+export default function NavBar() {
+  const t = useTranslations("navbar");
+  const router = useRouter();
 
-export default async function NavBar() {
-  // const locale = (await getLocale()).substring(0, 2); // This will give you "ar" or "en"
-
-  const t = await getTranslations("navbar");
-
+  const handleReportClick = () => {
+    if (!tokenManager.isAuthenticated()) {
+      router.push('/auth/login');
+    } else {
+      router.push('/dashboard/report-missing-item');
+    }
+  };
 
   return (
     <>
@@ -19,42 +27,46 @@ export default async function NavBar() {
       <div className='grid grid-cols-12  p-2 lg:p-2  w-full '>
       
 
-
         {/* right section ar links */}
-        <div className="flex items-center justify-center p-3 rounded-lg col-span-5 ">
+        <div className="flex items-center justify-center p-3 rounded-lg col-span-4 ">
          
-            <Link href="/search" >
+            <Link href="/search">
               <div className="p-2  mx-4">
                   <h1 className="text-[0.9rem] lg:text-[1rem] text-md text-gray-700 font-normal hover:text-blue-600">{t("search")}</h1>
                   
               </div>
             </Link>
 
-            <Link href="/report-found-item" >
+            <button onClick={handleReportClick}>
               <div className="p-2  mx-4">
                   <h1 className="text-[1rem] text-gray-700 font-normal hover:text-blue-600">{t("report")}</h1>
               </div>
+            </button>
+
+            <Link href="/branches-info">
+              <div className="p-2  mx-4">
+                  <h1 className="text-[0.9rem] lg:text-[1rem] text-md text-gray-700 font-normal hover:text-blue-600">{t("branchesInfo")}</h1>
+                  
+              </div>
             </Link>
+
+            
       
         </div>
 
 
           {/* Center Section Brand */}
-        <div className="flex items-center justify-center col-span-2">
+        <div className="flex items-center justify-center col-span-4">
             <Brand />
         </div>
 
 
-        {/* left section ar */}
-        <div className="flex items-center justify-center p-3 rounded-lg col-span-5 ">
-          <div>
-            {/* <Profile/> */}
-          </div>
-         
+        {/* left section with language change and user profile */}
+        <div className="flex items-center justify-center p-3 rounded-lg col-span-4 space-x-4">
+          <LanguageChange />
+          <UserProfile />
         </div>
         
-        {/* <LanguageChange /> */}
-        {/* <MobileMenu navLinks={navLinks} /> */}
       </div>
     </nav>
     <MobileNavbar/>
