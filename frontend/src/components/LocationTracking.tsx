@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
+import { formatDateOnly } from '@/utils/dateFormatter';
 
 interface Organization {
   id: string;
@@ -109,14 +110,14 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
                 
                 {/* Date */}
                 <span className="text-xs text-gray-500">
-                  {new Date(address.created_at).toLocaleDateString()}
+                  {formatDateOnly(address.created_at)}
                 </span>
               </div>
 
               {/* Location Details */}
               <div className="space-y-3">
-                {/* Organization */}
-                {organization && (organization.name_ar || organization.name_en) && (
+                {/* Organization and Branch combined: "organization name, branch name" */}
+                {(organization || branch) && (
                   <div className="flex items-center space-x-3">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                       isCurrent ? 'bg-green-100' : 'bg-red-100'
@@ -124,44 +125,39 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
                       <svg className={`w-4 h-4 ${
                         isCurrent ? 'text-green-600' : 'text-red-600'
                       }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">{t('organization')}</p>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">{t('location')}</p>
                       <p className={`font-medium ${
                         isCurrent ? 'text-gray-900' : 'text-gray-600'
                       }`}>
-                        {getLocalizedName(organization.name_ar, organization.name_en)}
+                        {(() => {
+                          const orgName = organization 
+                            ? getLocalizedName(organization.name_ar, organization.name_en)
+                            : '';
+                          const branchName = branch 
+                            ? getLocalizedName(branch.branch_name_ar, branch.branch_name_en)
+                            : '';
+                          
+                          // Format: "organization name, branch name"
+                          if (orgName && branchName) {
+                            return `${orgName}, ${branchName}`;
+                          } else if (orgName) {
+                            return orgName;
+                          } else if (branchName) {
+                            return branchName;
+                          }
+                          return t('noLocationInfo');
+                        })()}
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* Branch */}
-                {branch && (branch.branch_name_ar || branch.branch_name_en) && (
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      isCurrent ? 'bg-green-100' : 'bg-red-100'
-                    }`}>
-                      <svg className={`w-4 h-4 ${
-                        isCurrent ? 'text-green-600' : 'text-red-600'
-                      }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">{t('branch')}</p>
-                      <p className={`font-medium ${
-                        isCurrent ? 'text-gray-900' : 'text-gray-600'
-                      }`}>
-                        {getLocalizedName(branch.branch_name_ar, branch.branch_name_en)}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Full Location */}
+                {/* Full Location (if different from organization/branch) */}
                 {address.full_location && (
                   <div className="flex items-center space-x-3">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
