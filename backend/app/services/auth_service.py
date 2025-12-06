@@ -6,13 +6,14 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional, Any, Tuple, List
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
+from sqlalchemy.sql import func as sql_func
 from fastapi import HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from models import User, UserType, LoginAttempt, LoginAttemptStatus, UserSession, Role, Permission
-from config.auth_config import AuthConfig
-from services.enhanced_ad_service import EnhancedADService
-from db.database import get_db
+from app.models import User, UserType, LoginAttempt, LoginAttemptStatus, UserSession, Role, Permission
+from app.config.auth_config import AuthConfig
+from app.services.enhanced_ad_service import EnhancedADService
+from app.db.database import get_session
 import re
 import ipaddress
 
@@ -24,56 +25,100 @@ class AuthService:
         self.ad_service = EnhancedADService()
         self.security = HTTPBearer()
     
+    def _ensure_timezone_aware(self, dt: datetime) -> datetime:
+        """Ensure datetime is timezone-aware (UTC)"""
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+    
     async def authenticate_user(self, email_or_username: str, password: str, 
                               request: Request, db: Session) -> Dict[str, Any]:
         """
-        Comprehensive user authentication supporting both internal and external users
+        Comprehensive user authentication supporting both internal and external users.
+        Uses database-first lookup to determine user type.
         """
-        # Get client info
-        ip_address = self._get_client_ip(request)
-        user_agent = request.headers.get("user-agent", "")
-        
-        # Check rate limiting
-        await self._check_rate_limit(email_or_username, ip_address, db)
-        
-        # Determine user type and authenticate
-        user_type = self._detect_user_type(email_or_username)
-        
-        if user_type == UserType.INTERNAL:
-            return await self._authenticate_internal_user(
-                email_or_username, password, ip_address, user_agent, db
-            )
-        else:
-            return await self._authenticate_external_user(
-                email_or_username, password, ip_address, user_agent, db
-            )
-    
-    def _detect_user_type(self, email_or_username: str) -> UserType:
-        """
-        Detect if user is internal or external based on email domain or username format
-        """
-        # Check if it's an email with university domain
-        if "@" in email_or_username:
-            domain = email_or_username.split("@")[1].lower()
-            university_domains = ["squ.edu.om", "student.squ.edu.om", "staff.squ.edu.om"]
-            if domain in university_domains:
-                return UserType.INTERNAL
-        
-        # Check if it's a username pattern (no @ symbol, typical AD username)
-        elif not "@" in email_or_username and len(email_or_username) <= 20:
-            # Assume internal user if it looks like a username
-            return UserType.INTERNAL
+        try:
+            # Get client info
+            ip_address = self._get_client_ip(request)
+            user_agent = request.headers.get("user-agent", "")
             
-        return UserType.EXTERNAL
+            # Check rate limiting
+            await self._check_rate_limit(email_or_username, ip_address, db)
+        
+            # Look up user in database FIRST
+            user = self._get_user_by_email_or_username(email_or_username, db)
+        
+            if user:
+                # User exists - use stored user_type to route authentication
+                if user.user_type == UserType.INTERNAL:
+                    return await self._authenticate_internal_user(
+                        email_or_username, password, ip_address, user_agent, db
+                    )
+                else:
+                    return await self._authenticate_external_user(
+                        email_or_username, password, ip_address, user_agent, db
+                    )
+            else:
+                # User doesn't exist - try AD authentication (for new internal users)
+                username = email_or_username.split("@")[0] if "@" in email_or_username else email_or_username
+                
+                try:
+                    is_authenticated, ad_user_data = self.ad_service.authenticate_user(username, password)
+                    
+                    if is_authenticated:
+                        # Create new internal user from AD
+                        user = await self.ad_service.sync_user_from_ad(username, db)
+                        if user:
+                            await self._handle_successful_login(user, ip_address, user_agent, db)
+                            return await self._generate_auth_response(user, ip_address, user_agent, db)
+                    
+                    # AD failed - return generic error (security: don't reveal user doesn't exist)
+                    await self._handle_failed_login(None, email_or_username, ip_address, 
+                                                  user_agent, "Invalid credentials", db)
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid credentials"
+                    )
+                    
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    # Log error but return generic message for security
+                    logger.error(f"Authentication error for {email_or_username}: {str(e)}")
+                    import traceback
+                    logger.error(f"Full traceback:\n{traceback.format_exc()}")
+                    await self._handle_failed_login(None, email_or_username, ip_address, 
+                                                  user_agent, f"Auth error: {str(e)}", db)
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid credentials"
+                    )
+        except HTTPException:
+            raise
+        except Exception as e:
+            import traceback
+            error_traceback = traceback.format_exc()
+            logger.error(f"Authentication error for {email_or_username}: {str(e)}")
+            logger.error(f"Full traceback:\n{error_traceback}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Authentication service error: {str(e)}"
+            )
     
     async def _authenticate_internal_user(self, email_or_username: str, password: str,
                                         ip_address: str, user_agent: str, 
                                         db: Session) -> Dict[str, Any]:
-        """Authenticate internal user via Active Directory"""
+        """
+        Authenticate internal user via Active Directory.
+        Always verifies against AD, even if user exists in database, to ensure
+        user is still active and exists in AD.
+        """
         username = email_or_username.split("@")[0] if "@" in email_or_username else email_or_username
         
         try:
-            # Check account lockout first
+            # Check account lockout first (if user exists in DB)
             user = self._get_user_by_email_or_username(email_or_username, db)
             if user and self._is_account_locked(user):
                 self._log_login_attempt(user.id, email_or_username, ip_address, 
@@ -84,19 +129,39 @@ class AuthService:
                     detail=f"Account locked until {user.locked_until.isoformat()}"
                 )
             
-            # Authenticate against AD
-            is_authenticated, ad_user_data = self.ad_service.authenticate_user(username, password)
-            
-            if not is_authenticated:
+            # ALWAYS authenticate against AD first (even if user exists in DB)
+            # This ensures user still exists and is active in AD
+            try:
+                is_authenticated, ad_user_data = self.ad_service.authenticate_user(username, password)
+            except HTTPException as e:
+                # Re-raise HTTP exceptions (like service unavailable)
+                raise e
+            except Exception as e:
+                logger.error(f"AD authentication error for {username}: {str(e)}")
+                import traceback
+                logger.error(f"AD error traceback:\n{traceback.format_exc()}")
+                # If AD service fails, treat as authentication failure for security
                 await self._handle_failed_login(user, email_or_username, ip_address, 
-                                              user_agent, "Invalid AD credentials", db)
+                                              user_agent, f"AD service error: {str(e)}", db)
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Authentication service temporarily unavailable"
+                )
+            
+            if not is_authenticated or not ad_user_data:
+                # AD authentication failed - deny access even if user exists in DB
+                # Note: authenticate_user already checks _is_account_active before returning True,
+                # so if authentication fails, it could be due to invalid credentials or inactive account
+                await self._handle_failed_login(user, email_or_username, ip_address, 
+                                              user_agent, "Invalid AD credentials or account inactive", db)
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid credentials"
                 )
             
-            # Sync user from AD or create if doesn't exist
+            # User exists and is active in AD - proceed with sync/update
             if not user:
+                # Create new user from AD
                 user = await self.ad_service.sync_user_from_ad(username, db)
                 if not user:
                     raise HTTPException(
@@ -104,10 +169,14 @@ class AuthService:
                         detail="Failed to sync user from Active Directory"
                     )
             else:
-                # Update user info from AD
+                # Update existing user from AD data
                 await self._update_user_from_ad_data(user, ad_user_data, db)
+                # Ensure user is active in database (may have been deactivated previously)
+                user.active = True
+                user.updated_at = datetime.now(timezone.utc)
+                db.commit()
             
-            # Verify user is still active in AD
+            # Final check - ensure user is active in database
             if not user.active:
                 self._log_login_attempt(user.id, email_or_username, ip_address, 
                                       user_agent, LoginAttemptStatus.FAILED, 
@@ -125,10 +194,13 @@ class AuthService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Internal authentication error: {str(e)}")
+            import traceback
+            error_traceback = traceback.format_exc()
+            logger.error(f"Internal authentication error for {email_or_username}: {str(e)}")
+            logger.error(f"Full traceback:\n{error_traceback}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Authentication service error"
+                detail=f"Authentication service error: {str(e)}"
             )
     
     async def _authenticate_external_user(self, email_or_username: str, password: str,
@@ -203,6 +275,14 @@ class AuthService:
         # Hash password
         hashed_password = self._hash_password(password)
         
+        # Get default 'user' role
+        default_role = db.query(Role).filter(Role.name == "user").first()
+        if not default_role:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Default 'user' role not found in database. Please ensure roles are initialized."
+            )
+        
         # Create user
         new_user = User(
             email=user_data['email'],
@@ -212,7 +292,8 @@ class AuthService:
             last_name=user_data['last_name'],
             phone_number=user_data.get('phone_number'),
             user_type=UserType.EXTERNAL,
-            active=True
+            active=True,
+            role_id=default_role.id
         )
         
         db.add(new_user)
@@ -233,7 +314,16 @@ class AuthService:
         """Check if account is currently locked"""
         if not user.is_locked or not user.locked_until:
             return False
-        return datetime.now(timezone.utc) < user.locked_until
+        
+        # Ensure both datetimes are timezone-aware for comparison
+        now = datetime.now(timezone.utc)
+        locked_until = user.locked_until
+        
+        # If locked_until is naive, make it aware (assume UTC)
+        if locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        
+        return now < locked_until
     
     async def _handle_failed_login(self, user: Optional[User], email_or_username: str,
                                  ip_address: str, user_agent: str, reason: str, 
@@ -320,14 +410,15 @@ class AuthService:
     
     def _create_access_token(self, user: User) -> str:
         """Create JWT access token"""
+        now = datetime.now(timezone.utc)
         payload = {
             "sub": user.id,
             "email": user.email,
             "username": user.username,
             "user_type": user.user_type.value,
             "role": user.role.name if user.role else None,
-            "exp": datetime.utcnow() + timedelta(minutes=self.config.ACCESS_TOKEN_EXPIRE_MINUTES),
-            "iat": datetime.utcnow(),
+            "exp": int((now + timedelta(minutes=self.config.ACCESS_TOKEN_EXPIRE_MINUTES)).timestamp()),
+            "iat": int(now.timestamp()),
             "iss": "university-lost-found-auth"
         }
         
@@ -339,11 +430,12 @@ class AuthService:
     
     async def refresh_access_token(self, refresh_token: str, db: Session) -> Dict[str, Any]:
         """Refresh access token using refresh token"""
+        now = datetime.now(timezone.utc)
         session = db.query(UserSession).filter(
             and_(
                 UserSession.session_token == refresh_token,
                 UserSession.is_active == True,
-                UserSession.expires_at > datetime.now(timezone.utc)
+                UserSession.expires_at > now
             )
         ).first()
         
@@ -400,7 +492,7 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has expired"
             )
-        except jwt.JWTError:
+        except (jwt.PyJWTError, jwt.InvalidTokenError, jwt.DecodeError):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"
@@ -481,13 +573,15 @@ class AuthService:
     
     async def _check_rate_limit(self, email_or_username: str, ip_address: str, db: Session):
         """Check rate limiting for login attempts"""
-        time_window = datetime.now(timezone.utc) - timedelta(minutes=1)
+        # Use SQLAlchemy's func.now() for database-level comparison
+        # This ensures the comparison happens in SQL, avoiding timezone issues
+        from sqlalchemy import text
         
-        # Check attempts by IP
+        # Check attempts by IP - use SQL-level datetime comparison
         ip_attempts = db.query(LoginAttempt).filter(
             and_(
                 LoginAttempt.ip_address == ip_address,
-                LoginAttempt.created_at > time_window
+                LoginAttempt.created_at > text("NOW() - INTERVAL '1 minute'")
             )
         ).count()
         
@@ -501,7 +595,7 @@ class AuthService:
         user_attempts = db.query(LoginAttempt).filter(
             and_(
                 LoginAttempt.email_or_username == email_or_username,
-                LoginAttempt.created_at > time_window
+                LoginAttempt.created_at > text("NOW() - INTERVAL '1 minute'")
             )
         ).count()
         
@@ -540,25 +634,26 @@ class AuthService:
     
     async def _cleanup_old_sessions(self, user_id: str, db: Session):
         """Clean up old sessions for user"""
+        now = datetime.now(timezone.utc)
         # Deactivate expired sessions
         expired_sessions = db.query(UserSession).filter(
             and_(
                 UserSession.user_id == user_id,
                 UserSession.is_active == True,
-                UserSession.expires_at <= datetime.now(timezone.utc)
+                UserSession.expires_at <= now
             )
         ).all()
         
         for session in expired_sessions:
             session.is_active = False
-            session.updated_at = datetime.now(timezone.utc)
+            session.updated_at = now
         
         # Limit active sessions per user
         active_sessions = db.query(UserSession).filter(
             and_(
                 UserSession.user_id == user_id,
                 UserSession.is_active == True,
-                UserSession.expires_at > datetime.now(timezone.utc)
+                UserSession.expires_at > now
             )
         ).order_by(UserSession.created_at.desc()).all()
         
@@ -566,7 +661,7 @@ class AuthService:
             sessions_to_deactivate = active_sessions[self.config.MAX_SESSIONS_PER_USER:]
             for session in sessions_to_deactivate:
                 session.is_active = False
-                session.updated_at = datetime.now(timezone.utc)
+                session.updated_at = now
         
         db.commit()
     
@@ -577,4 +672,14 @@ class AuthService:
         user.email = ad_data.get('email') or user.email
         user.ad_sync_date = datetime.now(timezone.utc)
         user.updated_at = datetime.now(timezone.utc)
+        
+        # Ensure user has a role (assign default 'user' role if missing)
+        if not user.role_id:
+            default_role = db.query(Role).filter(Role.name == "user").first()
+            if default_role:
+                user.role_id = default_role.id
+                logger.info(f"Assigned default 'user' role to user: {user.email}")
+            else:
+                logger.warning(f"Default 'user' role not found - user {user.email} will not have a role")
+        
         db.commit()
