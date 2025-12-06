@@ -4,16 +4,12 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Query, Path, Header, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session
-from schemas.user_schema import (
-    UserLogin, UserRegister, UserUpdate, UserResponse, 
+from app.schemas.user_schema import (
+    UserUpdate, UserResponse, 
     UserSearchResponse, UserSearchParams, UserStatusUpdate, 
-    UserRoleUpdate, BulkUserAction, UserListResponse,
-    RefreshTokenRequest, TokenResponse  # Add these to your schemas
+    UserRoleUpdate, BulkUserAction, UserListResponse
 )
-from services.userServices import (
-    # Original functions
-    register_user,
-    authenticate_user,
+from app.services.userServices import (
     search_users,
     get_user_by_id,
     update_user,
@@ -24,65 +20,14 @@ from services.userServices import (
     get_users_by_status,
     activate_user,
     deactivate_user,
-    # New enhanced functions
-    authenticate_user_with_refresh,
-    refresh_access_token,
+    # Enhanced functions for token refresh
     get_current_user_with_auto_refresh,
-    validate_and_refresh_if_needed,
-    get_token_expiry_info
+    validate_and_refresh_if_needed
 )
-from db.database import get_session
+from app.db.database import get_session
 
 router = APIRouter()
 security = HTTPBearer()
-
-# =================== 
-# Enhanced Authentication with Token Refresh
-# =================== 
-
-@router.post("/login")
-async def login(user: UserLogin, session: Session = Depends(get_session)):
-    """Authenticate user and return JWT tokens (access + refresh)"""
-    return await authenticate_user_with_refresh(user, session)
-
-@router.post("/refresh")
-async def refresh_token(
-    refresh_token_request: RefreshTokenRequest,
-    session: Session = Depends(get_session)
-):
-    """Refresh access token using refresh token"""
-    return await refresh_access_token(refresh_token_request.refresh_token, session)
-
-@router.post("/token/verify")
-async def verify_token(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    session: Session = Depends(get_session)
-):
-    """Verify token and return user info + new token if auto-refresh triggered"""
-    token = credentials.credentials
-    user_data, new_token = await validate_and_refresh_if_needed(token, session)
-    
-    response_data = {
-        "valid": True,
-        "user": user_data,
-        "token_refreshed": new_token is not None
-    }
-    
-    if new_token:
-        response_data["new_token"] = new_token
-    
-    return response_data
-
-@router.get("/token/info")
-async def get_token_info(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Get token expiration information"""
-    token = credentials.credentials
-    return get_token_expiry_info(token)
-
-@router.post("/register")
-async def register(user: UserRegister, session: Session = Depends(get_session)):
-    """Register a new user"""
-    return await register_user(user, session)
 
 # =================== 
 # Enhanced User Management with Auto-Refresh
@@ -97,11 +42,11 @@ async def get_current_user_with_refresh(
     user_data, new_token = await validate_and_refresh_if_needed(token, session)
     return {"user": user_data, "new_token": new_token}
 
-@router.get("/users/search", response_model=UserSearchResponse)
+@router.get("/search", response_model=UserSearchResponse)
 async def search_users_endpoint(
     response: Response,
     session: Session = Depends(get_session),
-    current_user_data: dict = Depends(get_current_user_with_refresh),
+    # current_user_data: dict = Depends(get_current_user_with_refresh),  # Temporarily disabled
     email: Optional[str] = Query(None, description="Search by email (partial match)"),
     name: Optional[str] = Query(None, description="Search by name (partial match)"),
     role: Optional[str] = Query(None, description="Filter by role"),
@@ -109,14 +54,14 @@ async def search_users_endpoint(
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(10, ge=1, le=100, description="Number of users per page")
 ):
-    """Search users with various filters and pagination"""
+    """Search users with various filters and pagination - TEMPORARILY NO AUTH"""
     # Add new token to response header if refreshed
-    if current_user_data["new_token"]:
-        response.headers["X-New-Token"] = current_user_data["new_token"]
+    # if current_user_data["new_token"]:
+    #     response.headers["X-New-Token"] = current_user_data["new_token"]
     
     return await search_users(session, email, name, role, status, page, limit)
 
-@router.get("/users", response_model=UserSearchResponse)
+@router.get("/", response_model=UserSearchResponse)
 async def get_users(
     response: Response,
     session: Session = Depends(get_session),
@@ -130,7 +75,7 @@ async def get_users(
     
     return await get_all_users(session, page, limit)
 
-@router.get("/users/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     response: Response,
     user_id: str = Path(..., description="User ID"),
@@ -143,7 +88,7 @@ async def get_user(
     
     return await get_user_by_id(user_id, session)
 
-@router.get("/users/email/{email}", response_model=UserResponse)
+@router.get("/email/{email}", response_model=UserResponse)
 async def get_user_by_email_endpoint(
     response: Response,
     email: str = Path(..., description="User email"),
@@ -156,7 +101,7 @@ async def get_user_by_email_endpoint(
     
     return await get_user_by_email(email, session)
 
-@router.put("/users/{user_id}")
+@router.put("/{user_id}")
 async def update_user_endpoint(
     response: Response,
     user_id: str = Path(..., description="User ID"),
@@ -170,7 +115,7 @@ async def update_user_endpoint(
     
     return await update_user(user_id, user_update, session)
 
-@router.delete("/users/{user_id}")
+@router.delete("/{user_id}")
 async def delete_user_endpoint(
     response: Response,
     user_id: str = Path(..., description="User ID"),
@@ -187,7 +132,7 @@ async def delete_user_endpoint(
 # Role Management with Auto-Refresh
 # =================== 
 
-@router.get("/users/role/{role_name}", response_model=UserSearchResponse)
+@router.get("/role/{role_name}", response_model=UserSearchResponse)
 async def get_users_by_role_endpoint(
     response: Response,
     role_name: str = Path(..., description="Role name"),
@@ -202,7 +147,7 @@ async def get_users_by_role_endpoint(
     
     return await get_users_by_role(role_name, session, page, limit)
 
-@router.put("/users/{user_id}/role")
+@router.put("/{user_id}/role")
 async def update_user_role(
     response: Response,
     user_id: str = Path(..., description="User ID"),
@@ -221,7 +166,7 @@ async def update_user_role(
 # Status Management with Auto-Refresh
 # =================== 
 
-@router.get("/users/status/{status_name}", response_model=UserSearchResponse)
+@router.get("/status/{status_name}", response_model=UserSearchResponse)
 async def get_users_by_status_endpoint(
     response: Response,
     status_name: str = Path(..., description="Status name"),
@@ -236,7 +181,7 @@ async def get_users_by_status_endpoint(
     
     return await get_users_by_status(status_name, session, page, limit)
 
-@router.put("/users/{user_id}/status")
+@router.put("/{user_id}/status")
 async def update_user_status(
     response: Response,
     user_id: str = Path(..., description="User ID"),
@@ -251,7 +196,7 @@ async def update_user_status(
     user_update = UserUpdate(status_name=status_update.status_name)
     return await update_user(user_id, user_update, session)
 
-@router.put("/users/{user_id}/activate")
+@router.put("/{user_id}/activate")
 async def activate_user_endpoint(
     response: Response,
     user_id: str = Path(..., description="User ID"),
@@ -264,7 +209,7 @@ async def activate_user_endpoint(
     
     return await activate_user(user_id, session)
 
-@router.put("/users/{user_id}/deactivate")
+@router.put("/{user_id}/deactivate")
 async def deactivate_user_endpoint(
     response: Response,
     user_id: str = Path(..., description="User ID"),
@@ -309,7 +254,7 @@ async def get_current_user(
 # Bulk Operations (keeping original functionality)
 # =================== 
 
-@router.post("/users/bulk-action")
+@router.post("/bulk-action")
 async def bulk_user_action(
     response: Response,
     bulk_action: BulkUserAction = ...,
@@ -352,7 +297,7 @@ async def bulk_user_action(
 # Statistics (keeping original functionality)
 # =================== 
 
-@router.get("/users/stats")
+@router.get("/stats")
 async def get_user_statistics(
     response: Response,
     session: Session = Depends(get_session),

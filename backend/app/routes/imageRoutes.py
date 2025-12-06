@@ -1,21 +1,23 @@
 import os
 import uuid
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
-from db.database import get_session
-from schemas.image_schema import UploadImageRequest
-from services.imageService import ImageService
+from app.db.database import get_session
+from app.utils.permission_decorator import extract_user_from_token
+from app.schemas.image_schema import UploadImageRequest
+from app.services.imageService import ImageService
 import shutil
 from pathlib import Path
 from PIL import Image
 import io
 import logging
+from fastapi.responses import FileResponse
 
 router = APIRouter()
 
 # Configuration
-UPLOAD_DIR = "/uploads/images"
+UPLOAD_DIR = "../storage/uploads/images"  # Relative to backend directory
 ALLOWED_MIME_TYPES = {
     "image/jpeg",
     "image/png",
@@ -156,6 +158,16 @@ def generate_unique_filename(original_filename: str, detected_format: Optional[s
     unique_id = str(uuid.uuid4())
     return f"{unique_id}{ext}"
 
+@router.get("/{filename}")
+async def serve_image(filename: str):
+    """Serve images from uploads directory"""
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    return FileResponse(file_path)
+
 @router.get("/items/{item_id}/images/")
 async def get_item_images(
     item_id: str,
@@ -185,16 +197,28 @@ async def attach_image(
 @router.post("/items/{item_id}/upload-image/")
 async def upload_image_to_item(
     item_id: str,
+    request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_session),
     image_service: ImageService = Depends(get_image_service)
 ):
     try:
+        # Authenticate user
+        user_id = extract_user_from_token(request)
+        
         is_valid, error_message, detected_format = is_valid_image(file)
         if not is_valid:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid file: {error_message}. Supported formats: JPG, JPEG, PNG, GIF, BMP, WEBP. Max size: 10MB"
+                detail={
+                    "error": "INVALID_FILE",
+                    "message": f"Invalid file: {error_message}",
+                    "details": {
+                        "supported_formats": ["JPG", "JPEG", "PNG", "GIF", "BMP", "WEBP"],
+                        "max_size": "10MB",
+                        "filename": file.filename
+                    }
+                }
             )
 
         create_upload_directory()
@@ -208,9 +232,16 @@ async def upload_image_to_item(
                 shutil.copyfileobj(file.file, buffer)
         except Exception as e:
             logging.error(f"Failed to save file: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+            raise HTTPException(
+                status_code=500, 
+                detail={
+                    "error": "FILE_SAVE_FAILED",
+                    "message": f"Failed to save file: {str(e)}",
+                    "details": {"filename": file.filename}
+                }
+            )
 
-        image_url = f"{UPLOAD_DIR}/{unique_filename}"
+        image_url = f"/static/images/{unique_filename}"  # URL path matching static file serving
 
         try:
             image = image_service.upload_image(
@@ -222,16 +253,28 @@ async def upload_image_to_item(
             if os.path.exists(file_path):
                 os.remove(file_path)
             logging.error(f"Database operation failed: {e}")
-            raise HTTPException(status_code=500, detail=f"Database operation failed: {str(e)}")
+            raise HTTPException(
+                status_code=500, 
+                detail={
+                    "error": "DATABASE_ERROR",
+                    "message": f"Database operation failed: {str(e)}",
+                    "details": {"filename": file.filename, "item_id": item_id}
+                }
+            )
 
         return {
-            "id": image.id,
-            "url": image.url,
-            "imageable_type": image.imageable_type,
-            "imageable_id": image.imageable_id,
-            "file_path": file_path,
-            "image_path": image_url,
-            "filename": unique_filename
+            "success": True,
+            "message": "Image uploaded successfully",
+            "data": {
+                "id": image.id,
+                "url": image.url,
+                "imageable_type": image.imageable_type,
+                "imageable_id": image.imageable_id,
+                "filename": unique_filename,
+                "original_filename": file.filename,
+                "file_size": os.path.getsize(file_path),
+                "detected_format": detected_format
+            }
         }
 
     except HTTPException:
@@ -244,19 +287,30 @@ async def upload_image_to_item(
 
 @router.post("/upload-multiple-images/")
 async def upload_multiple_images(
+    request: Request,
     imageable_type: str = Form(...),
     imageable_id: str = Form(...),
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_session),
     image_service: ImageService = Depends(get_image_service)
 ):
-    if len(files) > 10:
-        raise HTTPException(status_code=400, detail="Maximum 10 files allowed")
-
-    uploaded_images = []
-    uploaded_files = []
-
     try:
+        # Authenticate user
+        user_id = extract_user_from_token(request)
+        
+        if len(files) > 10:
+            raise HTTPException(
+                status_code=400, 
+                detail={
+                    "error": "TOO_MANY_FILES",
+                    "message": "Maximum 10 files allowed",
+                    "details": {"file_count": len(files), "max_allowed": 10}
+                }
+            )
+
+        uploaded_images = []
+        uploaded_files = []
+
         create_upload_directory()
 
         for file in files:
@@ -268,7 +322,15 @@ async def upload_multiple_images(
                         os.remove(file_path)
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Invalid file '{file.filename}': {error_message}. Supported formats: JPG, JPEG, PNG, GIF, BMP, WEBP. Max size: 10MB."
+                    detail={
+                        "error": "INVALID_FILE",
+                        "message": f"Invalid file '{file.filename}': {error_message}",
+                        "details": {
+                            "filename": file.filename,
+                            "supported_formats": ["JPG", "JPEG", "PNG", "GIF", "BMP", "WEBP"],
+                            "max_size": "10MB"
+                        }
+                    }
                 )
 
             unique_filename = generate_unique_filename(file.filename, detected_format)
@@ -288,7 +350,7 @@ async def upload_multiple_images(
 
             uploaded_files.append(file_path)
 
-            image_url = f"{UPLOAD_DIR}/{unique_filename}"
+            image_url = f"/static/images/{unique_filename}"  # URL path matching static file serving
 
             try:
                 image = image_service.upload_image(
@@ -312,8 +374,13 @@ async def upload_multiple_images(
             })
 
         return {
+            "success": True,
             "message": f"Successfully uploaded {len(uploaded_images)} images",
-            "images": uploaded_images
+            "data": {
+                "uploaded_count": len(uploaded_images),
+                "total_files": len(files),
+                "images": uploaded_images
+            }
         }
 
     except HTTPException:
