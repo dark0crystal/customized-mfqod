@@ -171,7 +171,8 @@ async def get_claim(
                 detail="Access denied"
             )
         
-        return claim
+        # Convert to ClaimResponse for safe serialization
+        return claim_service.claim_to_response(claim)
         
     except HTTPException:
         raise

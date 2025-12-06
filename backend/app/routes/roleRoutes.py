@@ -1,12 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session, select
-from services import roleServices
-from models import Role
-from db.database import get_session
+from app.services import roleServices
+from app.models import Role
+from app.db.database import get_session
 from datetime import datetime
 import uuid
-from services import userServices  # Make sure your services have `check_role_existence` and `remove_role`
-from schemas.role_schema import RoleRequestSchema, RoleSchema
+from app.services import userServices  # Make sure your services have `check_role_existence` and `remove_role`
+from app.schemas.role_schema import RoleRequestSchema, RoleSchema
 router = APIRouter()
 
 # ================================== 
