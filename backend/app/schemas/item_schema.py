@@ -139,6 +139,7 @@ class ItemResponse(BaseModel):
     claims_count: int
     temporary_deletion: bool
     approval: bool
+    approved_claim_id: Optional[str] = None
     item_type_id: Optional[str]
     user_id: Optional[str]
     created_at: datetime

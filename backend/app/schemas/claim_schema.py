@@ -29,6 +29,7 @@ class ClaimResponse(ClaimBase):
     item_id: Optional[str]
     created_at: datetime
     updated_at: datetime
+    is_assigned: Optional[bool] = False  # Whether this claim is assigned as the correct claim for the item
     
     class Config:
         from_attributes = True

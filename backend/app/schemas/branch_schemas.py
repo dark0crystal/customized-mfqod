@@ -5,14 +5,24 @@ from datetime import datetime
 
 # Branch Schemas
 class BranchBase(BaseModel):
-    branch_name: str = Field(..., min_length=1, max_length=255)
+    branch_name_ar: Optional[str] = Field(None, max_length=255)
+    branch_name_en: Optional[str] = Field(None, max_length=255)
+    description_ar: Optional[str] = Field(None, max_length=1000)
+    description_en: Optional[str] = Field(None, max_length=1000)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
     organization_id: str = Field(..., min_length=1)
 
 class BranchCreate(BranchBase):
     pass
 
 class BranchUpdate(BaseModel):
-    branch_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    branch_name_ar: Optional[str] = Field(None, max_length=255)
+    branch_name_en: Optional[str] = Field(None, max_length=255)
+    description_ar: Optional[str] = Field(None, max_length=1000)
+    description_en: Optional[str] = Field(None, max_length=1000)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
     organization_id: Optional[str] = Field(None, min_length=1)
 
 class BranchResponse(BranchBase):
