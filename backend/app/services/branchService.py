@@ -4,8 +4,8 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 
-from models import Branch, Organization, Address, Item, User, UserBranchManager  
-from schemas.branch_schemas import BranchCreate, BranchUpdate, AddressCreate, AddressUpdate
+from app.models import Branch, Organization, Address, Item, User, UserBranchManager  
+from app.schemas.branch_schemas import BranchCreate, BranchUpdate, AddressCreate, AddressUpdate
 
 
 class BranchService:
@@ -25,13 +25,23 @@ class BranchService:
                 detail="Organization not found"
             )
         
-        # Check if branch name already exists for this organization
-        existing_branch = self.db.query(Branch).filter(
-            and_(
-                Branch.branch_name == branch_data.branch_name,
-                Branch.organization_id == branch_data.organization_id
-            )
-        ).first()
+        # Check if branch name already exists for this organization (check both AR and EN)
+        existing_branch = None
+        if branch_data.branch_name_ar:
+            existing_branch = self.db.query(Branch).filter(
+                and_(
+                    Branch.branch_name_ar == branch_data.branch_name_ar,
+                    Branch.organization_id == branch_data.organization_id
+                )
+            ).first()
+        
+        if not existing_branch and branch_data.branch_name_en:
+            existing_branch = self.db.query(Branch).filter(
+                and_(
+                    Branch.branch_name_en == branch_data.branch_name_en,
+                    Branch.organization_id == branch_data.organization_id
+                )
+            ).first()
         
         if existing_branch:
             raise HTTPException(
@@ -40,7 +50,12 @@ class BranchService:
             )
         
         db_branch = Branch(
-            branch_name=branch_data.branch_name,
+            branch_name_ar=branch_data.branch_name_ar,
+            branch_name_en=branch_data.branch_name_en,
+            description_ar=branch_data.description_ar,
+            description_en=branch_data.description_en,
+            longitude=branch_data.longitude,
+            latitude=branch_data.latitude,
             organization_id=branch_data.organization_id
         )
         
@@ -87,22 +102,33 @@ class BranchService:
                     detail="Organization not found"
                 )
         
-        # If updating branch_name, check for duplicates
-        if 'branch_name' in update_data:
-            org_id = update_data.get('organization_id', db_branch.organization_id)
+        # If updating branch names, check for duplicates
+        org_id = update_data.get('organization_id', db_branch.organization_id)
+        existing_branch = None
+        
+        if 'branch_name_ar' in update_data and update_data['branch_name_ar']:
             existing_branch = self.db.query(Branch).filter(
                 and_(
-                    Branch.branch_name == update_data['branch_name'],
+                    Branch.branch_name_ar == update_data['branch_name_ar'],
                     Branch.organization_id == org_id,
                     Branch.id != branch_id
                 )
             ).first()
-            
-            if existing_branch:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Branch name already exists for this organization"
+        
+        if not existing_branch and 'branch_name_en' in update_data and update_data['branch_name_en']:
+            existing_branch = self.db.query(Branch).filter(
+                and_(
+                    Branch.branch_name_en == update_data['branch_name_en'],
+                    Branch.organization_id == org_id,
+                    Branch.id != branch_id
                 )
+            ).first()
+        
+        if existing_branch:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Branch name already exists for this organization"
+            )
         
         for field, value in update_data.items():
             setattr(db_branch, field, value)

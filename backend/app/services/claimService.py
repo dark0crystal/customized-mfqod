@@ -77,7 +77,7 @@ class ClaimService:
             )
 
     def get_claims(self, skip: int = 0, limit: int = 100, user_id: Optional[str] = None, 
-                   item_id: Optional[str] = None, approved_only: Optional[bool] = None) -> List[Claim]:
+                   item_id: Optional[str] = None, approved_only: Optional[bool] = None) -> List[ClaimResponse]:
         """Get claims with optional filtering"""
         try:
             query = self.db.query(Claim).options(
@@ -95,13 +95,34 @@ class ClaimService:
             if approved_only is not None:
                 query = query.filter(Claim.approval == approved_only)
 
-            return query.order_by(Claim.created_at.desc()).offset(skip).limit(limit).all()
+            try:
+                claims = query.order_by(Claim.created_at.desc()).offset(skip).limit(limit).all()
+            except Exception as query_error:
+                logger.error(f"Error executing claims query: {query_error}")
+                # Return empty list if query fails
+                return []
+            
+            # Convert to ClaimResponse to handle is_assigned property safely
+            # Handle errors gracefully - if one claim fails, skip it and continue
+            claim_responses = []
+            for claim in claims:
+                try:
+                    claim_response = self.claim_to_response(claim)
+                    claim_responses.append(claim_response)
+                except Exception as e:
+                    logger.warning(f"Error converting claim {claim.id if claim else 'unknown'} to response: {e}")
+                    # Continue processing other claims instead of failing the entire request
+                    continue
+            
+            return claim_responses
 
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Error fetching claims: {e}")
+            logger.error(f"Error fetching claims: {e}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error fetching claims"
+                detail=f"Error fetching claims: {str(e)}"
             )
 
     def get_claim_by_id(self, claim_id: str) -> Optional[Claim]:
@@ -305,13 +326,69 @@ class ClaimService:
         
         return claim
 
-    def get_user_claims(self, user_id: str, skip: int = 0, limit: int = 100) -> List[Claim]:
+    def get_user_claims(self, user_id: str, skip: int = 0, limit: int = 100) -> List[ClaimResponse]:
         """Get all claims by a specific user"""
         return self.get_claims(skip=skip, limit=limit, user_id=user_id)
 
-    def get_item_claims(self, item_id: str, approved_only: Optional[bool] = None) -> List[Claim]:
+    def get_item_claims(self, item_id: str, approved_only: Optional[bool] = None) -> List[ClaimResponse]:
         """Get all claims for a specific item"""
         return self.get_claims(item_id=item_id, approved_only=approved_only)
+    
+    def claim_to_response(self, claim: Claim) -> ClaimResponse:
+        """Convert Claim model to ClaimResponse with safe property access"""
+        try:
+            # Safely calculate is_assigned
+            is_assigned = False
+            try:
+                if claim and claim.item_id:
+                    # Only try to access item if item_id exists
+                    # Use getattr to safely access the item relationship
+                    item = getattr(claim, 'item', None)
+                    if item is not None:
+                        # Check if item relationship is loaded and accessible
+                        approved_claim_id = getattr(item, 'approved_claim_id', None)
+                        if approved_claim_id and claim.id:
+                            is_assigned = str(approved_claim_id) == str(claim.id)
+            except (AttributeError, TypeError, ValueError) as item_error:
+                # If accessing item fails, just set is_assigned to False
+                logger.warning(f"Error accessing item for claim {claim.id if claim else 'unknown'}: {item_error}")
+                is_assigned = False
+            except Exception as item_error:
+                # Catch any other unexpected errors
+                logger.warning(f"Unexpected error accessing item for claim {claim.id if claim else 'unknown'}: {item_error}")
+                is_assigned = False
+            
+            # Ensure all required fields are present and valid
+            return ClaimResponse(
+                id=str(claim.id) if claim.id else "",
+                title=claim.title or "",
+                description=claim.description or "",
+                approval=claim.approval if claim.approval is not None else False,
+                user_id=str(claim.user_id) if claim.user_id else None,
+                item_id=str(claim.item_id) if claim.item_id else None,
+                created_at=claim.created_at if claim.created_at else datetime.now(timezone.utc),
+                updated_at=claim.updated_at if claim.updated_at else datetime.now(timezone.utc),
+                is_assigned=is_assigned
+            )
+        except Exception as e:
+            logger.error(f"Error converting claim to response: {e}")
+            # Return basic response if conversion fails
+            try:
+                return ClaimResponse(
+                    id=str(claim.id) if claim and claim.id else "",
+                    title=claim.title if claim and claim.title else "",
+                    description=claim.description if claim and claim.description else "",
+                    approval=claim.approval if claim and claim.approval is not None else False,
+                    user_id=str(claim.user_id) if claim and claim.user_id else None,
+                    item_id=str(claim.item_id) if claim and claim.item_id else None,
+                    created_at=claim.created_at if claim and claim.created_at else datetime.now(timezone.utc),
+                    updated_at=claim.updated_at if claim and claim.updated_at else datetime.now(timezone.utc),
+                    is_assigned=False
+                )
+            except Exception as fallback_error:
+                logger.error(f"Error in fallback claim conversion: {fallback_error}")
+                # Last resort - return minimal response
+                raise
 
     def get_claims_statistics(self) -> Dict[str, Any]:
         """Get claims statistics"""
