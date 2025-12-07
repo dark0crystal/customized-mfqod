@@ -58,44 +58,46 @@ export default function UserProfile() {
     );
   }
 
-  // Get user initials for avatar
-  const getInitials = (name: string) => {
-    const parts = name.split(' ');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  };
-
-  const initials = getInitials(user.name || user.email || 'U');
+  // Get user profile image or default
+  const userImage = (user as any).profile_image || (user as any).avatar_url || null;
+  const defaultProfileImage = '/default-profile.svg';
+  const displayName = user.first_name && user.last_name 
+    ? `${user.first_name} ${user.last_name}` 
+    : user.email?.split('@')[0] || 'User';
 
   return (
-    <div className="relative border rounded-4xl p-1" style={{ borderColor: '#3277AE' }} ref={dropdownRef}>
-      {/* User Profile Button */}
+    <div className="relative" ref={dropdownRef}>
+      {/* User Profile Button - Compact version with just image and arrow */}
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="flex items-center space-x-2 px-2 py-2 rounded-4xl hover:bg-gray-100 transition-colors w-full min-w-64"
+        className="flex items-center space-x-1 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        aria-label="User menu"
       >
-        {/* Avatar */}
-        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium border-2" style={{ backgroundColor: '#3277AE', borderColor: '#3277AE' }}>
-          {initials}
-        </div>
-        
-        {/* User Info */}
-        <div className="flex flex-col items-start flex-1">
-          <span className="text-sm font-medium text-gray-700 truncate w-full">
-            {user.name || user.email}
-          </span>
-          {user.role && (
-            <span className="text-xs text-gray-500 truncate w-full">
-              {user.role}
-            </span>
+        {/* Profile Image */}
+        <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-gray-300 hover:border-gray-400 transition-colors">
+          {userImage ? (
+            <img
+              src={userImage}
+              alt={displayName}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // Fallback to default if image fails to load
+                const target = e.target as HTMLImageElement;
+                target.src = defaultProfileImage;
+              }}
+            />
+          ) : (
+            <img
+              src={defaultProfileImage}
+              alt="Default profile"
+              className="w-full h-full object-cover"
+            />
           )}
         </div>
         
         {/* Dropdown Arrow */}
         <svg
-          className={`w-5 h-5 text-gray-500 transition-transform flex-shrink-0 ${isDropdownOpen ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-gray-600 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -104,32 +106,75 @@ export default function UserProfile() {
         </svg>
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Google-style Dialog Menu */}
       {isDropdownOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50">
-          <div className="py-1">
-            <button
-              onClick={handleDashboardClick}
-              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-            >
-              <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z" />
-              </svg>
-              {t('dashboard')}
-            </button>
-            
-            <button
-              onClick={handleLogout}
-              className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-            >
-              <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              {t('signout')}
-            </button>
+        <>
+          {/* Dialog */}
+          <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 overflow-hidden">
+            {/* Header with Profile Info */}
+            <div className="px-4 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center space-x-3">
+                <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-gray-300 flex-shrink-0">
+                  {userImage ? (
+                    <img
+                      src={userImage}
+                      alt={displayName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = defaultProfileImage;
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={defaultProfileImage}
+                      alt="Default profile"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {displayName}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {user.email}
+                  </p>
+                  {user.role && (
+                    <p className="text-xs text-gray-400 mt-0.5 capitalize">
+                      {user.role.replace('_', ' ')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Menu Items */}
+            <div className="py-2">
+              <button
+                onClick={handleDashboardClick}
+                className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left"
+              >
+                <svg className="w-5 h-5 mr-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                {t('dashboard')}
+              </button>
+              
+              <div className="border-t border-gray-200 my-1"></div>
+              
+              <button
+                onClick={handleLogout}
+                className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors text-left"
+              >
+                <svg className="w-5 h-5 mr-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                {t('signout')}
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
