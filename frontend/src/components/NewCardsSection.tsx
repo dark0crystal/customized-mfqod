@@ -49,21 +49,19 @@ export default function NewCardsSection() {
       try {
         setLoadingItems(true);
         setErrorItems(null);
-        // Use the public items endpoint from main.py
-        const res = await fetch(`${API_BASE_URL}/api/items/public`, {
+        // Use the public statistics endpoint
+        const res = await fetch(`${API_BASE_URL}/api/analytics/public/stats`, {
           cache: "no-store",
           headers: {
             'Content-Type': 'application/json',
           }
         });
         if (!res.ok) {
-          throw new Error(`Failed to fetch items: ${res.status} ${res.statusText}`);
+          throw new Error(`Failed to fetch statistics: ${res.status} ${res.statusText}`);
         }
         const data = await res.json();
-        if (data && typeof data === 'object' && 'total' in data) {
-          setItemsCount(data.total);
-        } else if (Array.isArray(data)) {
-          setItemsCount(data.length);
+        if (data && typeof data === 'object' && 'total_items' in data) {
+          setItemsCount(data.total_items);
         } else {
           setItemsCount(0);
         }
@@ -75,46 +73,30 @@ export default function NewCardsSection() {
       }
     }
 
-    // Since /api/items/public/returned does not exist, 
-    // count returned items by analyzing the existing API /api/items/public 
+    // Fetch returned items count from public statistics endpoint
     async function fetchReturned() {
       try {
         setLoadingReturned(true);
         setErrorReturned(null);
 
-        const res = await fetch(`${API_BASE_URL}/api/items/public`, {
+        const res = await fetch(`${API_BASE_URL}/api/analytics/public/stats`, {
           cache: "no-store",
           headers: {
             'Content-Type': 'application/json',
           }
         });
         if (!res.ok) {
-          throw new Error(`Failed to fetch items: ${res.status} ${res.statusText}`);
+          throw new Error(`Failed to fetch statistics: ${res.status} ${res.statusText}`);
         }
         const data = await res.json();
         let returned = 0;
 
-        // Try to extract returned count if available
-        // Assume returned items are marked in an "is_returned" or "returned" field
-        let itemsArray: any[] = [];
-        if (data && typeof data === "object" && Array.isArray(data.items)) {
-          itemsArray = data.items;
-        } else if (Array.isArray(data)) {
-          itemsArray = data;
+        // Extract returned items count from the statistics
+        if (data && typeof data === "object" && 'returned_items' in data) {
+          returned = data.returned_items || 0;
         }
 
-        // Find returned items based on a likely field (try both snake_case and camelCase).
-        if (itemsArray.length > 0) {
-          returned = itemsArray.filter(
-            (item: any) =>
-              item.is_returned === true ||
-              item.returned === true ||
-              item.status === "returned" ||
-              item.status === "RETURNED"
-          ).length;
-        }
-
-        // Animate as before if needed.
+        // Animate counting from 0 to the returned count
         setReturnedCount(0);
         let currentCount = 0;
         const duration = 1200;
@@ -135,6 +117,7 @@ export default function NewCardsSection() {
         }, duration / steps);
 
         if (returned === 0) {
+          setReturnedCount(0);
           setLoadingReturned(false);
         }
       } catch (err) {
