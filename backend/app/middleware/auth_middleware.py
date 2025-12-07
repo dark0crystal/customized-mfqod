@@ -5,9 +5,9 @@ from typing import List, Optional, Callable, Any
 from functools import wraps
 import logging
 
-from db.database import get_db
-from services.auth_service import AuthService
-from models import User, Role, Permission
+from app.db.database import get_session
+from app.services.auth_service import AuthService
+from app.models import User, Role, Permission
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class AuthMiddleware:
     async def get_current_user(
         self, 
         credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_session)
     ) -> Optional[User]:
         """
         Dependency to get current authenticated user
@@ -37,7 +37,7 @@ class AuthMiddleware:
     async def require_authentication(
         self,
         credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_session)
     ) -> User:
         """
         Dependency that requires valid authentication
@@ -57,13 +57,18 @@ class AuthMiddleware:
         """
         async def role_checker(
             current_user: User = Depends(self.require_authentication),
-            db: Session = Depends(get_db)
+            db: Session = Depends(get_session)
         ) -> User:
             if not current_user.role:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="User has no assigned role"
                 )
+            
+            # Super Admin bypass: If user has super_admin role, grant access to everything
+            if current_user.role.name.lower() in ["super_admin", "admin"]:
+                logger.info(f"Super admin user {current_user.email} granted access to roles: {required_roles}")
+                return current_user
             
             if current_user.role.name not in required_roles:
                 logger.warning(f"User {current_user.email} attempted to access resource requiring roles {required_roles} but has role {current_user.role.name}")
@@ -83,8 +88,13 @@ class AuthMiddleware:
         """
         async def permission_checker(
             current_user: User = Depends(self.require_authentication),
-            db: Session = Depends(get_db)
+            db: Session = Depends(get_session)
         ) -> User:
+            # Super Admin bypass: If user has super_admin or admin role, grant access to everything
+            if current_user.role and current_user.role.name.lower() in ["super_admin", "admin"]:
+                logger.info(f"Super admin user {current_user.email} granted access to all permissions")
+                return current_user
+            
             user_permissions = self._get_user_permissions(current_user, db)
             
             missing_permissions = [perm for perm in required_permissions if perm not in user_permissions]
@@ -118,15 +128,15 @@ class AuthMiddleware:
     
     def require_admin(self):
         """
-        Convenience dependency for admin-only access
+        Convenience dependency for admin-only access (includes super_admin)
         """
-        return self.require_roles(["admin"])
+        return self.require_roles(["super_admin", "admin"])
     
     def require_staff(self):
         """
-        Convenience dependency for staff-level access
+        Convenience dependency for staff-level access (includes super_admin)
         """
-        return self.require_roles(["admin", "staff"])
+        return self.require_roles(["super_admin", "admin", "staff"])
     
     def require_user_or_admin(self, user_id_param: str = "user_id"):
         """
@@ -135,7 +145,7 @@ class AuthMiddleware:
         async def user_or_admin_checker(
             request: Request,
             current_user: User = Depends(self.require_authentication),
-            db: Session = Depends(get_db)
+            db: Session = Depends(get_session)
         ) -> User:
             # Extract user_id from path parameters
             path_params = request.path_params
@@ -160,6 +170,12 @@ class AuthMiddleware:
         """Get all permissions for a user"""
         if not user.role:
             return []
+        
+        # Super Admin bypass: If user has super_admin or admin role, return all possible permissions
+        if user.role.name.lower() in ["super_admin", "admin"]:
+            # Return a comprehensive list of all permissions that exist in the system
+            all_permissions = db.query(Permission).all()
+            return [permission.name for permission in all_permissions]
         
         permissions = db.query(Permission).join(
             Permission.roles
@@ -202,14 +218,14 @@ auth_middleware = AuthMiddleware()
 # Convenience dependency functions
 async def get_current_user_optional(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ) -> Optional[User]:
     """Get current user if authenticated, None otherwise"""
     return await auth_middleware.get_current_user(credentials, db)
 
 async def get_current_user_required(
     credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_session)
 ) -> User:
     """Get current user (authentication required)"""
     return await auth_middleware.require_authentication(credentials, db)
@@ -258,7 +274,7 @@ class RateLimitMiddleware:
     def __init__(self):
         self.auth_service = AuthService()
     
-    async def check_rate_limit(self, request: Request, db: Session = Depends(get_db)):
+    async def check_rate_limit(self, request: Request, db: Session = Depends(get_session)):
         """Check rate limiting for API requests"""
         ip_address = self.auth_service._get_client_ip(request)
         
