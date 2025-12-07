@@ -245,7 +245,7 @@ export default function Register() {
         <div className="space-y-6">
           <div className="mb-6 p-4 rounded-lg bg-blue-50 text-blue-800 border border-blue-200">
             <p className="text-sm">
-              {t("otpDescription").replace('{email}', otpEmail)}
+              {t("otpDescription", { email: otpEmail })}
             </p>
           </div>
 
