@@ -1,15 +1,10 @@
 "use client"
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Home, 
-  Users, 
-  Settings, 
-  BarChart3, 
   FileText, 
   Shield, 
   PlusCircle, 
-  Edit3, 
-  Eye,
   Menu,
   X,
   ChevronDown,
@@ -21,12 +16,15 @@ import {
   TrendingUp,
   UserCheck,
   Key,
-  Tags
+  Tags,
+  Loader2,
+  ArrowRightLeft
 } from 'lucide-react';
 import Brand from '@/components/navbar/Brand';
 import { Link } from '@/i18n/navigation';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/hooks/useAuth';
 
 // Helper to get user from cookies
 const getUserFromCookies = () => {
@@ -47,26 +45,7 @@ const getUserFromCookies = () => {
   return null;
 };
 
-// Mock permissions hook - replace with your actual hook
-const usePermissions = () => {
-  // This is a mock - replace with your actual permissions context
-  const [userRole] = useState('admin'); // Change to test different roles
-  const [permissions] = useState(['admin', 'create_post', 'edit_post', 'view_analytics', 'can_create_item_types']);
-  const [isAuthenticated] = useState(true);
-  const [user] = useState(getUserFromCookies());
-  
-  const hasPermission = (permission: string) => permissions.includes(permission);
-  const hasAnyPermission = (perms: string[]) => perms.some(p => permissions.includes(p));
-  
-  return {
-    userRole,
-    permissions,
-    isAuthenticated,
-    hasPermission,
-    hasAnyPermission,
-    user
-  };
-};
+import { usePermissions, Permission } from "@/PermissionsContext";
 
 // Navigation item interface
 interface NavItem {
@@ -74,7 +53,7 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   href: string;
-  requiredPermissions?: string[];
+  requiredPermissions?: Permission[];
   requiredRole?: string;
   allowedRoles?: string[];
   children?: NavItem[];
@@ -83,9 +62,62 @@ interface NavItem {
 export default function SideNavbar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
-  const { userRole, hasPermission, hasAnyPermission, isAuthenticated, user } = usePermissions();
+  const [loadingLinks, setLoadingLinks] = useState<Set<string>>(new Set());
+  const { userRole, hasAnyPermission, isAuthenticated } = usePermissions();
+  const user = getUserFromCookies();
+  const { logout, isLoading: logoutLoading } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const t = useTranslations('dashboard.sideNavbar');
+
+  // Clear loading states when pathname changes
+  useEffect(() => {
+    setLoadingLinks(new Set());
+  }, [pathname]);
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // The logout function in useAuth already handles redirecting to login
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Even if logout fails, redirect to login page
+      router.push('/auth/login');
+    }
+  };
+
+  // Handle navigation with loading state
+  const handleNavigation = (href: string, itemId: string) => {
+    if (pathname === href) return; // Don't navigate if already on the page
+    
+    setLoadingLinks(prev => new Set(prev).add(itemId));
+    
+    // Clear loading state when navigation completes
+    const handleRouteChange = () => {
+      setLoadingLinks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+    };
+
+    // Listen for route changes
+    const originalPush = router.push;
+    router.push = (...args) => {
+      handleRouteChange();
+      return originalPush.apply(router, args);
+    };
+
+    // Fallback: clear loading after 2 seconds if route change doesn't happen
+    setTimeout(() => {
+      setLoadingLinks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
+    }, 2000);
+  };
 
   // Navigation configuration
   const navigationItems: NavItem[] = [
@@ -94,12 +126,6 @@ export default function SideNavbar() {
       label: t('dashboard'),
       icon: <Home size={20} />,
       href: '/dashboard',
-    },
-    {
-      id: 'manage-branches',
-      label: t('manageBranches'),
-      icon: <Building2 size={20} />,
-      href: '/dashboard/branch',
     },
     {
       id: 'Items',
@@ -121,6 +147,27 @@ export default function SideNavbar() {
           icon: <PlusCircle size={16} />,
           href: '/dashboard/report-found-item',
           requiredPermissions: ['create_post']
+        },
+        {
+          id: 'report-missing-item',
+          label: t('reportMissingItem'),
+          icon: <FileText size={16} />,
+          href: '/dashboard/report-missing-item',
+          requiredPermissions: ['create_post']
+        },
+        {
+          id: 'missing-items',
+          label: t('missingItems'),
+          icon: <FileText size={16} />,
+          href: '/dashboard/missing-items',
+          requiredPermissions: ['create_post', 'edit_post']
+        },
+        {
+          id: 'transfer-requests',
+          label: t('transferRequests'),
+          icon: <ArrowRightLeft size={16} />,
+          href: '/dashboard/transfer-requests',
+          requiredPermissions: ['can_view_items']
         }
         
       ]
@@ -139,8 +186,15 @@ export default function SideNavbar() {
       label: t('adminPanel'),
       icon: <Shield size={20} />,
       href: '/admin',
-      requiredRole: 'admin',
+      allowedRoles: ['super_admin', 'admin'],
       children: [
+        {
+          id: 'manage-branches',
+          label: t('manageBranches'),
+          icon: <Building2 size={16} />,
+          href: '/dashboard/branch',
+          requiredPermissions: ['super_admin', 'admin']
+        },
         {
           id: 'item-types',
           label: t('itemTypes'),
@@ -153,47 +207,48 @@ export default function SideNavbar() {
           label: t('manageUsers'),
           icon: <UserCheck size={16} />,
           href: '/dashboard/manage-users',
-          requiredPermissions: ['admin']
+          requiredPermissions: ['super_admin', 'admin']
         },
         {
           id: 'manage-permissions',
           label: t('managePermissions'),
           icon: <Key size={16} />,
           href: '/dashboard/permissions',
-          requiredPermissions: ['admin']
+          requiredPermissions: ['super_admin', 'admin']
         }
       ]
-    },
-    {
-      id: 'settings',
-      label: t('settings'),
-      icon: <Settings size={20} />,
-      href: '/dashboard/settings'
     }
   ];
 
   // Check if user can access a nav item
   const canAccessItem = (item: NavItem): boolean => {
-    if (!isAuthenticated && item.href !== '/login') {
+    if (!isAuthenticated && item.href !== '/auth/login') {
+      console.log('Access denied: not authenticated for', item.id);
       return false;
     }
 
     // Check role requirements
     if (item.requiredRole && userRole !== item.requiredRole) {
+      console.log('Access denied: role mismatch for', item.id, 'required:', item.requiredRole, 'user:', userRole);
       return false;
     }
 
     if (item.allowedRoles && !item.allowedRoles.includes(userRole)) {
+      console.log('Access denied: not in allowed roles for', item.id, 'allowed:', item.allowedRoles, 'user:', userRole);
       return false;
     }
 
     // Check permission requirements
     if (item.requiredPermissions) {
-      if (!hasAnyPermission(item.requiredPermissions)) {
+      const hasPermission = hasAnyPermission(item.requiredPermissions);
+      console.log('Permission check for', item.id, 'required:', item.requiredPermissions, 'hasPermission:', hasPermission);
+      if (!hasPermission) {
+        console.log('Access denied: missing permissions for', item.id);
         return false;
       }
     }
 
+    console.log('Access granted for', item.id);
     return true;
   };
 
@@ -217,6 +272,7 @@ export default function SideNavbar() {
     const accessibleChildren = item.children?.filter(child => canAccessItem(child)) || [];
     const isActive = pathname === item.href;
     const isChildActive = item.children?.some(child => pathname === child.href);
+    const isLoading = loadingLinks.has(item.id);
 
     return (
       <div key={item.id} className="mb-1">
@@ -228,12 +284,17 @@ export default function SideNavbar() {
               ${depth > 0 ? 'ml-4 py-1.5' : ''}
               ${isActive ? 'bg-blue-50 text-blue-600' : ''}
               ${isChildActive && !isActive ? 'bg-gray-50' : ''}
+              ${isLoading ? 'opacity-75' : ''}
             `}
             onClick={() => toggleExpanded(item.id)}
           >
             <div className="flex items-center flex-1">
               <div className="text-gray-600 group-hover:text-blue-600 transition-colors">
-                {item.icon}
+                {isLoading ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  item.icon
+                )}
               </div>
               {!isCollapsed && (
                 <span className="ml-3 text-sm font-medium text-gray-700 group-hover:text-blue-600">
@@ -251,16 +312,22 @@ export default function SideNavbar() {
         ) : (
           <Link
             href={item.href}
+            onClick={() => handleNavigation(item.href, item.id)}
             className={`
               flex items-center px-3 py-2 rounded-lg cursor-pointer transition-all duration-200
               hover:bg-blue-50 hover:text-blue-600 group
               ${depth > 0 ? 'ml-4 py-1.5' : ''}
               ${isActive ? 'bg-blue-50 text-blue-600' : ''}
+              ${isLoading ? 'opacity-75' : ''}
             `}
           >
             <div className="flex items-center flex-1">
               <div className={`text-gray-600 group-hover:text-blue-600 transition-colors ${isActive ? 'text-blue-600' : ''}`}>
-                {item.icon}
+                {isLoading ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  item.icon
+                )}
               </div>
               {!isCollapsed && (
                 <span className={`ml-3 text-sm font-medium text-gray-700 group-hover:text-blue-600 ${isActive ? 'text-blue-600' : ''}`}>
@@ -308,8 +375,8 @@ export default function SideNavbar() {
       {isAuthenticated && (
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-              <User className="text-gray-600" size={20} />
+            <div className="w-10 h-10 rounded-full flex items-center justify-center border-2" style={{ backgroundColor: '#3277AE', borderColor: '#3277AE' }}>
+              <User className="text-white" size={20} />
             </div>
             {!isCollapsed && (
               <div className="flex-1">
@@ -334,14 +401,16 @@ export default function SideNavbar() {
       <div className="p-4 border-t border-gray-200">
         {isAuthenticated && (
           <button
-            onClick={() => {
-              // Handle logout
-              console.log('Logging out...');
-            }}
-            className="w-full flex items-center px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            onClick={handleLogout}
+            disabled={logoutLoading}
+            className="w-full flex items-center px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <LogOut size={20} />
-            {!isCollapsed && <span className="ml-3 text-sm font-medium">{t('logout')}</span>}
+            {!isCollapsed && (
+              <span className="ml-3 text-sm font-medium">
+                {logoutLoading ? 'Logging out...' : t('logout')}
+              </span>
+            )}
           </button>
         )}
       </div>
