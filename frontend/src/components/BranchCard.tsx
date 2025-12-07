@@ -3,6 +3,7 @@
 import React from 'react';
 import { Building, MapPin, Clock } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
+import { formatDateWithLocale } from '@/utils/dateFormatter';
 
 interface Branch {
   id: string;
@@ -112,7 +113,7 @@ export default function BranchCard({ branch, organization }: BranchCardProps) {
           <div className="flex items-center space-x-3 text-sm text-gray-500">
             <Clock className="w-4 h-4 text-gray-400" />
             <span>
-              {t('createdOn')}: {new Date(branch.created_at).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')}
+              {t('createdOn')}: {formatDateWithLocale(branch.created_at, locale)}
             </span>
           </div>
         </div>

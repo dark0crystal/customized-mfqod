@@ -41,7 +41,7 @@ const ClientOnlyMap = ({ children }: { children: React.ReactNode }) => {
 
   if (!isClient) {
     return (
-      <div className="w-full h-96 bg-gray-100 rounded-lg flex items-center justify-center">
+      <div className="w-full h-[500px] bg-gray-100 rounded-lg flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-2" style={{borderColor: '#3277AE'}}></div>
           <p className="text-gray-600">Loading map...</p>
@@ -95,7 +95,7 @@ const MapComponent = React.lazy(() => {
         getLocalizedOrganizationDescription: (organization: Organization) => string;
         t: (key: string) => string;
       }) => (
-        <div className="w-full h-96 rounded-lg overflow-hidden shadow-lg">
+        <div className="w-full h-[500px] rounded-lg overflow-hidden shadow-lg">
           <MapContainer
             center={defaultCenter}
             zoom={14}
@@ -228,7 +228,7 @@ export default function BranchMap({ branches, organizations }: BranchMapProps) {
 
   if (branchesWithCoordinates.length === 0) {
     return (
-      <div className="w-full h-96 bg-gray-100 rounded-lg flex items-center justify-center">
+      <div className="w-full h-[500px] bg-gray-100 rounded-lg flex items-center justify-center">
         <div className="text-center">
           <MapPin className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">{t('noBranchesWithCoordinates')}</h3>
@@ -241,7 +241,7 @@ export default function BranchMap({ branches, organizations }: BranchMapProps) {
   return (
     <ClientOnlyMap>
       <React.Suspense fallback={
-        <div className="w-full h-96 bg-gray-100 rounded-lg flex items-center justify-center">
+        <div className="w-full h-[500px] bg-gray-100 rounded-lg flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-2" style={{borderColor: '#3277AE'}}></div>
             <p className="text-gray-600">Loading map...</p>
