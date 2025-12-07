@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from 'next-intl';
+import Image from 'next/image';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 interface User {
@@ -24,6 +25,8 @@ interface User {
   active?: boolean;
   last_login?: string;
   ad_sync_date?: string;
+  profile_image?: string;
+  avatar_url?: string;
 } 
 
 function getInitials(name?: string) {
@@ -38,6 +41,7 @@ export default function UserInfo() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const t = useTranslations('dashboard.userInfo');
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
@@ -108,6 +112,7 @@ export default function UserInfo() {
         }
 
         setUser(data);
+        setImageError(false); // Reset image error when user data is loaded
       } catch (error) {
         console.error("Error fetching user:", error);
         setError(error instanceof Error ? error.message : "Failed to load user information");
@@ -141,6 +146,10 @@ export default function UserInfo() {
 
   const initials = getInitials(user.name || user.email);
 
+  // Get user profile image or default
+  const userImage = user.profile_image || user.avatar_url || null;
+  const defaultProfileImage = '/default-profile.svg';
+  
   // Get phone number - prefer phone_number, fallback to phone (legacy)
   const phone = user.phone_number || user.phone || t('notProvided');
   
@@ -152,6 +161,15 @@ export default function UserInfo() {
     (user.first_name && user.last_name 
       ? `${user.first_name} ${user.middle_name || ''} ${user.last_name}`.trim()
       : user.email?.split('@')[0] || 'N/A');
+  
+  // Helper to get full image URL
+  const getImageUrl = (imagePath: string | null): string => {
+    if (!imagePath) return defaultProfileImage;
+    if (/^https?:\/\//.test(imagePath)) return imagePath;
+    const baseUrl = API_BASE_URL.replace(/\/$/, '');
+    const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+    return `${baseUrl}${cleanPath}`;
+  };
 
   return (
     <div className="w-full max-w-7xl mx-auto mt-2 sm:mt-4 p-3 sm:p-5 bg-white border border-gray-200 rounded-2xl sm:rounded-3xl">
@@ -159,8 +177,21 @@ export default function UserInfo() {
       <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 mb-6">
         {/* Avatar and Basic Info */}
         <div className="flex flex-col items-center text-center lg:text-left lg:items-start">
-          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full flex items-center justify-center text-3xl sm:text-5xl font-bold text-white mb-4 border-2" style={{ backgroundColor: '#3277AE', borderColor: '#3277AE' }}>
-            {initials}
+          <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden mb-4 border-2" style={{ borderColor: '#3277AE' }}>
+            {userImage && !imageError ? (
+              <Image
+                src={getImageUrl(userImage)}
+                alt={displayName}
+                fill
+                className="object-cover"
+                sizes="(max-width: 640px) 96px, 128px"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-3xl sm:text-5xl font-bold text-white" style={{ backgroundColor: '#3277AE' }}>
+                {initials}
+              </div>
+            )}
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{displayName}</h2>
           <span className="text-gray-600 font-medium text-base sm:text-lg mb-4">

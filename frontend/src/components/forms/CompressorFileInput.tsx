@@ -14,6 +14,7 @@ interface CompressorFileInputProps {
   maxWidth?: number;
   maxHeight?: number;
   showOptimizationSettings?: boolean;
+  translationNamespace?: "report-found" | "report-missing";
 }
 
 interface FileError {
@@ -28,7 +29,8 @@ const CompressorFileInput: React.FC<CompressorFileInputProps> = ({
   compressionQuality = 0.6,
   maxWidth = 1024,
   maxHeight = 1024,
-  showOptimizationSettings = false
+  showOptimizationSettings = false,
+  translationNamespace = "report-found"
 }) => {
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [compressedFiles, setCompressedFiles] = useState<File[]>([]);
@@ -40,7 +42,7 @@ const CompressorFileInput: React.FC<CompressorFileInputProps> = ({
   const [currentMaxWidth, setCurrentMaxWidth] = useState(maxWidth);
   const [currentMaxHeight, setCurrentMaxHeight] = useState(maxHeight);
 
-  const t = useTranslations("report-found");
+  const t = useTranslations(translationNamespace);
 
   // Process files - common function for both file input and drag-drop
   const processFiles = async (fileList: FileList) => {
@@ -306,33 +308,15 @@ const CompressorFileInput: React.FC<CompressorFileInputProps> = ({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          <div className="flex flex-col items-center justify-center p-6 text-center">
+          <div className="flex flex-col items-center justify-center p-6 text-center min-h-[120px]">
             {isDragOver ? (
-              <>
-                <div className="w-12 h-12 mb-3 text-blue-500">
-                  <svg fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <p className="text-sm font-medium text-blue-600">Drop images here</p>
-              </>
+              <p className="text-base font-medium text-blue-600">
+                {t("dropImagesHere")}
+              </p>
             ) : (
-              <>
-                <div className="w-12 h-12 mb-3 text-gray-400">
-                  <svg fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
-                  Drag & drop images here, or 
-                  <label htmlFor="compressed-file-input" className="text-blue-600 hover:text-blue-800 cursor-pointer underline ml-1">
-                    browse
-                  </label>
-                </p>
-                <p className="text-xs text-gray-500">
-                  Supports JPG, PNG, GIF, BMP, WEBP (max 10MB each)
-                </p>
-              </>
+              <p className="text-base font-medium text-gray-600">
+                {t("dragDropPlaceholder")}
+              </p>
             )}
           </div>
           

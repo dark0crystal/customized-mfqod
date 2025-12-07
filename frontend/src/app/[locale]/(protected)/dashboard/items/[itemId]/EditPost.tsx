@@ -66,6 +66,8 @@ interface ItemData {
   content: string;
   type: string;
   location?: LocationData;
+  approval?: boolean;
+  temporary_deletion?: boolean;
   uploadedPostPhotos?: { postUrl: string }[];
   addresses?: Array<{
     id: string;
@@ -362,7 +364,7 @@ export default function EditPost({ params }: EditPostProps) {
                   <CustomDropdown
                     options={[
                       { value: 'true', label: t('approved') },
-                      { value: 'false', label: t('pending') }
+                      { value: 'false', label: t('cancelled') }
                     ]}
                     value={approvalStatus}
                     onChange={setApprovalStatus}
