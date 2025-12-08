@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from models import UserStatus
-from schemas.user_status_schema import CreateUserStatusRequest, UpdateUserStatusRequest
+from app.models import UserStatus
+from app.schemas.user_status_schema import CreateUserStatusRequest, UpdateUserStatusRequest
 from datetime import datetime, timezone
 import uuid
 

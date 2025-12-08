@@ -2,14 +2,18 @@ from typing import List, Optional, Dict, Any, Tuple
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, or_, and_
-from schemas.user_schema import UserRegister, UserLogin, UserUpdate, UserResponse
-from models import User, Role, UserStatus
-from utils.security import hash_password, verify_password
+from app.schemas.user_schema import UserRegister, UserLogin, UserUpdate, UserResponse
+from app.models import User, Role, UserStatus
+from app.utils.security import hash_password, verify_password
 import uuid
 from datetime import datetime, timezone, timedelta
 from jose import jwt
 import os
 from dotenv import load_dotenv
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -89,6 +93,22 @@ async def register_user(user: UserRegister, session: Session):
     session.add(new_user)
     session.commit()
     session.refresh(new_user)
+    
+    # Send welcome email notification
+    try:
+        from app.services.notification_service import send_welcome_email
+        user_full_name = f"{new_user.first_name} {new_user.last_name}".strip()
+        
+        # Send welcome email in background
+        asyncio.create_task(
+            send_welcome_email(
+                user_email=new_user.email,
+                user_name=user_full_name
+            )
+        )
+        logger.info(f"Welcome email queued for new user: {new_user.email}")
+    except Exception as e:
+        logger.error(f"Failed to queue welcome email for {new_user.email}: {e}")
 
     return {"message": "User registered successfully", "user_id": new_user.id}
 
@@ -154,6 +174,10 @@ def _user_to_response(user: User) -> Dict[str, Any]:
         "role_id": user.role_id,
         "status": user.status.name if user.status else None,
         "status_id": user.status_id,
+        "active": user.active,
+        "user_type": user.user_type.value if user.user_type else None,
+        "last_login": user.last_login.isoformat() if user.last_login else None,
+        "ad_sync_date": user.ad_sync_date.isoformat() if user.ad_sync_date else None,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None
     }
@@ -466,41 +490,6 @@ async def refresh_access_token(refresh_token: str, session: Session) -> Dict[str
         raise HTTPException(status_code=401, detail="Refresh token has expired")
     except jwt.JWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
-
-async def authenticate_user_with_refresh(user: UserLogin, session: Session):
-    """Enhanced authentication with dual token system"""
-    statement = select(User).where(User.email == user.identifier)
-    db_user = session.execute(statement).scalars().first()
-
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found.")
-    if not verify_password(user.password, db_user.password):
-        raise HTTPException(status_code=401, detail="Incorrect password.")
-
-    role_name = db_user.role.name if db_user.role else "user"
-    role_id = db_user.role.id if db_user.role else None
-    
-    tokens = await create_token_pair(
-        user_id=db_user.id,
-        email=db_user.email,
-        role=role_name,
-        role_id=role_id,
-        first_name=db_user.first_name,
-        last_name=db_user.last_name,
-    )
-        
-    return {
-        "message": "Login successful", 
-        **tokens,  # includes access_token, refresh_token, token_type, expires_in
-        "user": {
-            "id": db_user.id,
-            "email": db_user.email,
-            "first_name": db_user.first_name,
-            "last_name": db_user.last_name,
-            "role": role_name,
-            "role_id": role_id
-        }
-    }
 
 async def get_current_user_with_auto_refresh(token: str, session: Session) -> Tuple[Dict[str, Any], Optional[str]]:
     """Get current user and optionally return new token if auto-refresh triggered"""
