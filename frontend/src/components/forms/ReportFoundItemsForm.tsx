@@ -601,7 +601,7 @@ export default function ReportFoundItem() {
             )}
             {organizations.map((org) => (
               <option key={org.id} value={org.id}>
-                {org.name_en || org.name_ar || c("unnamedOrganization")}
+                {getLocalizedName(org.name_ar, org.name_en) || c("unnamedOrganization")}
               </option>
             ))}
           </select>

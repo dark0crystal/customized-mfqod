@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
 
 // Zod schema for form validation (used for type inference)
+// Note: Validation messages are handled in the component using translations
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const missingItemFormSchema = z.object({
   title: z.string().min(1, "This field is required"),
@@ -171,11 +172,11 @@ export default function ReportMissingItem() {
   useEffect(() => {
     const token = getTokenFromCookies();
     if (!token) {
-      setAuthError("Authentication required. Please log in first.");
+      setAuthError(c("authenticationRequired"));
     } else {
       setAuthError(null);
     }
-  }, []);
+  }, [c]);
 
   // Fetch data on component mount
   useEffect(() => {
@@ -205,7 +206,7 @@ export default function ReportMissingItem() {
           // If only one organization, disable the select
           setOrgSelectDisabled(organizationsData.length === 1);
         } else if (organizationsResponse.status === 401) {
-          setAuthError("Authentication failed. Please log in again.");
+          setAuthError(c("authenticationFailed"));
           return;
         } else {
           console.error('Failed to fetch organizations');
@@ -221,7 +222,7 @@ export default function ReportMissingItem() {
           const itemTypesData = await itemTypesResponse.json();
           setItemTypes(itemTypesData);
         } else if (itemTypesResponse.status === 401) {
-          setAuthError("Authentication failed. Please log in again.");
+          setAuthError(c("authenticationFailed"));
           return;
         } else {
           console.error('Failed to fetch item types');
@@ -275,7 +276,7 @@ export default function ReportMissingItem() {
           // Reset branch selection when organization changes
           setValue("branch_id", "");
         } else if (branchesResponse.status === 401) {
-          setAuthError("Authentication failed. Please log in again.");
+          setAuthError(c("authenticationFailed"));
         } else {
           console.error('Failed to fetch branches for organization');
           setBranches([]);
@@ -293,7 +294,7 @@ export default function ReportMissingItem() {
 
   const onSubmit = async (data: MissingItemFormFields) => {
     if (authError) {
-      alert("Please log in first to submit a missing item.");
+      alert(c("loginFirstToSubmit"));
       return;
     }
 
@@ -302,7 +303,7 @@ export default function ReportMissingItem() {
 
       const token = getTokenFromCookies();
       if (!token) {
-        setAuthError("Authentication required. Please log in again.");
+        setAuthError(c("authenticationRequired"));
         return;
       }
 
@@ -324,7 +325,7 @@ export default function ReportMissingItem() {
       });
 
       if (!missingItemResponse.ok) {
-        let errorMessage = "Missing item creation failed";
+        let errorMessage = c("missingItemCreationFailed");
         try {
           const errorData = await missingItemResponse.json();
           errorMessage = errorData.detail || errorMessage;
@@ -362,7 +363,7 @@ export default function ReportMissingItem() {
       });
 
       if (!addressResponse.ok) {
-        let errorMessage = "Address creation failed";
+        let errorMessage = c("addressCreationFailed");
         try {
           const errorData = await addressResponse.json();
           errorMessage = errorData.detail || errorMessage;
@@ -388,7 +389,7 @@ export default function ReportMissingItem() {
 
     } catch (error: unknown) {
       console.error("Error submitting form:", error);
-      alert(error instanceof Error ? error.message : "An unexpected error occurred");
+      alert(error instanceof Error ? error.message : c("unexpectedError"));
     } finally {
       setIsProcessing(false);
     }
@@ -409,7 +410,7 @@ export default function ReportMissingItem() {
     return (
       <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
         <div className="flex justify-center items-center h-64">
-          <div className="text-lg text-gray-600">Loading...</div>
+          <div className="text-lg text-gray-600">{c("loading")}</div>
         </div>
       </div>
     );
@@ -432,7 +433,7 @@ export default function ReportMissingItem() {
               e.currentTarget.style.backgroundColor = '#3277AE';
             }}
           >
-            Go to Login
+            {c("goToLogin")}
           </button>
         </div>
       </div>
@@ -464,7 +465,7 @@ export default function ReportMissingItem() {
             type="text"
             id="title"
             {...register("title")}
-            placeholder="e.g., Key, Wallet, etc."
+            placeholder={c("placeholderTitle")}
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
             style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
             onFocus={(e) => {
@@ -487,7 +488,7 @@ export default function ReportMissingItem() {
           <textarea
             id="content"
             {...register("content")}
-            placeholder="Provide additional details about the missing item"
+            placeholder={c("placeholderDetails")}
             rows={4}
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
             style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
@@ -506,7 +507,7 @@ export default function ReportMissingItem() {
         {/* Item Type Selection */}
         <div>
           <label htmlFor="item_type_id" className="block text-lg font-semibold text-gray-700 mb-2">
-            Item Type
+            {c("itemType")}
           </label>
           <select
             id="item_type_id"
@@ -520,10 +521,10 @@ export default function ReportMissingItem() {
               e.currentTarget.style.borderColor = '#d1d5db';
             }}
           >
-            <option value="">Select an item type</option>
+            <option value="">{c("selectItemType")}</option>
             {itemTypes.map((itemType) => (
               <option key={itemType.id} value={itemType.id}>
-                {getLocalizedName(itemType.name_ar, itemType.name_en) || 'Unnamed'}
+                {getLocalizedName(itemType.name_ar, itemType.name_en) || c("unnamed")}
               </option>
             ))}
           </select>
@@ -534,9 +535,6 @@ export default function ReportMissingItem() {
 
         {/* File Upload Component */}
         <div>
-          <label className="block text-lg font-semibold text-gray-700 mb-2">
-            Upload Images (Optional)
-          </label>
           <CompressorFileInput 
             onFilesSelected={setCompressedFiles} 
             showValidation={true} 
@@ -545,13 +543,14 @@ export default function ReportMissingItem() {
             compressionQuality={0.7}
             maxWidth={1200}
             maxHeight={1200}
+            translationNamespace="report-missing"
           />
           
           {/* Upload Progress */}
           {uploadProgress && (
             <div className="mt-2 p-3 border rounded-lg" style={{ backgroundColor: '#f0f7ff', borderColor: '#3277AE' }}>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium" style={{ color: '#3277AE' }}>Uploading images...</span>
+                <span className="text-sm font-medium" style={{ color: '#3277AE' }}>{c("uploadingImages")}</span>
                 <span className="text-sm" style={{ color: '#3277AE' }}>{uploadProgress.percentage}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
@@ -569,7 +568,7 @@ export default function ReportMissingItem() {
           {/* Upload Errors */}
           {uploadErrors.length > 0 && (
             <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <div className="text-sm text-red-800 font-medium mb-2">Some images failed to upload:</div>
+              <div className="text-sm text-red-800 font-medium mb-2">{c("someImagesFailed")}</div>
               {uploadErrors.map((error, index) => (
                 <div key={index} className="text-sm text-red-600 mb-1">
                   <span className="font-medium">{error.error}:</span> {error.message}
@@ -580,7 +579,7 @@ export default function ReportMissingItem() {
 
           {compressedFiles.length > 0 && (
             <p className="mt-2 text-sm text-gray-600">
-              {compressedFiles.length} file(s) selected
+              {compressedFiles.length} {c("filesSelected")}
             </p>
           )}
         </div>
@@ -606,11 +605,11 @@ export default function ReportMissingItem() {
             }}
           >
             {!orgSelectDisabled && (
-              <option value="">{c("selectOrganization")}</option>
+              <option value="">{c("selectUniversity")}</option>
             )}
             {organizations.map((org) => (
               <option key={org.id} value={org.id}>
-                {org.name_en || org.name_ar || 'Unnamed Organization'}
+                {getLocalizedName(org.name_ar, org.name_en) || c("unnamedOrganization")}
               </option>
             ))}
           </select>
@@ -622,7 +621,7 @@ export default function ReportMissingItem() {
         {/* Select Branch */}
         <div>
           <label htmlFor="branch_id" className="block text-lg font-semibold text-gray-700 mb-2">
-            Branch
+            {c("branch")}
           </label>
           <select
             id="branch_id"
@@ -641,15 +640,15 @@ export default function ReportMissingItem() {
           >
             <option value="">
               {!watchedOrganization 
-                ? "Select an organization first" 
+                ? c("selectUniversityFirst")
                 : branches.length === 0 
-                  ? "No branches available" 
-                  : "Select a branch"
+                  ? c("noBranchesAvailable")
+                  : c("selectBranch")
               }
             </option>
             {branches.map((branch) => (
               <option key={branch.id} value={branch.id}>
-                {branch.branch_name_en || branch.branch_name_ar || 'Unnamed Branch'}
+                {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || c("unnamedBranch")}
               </option>
             ))}
           </select>
@@ -666,14 +665,10 @@ export default function ReportMissingItem() {
           <select
             id="country"
             {...register("country")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+            disabled
+            defaultValue="Oman"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-600"
             style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = '#3277AE';
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = '#d1d5db';
-            }}
           >
             <option value="Oman">Oman</option>
           </select>
@@ -709,10 +704,10 @@ export default function ReportMissingItem() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Processing...
+                {c("processing")}
               </span>
             ) : (
-              "Submit"
+              c("submit")
             )}
           </button>
         </div>
