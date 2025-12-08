@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy import create_engine
-from models import Base
+from app.models import Base
 
 # =========================
 # Setup database connection 
