@@ -6,7 +6,6 @@ import Image from 'next/image';
 import { MdArrowOutward } from 'react-icons/md';
 import { IoMdResize } from 'react-icons/io';
 import { useTranslations, useLocale } from 'next-intl';
-import defaultImage from '../../../../../../public/img1.jpeg';
 import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
 
 interface LocationData {
@@ -17,12 +16,20 @@ interface LocationData {
   full_location?: string;
 }
 
+enum ItemStatus {
+  CANCELLED = "cancelled",
+  APPROVED = "approved",
+  ON_HOLD = "on_hold",
+  RECEIVED = "received"
+}
+
 interface Item {
   id: string;
   title: string;
   description: string;
   location?: LocationData;
-  approval?: boolean;
+  status?: string;  // Item status: cancelled, approved, on_hold, received
+  approval?: boolean;  // DEPRECATED: kept for backward compatibility
   temporary_deletion?: boolean;
   claims_count?: number;
 }
@@ -138,14 +145,14 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
       
       return `${baseUrl}${imageUrl}`;
     }
-    return defaultImage;
+    return null;
   };
 
   // Helper to format all images for carousel
   const getCarouselImages = (itemId: string): CarouselImage[] => {
     const itemImages = images?.[itemId] || [];
     if (itemImages.length === 0) {
-      return [{ url: defaultImage, alt: 'Default image' }];
+      return [];
     }
 
     const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
@@ -204,8 +211,18 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                     {item.claims_count !== undefined && (
                       <div className="flex justify-between items-center mt-2">
                         <span className="text-xs text-gray-500">{item.claims_count} {t("status.claims")}</span>
-                        <span className={`text-xs px-2 py-1 rounded ${item.approval ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {item.approval ? t("status.approved") : t("status.cancelled")}
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
+                          item.status === ItemStatus.RECEIVED ? 'bg-blue-100 text-blue-800' :
+                          item.status === ItemStatus.ON_HOLD ? 'bg-yellow-100 text-yellow-800' :
+                          item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
+                          item.approval ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {item.status === ItemStatus.APPROVED ? t("status.approved") :
+                           item.status === ItemStatus.RECEIVED ? (t("status.received") || "Received") :
+                           item.status === ItemStatus.ON_HOLD ? (t("status.on_hold") || "On Hold") :
+                           item.status === ItemStatus.CANCELLED ? t("status.cancelled") :
+                           item.approval ? t("status.approved") : t("status.cancelled")}
                         </span>
                       </div>
                     )}
@@ -223,23 +240,32 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                     </button>
 
                     {/* Expand image */}
-                    <button
-                      title={t("expandImage")}
-                      onClick={() => handleImageSize(item.id)}
-                      className="absolute top-2 left-2 p-3 bg-white z-20 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
-                    >
-                      <IoMdResize />
-                    </button>
+                    {imageUrl && (
+                      <button
+                        title={t("expandImage")}
+                        onClick={() => handleImageSize(item.id)}
+                        className="absolute top-2 left-2 p-3 bg-white z-20 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
+                      >
+                        <IoMdResize />
+                      </button>
+                    )}
 
-                    <Image
-                      src={imageUrl}
-                      alt={`Item image ${index}`}
-                      fill
-                      style={{ objectFit: "cover" }}
-                      className="rounded-2xl cursor-zoom-in"
-                      onClick={() => handleImageSize(item.id)}
-                      sizes="400px"
-                    />
+                    {imageUrl ? (
+                      <Image
+                        src={imageUrl}
+                        alt={`Item image ${index}`}
+                        fill
+                        style={{ objectFit: "cover" }}
+                        className="rounded-2xl cursor-zoom-in"
+                        onClick={() => handleImageSize(item.id)}
+                        sizes="400px"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gray-200 flex flex-col items-center justify-center rounded-2xl">
+                        <span className="text-gray-500 text-lg">مفقود</span>
+                        <span className="text-gray-400 text-sm mt-1">الصور غير متاحة</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
