@@ -13,7 +13,7 @@ from fastapi import HTTPException, status
 import uuid
 
 from app.models import Claim, User, Item
-from app.schemas.claim_schema import ClaimCreate, ClaimUpdate, ClaimResponse
+from app.schemas.claim_schema import ClaimCreate, ClaimUpdate, ClaimResponse, ClaimWithDetails
 from app.services.notification_service import send_claim_status_notification, send_new_claim_alert
 import logging
 import asyncio
@@ -333,6 +333,68 @@ class ClaimService:
     def get_item_claims(self, item_id: str, approved_only: Optional[bool] = None) -> List[ClaimResponse]:
         """Get all claims for a specific item"""
         return self.get_claims(item_id=item_id, approved_only=approved_only)
+    
+    def get_item_claims_with_details(self, item_id: str, approved_only: Optional[bool] = None) -> List[ClaimWithDetails]:
+        """Get all claims for a specific item with user and item details"""
+        try:
+            claims = self.get_claims(item_id=item_id, approved_only=approved_only)
+            claims_with_details = []
+            
+            for claim_response in claims:
+                # Get the full claim object with relationships
+                claim = self.db.query(Claim).options(
+                    joinedload(Claim.user),
+                    joinedload(Claim.item)
+                ).filter(Claim.id == claim_response.id).first()
+                
+                if not claim:
+                    continue
+                
+                # Extract user details
+                user_name = None
+                user_email = None
+                if claim.user:
+                    if claim.user.first_name and claim.user.last_name:
+                        user_name = f"{claim.user.first_name} {claim.user.last_name}".strip()
+                    elif claim.user.first_name:
+                        user_name = claim.user.first_name
+                    elif claim.user.email:
+                        user_name = claim.user.email.split('@')[0]
+                    user_email = claim.user.email
+                
+                # Extract item details
+                item_title = None
+                item_description = None
+                if claim.item:
+                    item_title = claim.item.title
+                    item_description = claim.item.description
+                
+                # Create ClaimWithDetails
+                claim_detail = ClaimWithDetails(
+                    id=claim_response.id,
+                    title=claim_response.title,
+                    description=claim_response.description,
+                    approval=claim_response.approval,
+                    user_id=claim_response.user_id,
+                    item_id=claim_response.item_id,
+                    created_at=claim_response.created_at,
+                    updated_at=claim_response.updated_at,
+                    is_assigned=claim_response.is_assigned,
+                    user_name=user_name,
+                    user_email=user_email,
+                    item_title=item_title,
+                    item_description=item_description
+                )
+                claims_with_details.append(claim_detail)
+            
+            return claims_with_details
+            
+        except Exception as e:
+            logger.error(f"Error fetching item claims with details: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error fetching item claims with details: {str(e)}"
+            )
     
     def claim_to_response(self, claim: Claim) -> ClaimResponse:
         """Convert Claim model to ClaimResponse with safe property access"""

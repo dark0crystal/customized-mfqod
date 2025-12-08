@@ -6,17 +6,54 @@ export type Permission =
   | 'can_create_item_types'
   | 'can_delete_item_types' 
   | 'delete'
+  | 'super_admin'
   | 'admin'
   | 'moderator'
   | 'user'
   | 'create_post'
+  | 'edit_post'
   | 'can_edit_item_types'
-  | 'view_analytics';
+  | 'view_analytics'
+  | 'can_create_missing_items'
+  | 'can_view_missing_items'
+  | 'can_view_own_missing_items'
+  | 'can_edit_missing_items'
+  | 'can_delete_missing_items'
+  | 'can_manage_missing_items'
+  | 'can_create_items'
+  | 'can_view_items'
+  | 'can_edit_items'
+  | 'can_delete_items'
+  | 'can_view_items'
+  | 'can_view_statistics'
+  | 'can_manage_claims'
+  | 'can_view_claims'
+  | 'can_create_claims'
+  | 'can_process_claims'
+  | 'can_view_transfer_requests'
+  | 'can_create_transfer_requests'
+  | 'can_approve_transfer_requests'
+  | 'can_manage_transfer_requests'
+  | 'can_view_users'
+  | 'can_create_users'
+  | 'can_edit_users'
+  | 'can_delete_users'
+  | 'can_manage_users'
+  | 'can_view_branches'
+  | 'can_create_branches'
+  | 'can_edit_branches'
+  | 'can_delete_branches'
+  | 'can_view_analytics'
+  | 'can_access_admin'
+  | 'can_manage_roles'
+  | 'can_manage_permissions'
+  | 'can_configure_system'
+  | string; // Allow any string for dynamic permissions from API
 
 const API_BASE = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
 // Define user roles
-export type UserRole = 'admin' | 'moderator' | 'user' | 'guest';
+export type UserRole = 'super_admin' | 'admin' | 'moderator' | 'user' | 'guest';
 
 // JWT payload interface
 interface JWTPayload {
@@ -99,6 +136,7 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   // Function to fetch permissions from API
   const fetchPermissions = async (roleId: string, token: string): Promise<Permission[]> => {
@@ -199,12 +237,40 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
       // Set authenticated state
       setIsAuthenticated(true);
       
-      // Validate role_id exists in payload
+      // Determine user role based on JWT payload FIRST (before API call)
+      console.log('JWT payload role:', payload.role);
+      console.log('JWT payload role_id:', payload.role_id);
+      console.log('JWT payload email:', payload.email);
+      console.log('JWT payload sub:', payload.sub);
+      
+      // Super Admin bypass: If user has super_admin role, skip permission fetch and set all permissions
+      if (payload.role && payload.role.toLowerCase() === 'super_admin') {
+        setUserRole('super_admin');
+        setPermissions(['super_admin']); // Set a special permission for super_admin
+        console.log('Set user role to super_admin from JWT payload - skipping API call');
+        setIsAuthenticated(true);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Admin bypass: If user has admin role, skip permission fetch and set all permissions
+      if (payload.role && payload.role.toLowerCase() === 'admin') {
+        setUserRole('admin');
+        setPermissions(['admin']); // Set a special permission for admin
+        console.log('Set user role to admin from JWT payload - skipping API call');
+        setIsAuthenticated(true);
+        setIsLoading(false);
+        return;
+      }
+      
+      // For other roles, validate role_id exists in payload
       if (!payload.role_id) {
-        console.warn('No role_id found in JWT payload, setting as guest');
-        setUserRole('guest');
+        console.warn('No role_id found in JWT payload, setting as user');
+        setUserRole('user');
         setRoleId(null);
         setPermissions([]);
+        setIsAuthenticated(true);
+        setIsLoading(false);
         return;
       }
       
@@ -215,12 +281,17 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
       setPermissions(fetchedPermissions);
 
       // Determine user role based on permissions
+      console.log('Fetched permissions:', fetchedPermissions);
+      
       if (fetchedPermissions.includes('admin')) {
         setUserRole('admin');
+        console.log('Set user role to admin from permissions');
       } else if (fetchedPermissions.includes('moderator')) {
         setUserRole('moderator');
+        console.log('Set user role to moderator from permissions');
       } else {
         setUserRole('user');
+        console.log('Set user role to user (default)');
       }
 
       console.log('Permissions initialized successfully');
@@ -245,21 +316,61 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
     await initializePermissions();
   };
 
-  // Initialize permissions when component mounts
+  // Initialize client-side state
   useEffect(() => {
-    initializePermissions();
+    setIsClient(true);
   }, []);
+
+  // Initialize permissions when component mounts and client is ready
+  useEffect(() => {
+    if (isClient) {
+      initializePermissions();
+    }
+  }, [isClient]);
 
   // Helper functions
   const hasPermission = (permission: Permission): boolean => {
+    // Super admin bypass: If user has super_admin or admin role, grant access to everything
+    if (userRole === 'super_admin' || userRole === 'admin') {
+      return true;
+    }
+    
+    // Special permission bypass: If user has 'super_admin' or 'admin' permission, grant access
+    if (permissions.includes('super_admin') || permissions.includes('admin')) {
+      return true;
+    }
+    
     return permissions.includes(permission);
   };
 
   const hasAnyPermission = (requiredPermissions: Permission[]): boolean => {
-    return requiredPermissions.some(permission => permissions.includes(permission));
+    // Super admin bypass: If user has super_admin or admin role, grant access to everything
+    if (userRole === 'super_admin' || userRole === 'admin') {
+      console.log('Super admin bypass: granting access to permissions:', requiredPermissions);
+      return true;
+    }
+    
+    // Special permission bypass: If user has 'super_admin' or 'admin' permission, grant access
+    if (permissions.includes('super_admin') || permissions.includes('admin')) {
+      return true;
+    }
+    
+    const hasPermission = requiredPermissions.some(permission => permissions.includes(permission));
+    console.log('Permission check:', { userRole, requiredPermissions, permissions, hasPermission });
+    return hasPermission;
   };
 
   const hasAllPermissions = (requiredPermissions: Permission[]): boolean => {
+    // Super admin bypass: If user has super_admin or admin role, grant access to everything
+    if (userRole === 'super_admin' || userRole === 'admin') {
+      return true;
+    }
+    
+    // Special permission bypass: If user has 'super_admin' or 'admin' permission, grant access
+    if (permissions.includes('super_admin') || permissions.includes('admin')) {
+      return true;
+    }
+    
     return requiredPermissions.every(permission => permissions.includes(permission));
   };
 
@@ -281,6 +392,28 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
     refreshPermissions,
     error
   };
+
+  // Show loading state during SSR and initial client render
+  if (!isClient) {
+    return (
+      <PermissionsContext.Provider value={{
+        permissions: [],
+        userRole: 'guest',
+        roleId: null,
+        hasPermission: () => false,
+        hasAnyPermission: () => false,
+        hasAllPermissions: () => false,
+        setUserPermissions: () => {},
+        setUserRole: () => {},
+        isLoading: true,
+        isAuthenticated: false,
+        refreshPermissions: async () => {},
+        error: null
+      }}>
+        {children}
+      </PermissionsContext.Provider>
+    );
+  }
 
   return (
     <PermissionsContext.Provider value={contextValue}>
