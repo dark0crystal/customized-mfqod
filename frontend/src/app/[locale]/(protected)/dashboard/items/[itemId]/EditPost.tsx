@@ -3,12 +3,13 @@
 import { useRouter } from '@/i18n/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
-import Image from 'next/image';
 import { tokenManager } from '@/utils/tokenManager';
 import LocationTracking from '@/components/LocationTracking';
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import HydrationSafeWrapper from '@/components/HydrationSafeWrapper';
 import { useTranslations, useLocale } from 'next-intl';
+import CompressorFileInput from '@/components/forms/CompressorFileInput';
+import imageUploadService, { UploadProgress, UploadError } from '@/services/imageUploadService';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -44,7 +45,9 @@ interface ItemFormFields {
 
 interface Organization {
   id: string;
-  name: string;
+  name?: string;
+  name_ar?: string;
+  name_en?: string;
   description?: string;
 }
 
@@ -66,7 +69,8 @@ interface ItemData {
   content: string;
   type: string;
   location?: LocationData;
-  approval?: boolean;
+  status?: string;
+  approval?: boolean; // DEPRECATED: kept for backward compatibility
   temporary_deletion?: boolean;
   uploadedPostPhotos?: { postUrl: string }[];
   addresses?: Array<{
@@ -112,8 +116,12 @@ export default function EditPost({ params }: EditPostProps) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
-  const [approvalStatus, setApprovalStatus] = useState<string>('true');
+  const [status, setStatus] = useState<string>('on_hold');
   const [deletionStatus, setDeletionStatus] = useState<string>('false');
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ItemFormFields>();
 
@@ -139,7 +147,7 @@ export default function EditPost({ params }: EditPostProps) {
     }
   }, []);
 
-  const fetchBranches = useCallback(async (organizationId: string) => {
+  const fetchBranches = useCallback(async (organizationId: string, preserveBranchId = false) => {
     setLoadingBranches(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/organizations/${organizationId}/branches`, {
@@ -149,7 +157,9 @@ export default function EditPost({ params }: EditPostProps) {
       if (response.ok) {
         const data = await response.json();
         setBranches(data);
-        setValue('branch_id', ''); // Reset branch when org changes
+        if (!preserveBranchId) {
+          setValue('branch_id', ''); // Reset branch when org changes
+        }
       } else {
         console.error('Failed to fetch branches:', response.status, response.statusText);
       }
@@ -175,18 +185,29 @@ export default function EditPost({ params }: EditPostProps) {
           setValue('title', data.title);
           setValue('description', data.description || data.content || '');
           setValue('location', data.location?.full_location || '');
-          setValue('approval', data.approval ?? true);
+          setValue('approval', data.approval ?? true); // Keep for form compatibility
           setValue('temporary_deletion', data.temporary_deletion ?? false);
-          setApprovalStatus(data.approval ? 'true' : 'false');
+          // Set status from data.status or fallback to approved/on_hold based on approval
+          setStatus(data.status || (data.approval ? 'approved' : 'on_hold'));
           setDeletionStatus(data.temporary_deletion ? 'true' : 'false');
 
           // Set organization and branch IDs if available from addresses
           if (data.addresses && data.addresses.length > 0) {
             const currentAddress = data.addresses.find((addr: { is_current: boolean }) => addr.is_current) || data.addresses[0];
             if (currentAddress?.branch) {
-              setValue('branch_id', currentAddress.branch.id ?? '');
-              if (currentAddress.branch.organization) {
-                setValue('organization_id', currentAddress.branch.organization.id ?? '');
+              const branchId = currentAddress.branch.id ?? '';
+              const orgId = currentAddress.branch.organization?.id ?? '';
+              
+              if (orgId) {
+                setValue('organization_id', orgId);
+                // Fetch branches for this organization and preserve branch_id
+                await fetchBranches(orgId, true);
+                // Set branch_id after branches are loaded
+                if (branchId) {
+                  setValue('branch_id', branchId);
+                }
+              } else if (branchId) {
+                setValue('branch_id', branchId);
               }
             }
           }
@@ -200,7 +221,7 @@ export default function EditPost({ params }: EditPostProps) {
 
     fetchItem();
     fetchOrganizations();
-  }, [params.itemId, setValue, fetchOrganizations]);
+  }, [params.itemId, setValue, fetchOrganizations, fetchBranches]);
 
   useEffect(() => {
     if (watchedOrganization) {
@@ -213,6 +234,7 @@ export default function EditPost({ params }: EditPostProps) {
 
   const onSubmit: SubmitHandler<ItemFormFields> = async (data) => {
     setSubmitting(true);
+    setUploadErrors([]);
 
     try {
       const locationChanged = data.location !== originalLocation;
@@ -225,10 +247,11 @@ export default function EditPost({ params }: EditPostProps) {
         organization_id: data.organization_id,
         branch_id: data.branch_id,
         location: data.location,
-        approval: approvalStatus === 'true',
+        status: status,
         temporary_deletion: deletionStatus === 'true',
       };
 
+      // Update item details
       const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
@@ -236,7 +259,49 @@ export default function EditPost({ params }: EditPostProps) {
       });
 
       if (response.ok) {
-        router.push('/dashboard/items');
+        // Upload new images if any
+        if (newImages.length > 0) {
+          setUploadingImages(true);
+          setUploadProgress({ loaded: 0, total: 0, percentage: 0 });
+          
+          try {
+            await imageUploadService.uploadMultipleImages(
+              'item',
+              params.itemId,
+              newImages,
+              (progress) => {
+                setUploadProgress(progress);
+              }
+            );
+            
+            // Refresh item data to show new images
+            const itemResponse = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+              headers: getAuthHeaders(),
+            });
+            if (itemResponse.ok) {
+              const updatedItem = await itemResponse.json();
+              setItem(updatedItem);
+            }
+            
+            setNewImages([]);
+            setUploadProgress(null);
+          } catch (uploadError: unknown) {
+            console.error('Error uploading images:', uploadError);
+            const error = uploadError as UploadError;
+            setUploadErrors([{
+              error: error.error || 'UPLOAD_ERROR',
+              message: error.message || 'Failed to upload images',
+              details: error.details
+            }]);
+          } finally {
+            setUploadingImages(false);
+          }
+        }
+        
+        // Only redirect if no images were uploaded or upload was successful
+        if (newImages.length === 0 || uploadErrors.length === 0) {
+          router.push('/dashboard/items');
+        }
       } else {
         console.error('Failed to update item');
       }
@@ -289,28 +354,51 @@ export default function EditPost({ params }: EditPostProps) {
         {t('title')}
       </h2>
 
-          {/* Images Section */}
-          {item.uploadedPostPhotos && item.uploadedPostPhotos.length > 0 && (
-            <div className="mb-6">
-              <label className="block text-lg font-semibold text-gray-700 mb-2">
-                {t('currentImages')} ({item.uploadedPostPhotos.length})
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {item.uploadedPostPhotos.map((photo, index) => (
-                  <div key={index} className="relative">
-                    <div className="relative h-32 sm:h-28 lg:h-32 rounded-lg overflow-hidden">
-                      <Image
-                        src={photo.postUrl}
-                        alt={`Item image ${index + 1}`}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
+          {/* Upload New Images Section */}
+          <div className="mb-6">
+            <CompressorFileInput 
+              onFilesSelected={setNewImages} 
+              showValidation={true} 
+              maxFiles={10}
+              showOptimizationSettings={false}
+              compressionQuality={0.7}
+              maxWidth={1200}
+              maxHeight={1200}
+            />
+            
+            {/* Upload Progress */}
+            {uploadProgress && uploadingImages && (
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-blue-900">{t('uploadingImages') || 'Uploading images...'}</span>
+                  <span className="text-sm text-blue-700">{uploadProgress.percentage}%</span>
+                </div>
+                <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${uploadProgress.percentage}%` }}
+                  ></div>
+                </div>
+                {uploadProgress.total > 0 && (
+                  <div className="text-xs text-blue-600 mt-1">
+                    {Math.round(uploadProgress.loaded / 1024)} KB / {Math.round(uploadProgress.total / 1024)} KB
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Upload Errors */}
+            {uploadErrors.length > 0 && (
+              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="text-sm text-red-800 font-medium mb-2">{t('someImagesFailed') || 'Some images failed to upload'}</div>
+                {uploadErrors.map((error, index) => (
+                  <div key={index} className="text-sm text-red-600 mb-1">
+                    <span className="font-medium">{error.error}:</span> {error.message}
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Location History Section */}
           {item.addresses && item.addresses.length > 0 && (
@@ -354,21 +442,23 @@ export default function EditPost({ params }: EditPostProps) {
               )}
             </div>
 
-            {/* Approval Status */}
+            {/* Item Status */}
             <div>
               <label className="block text-lg font-semibold text-gray-700 mb-2">
-                {t('approvalStatus')}
+                {t('statusLabel') || t('approvalStatus')}
               </label>
               <div className="relative">
                 <HydrationSafeWrapper fallback={<div className="w-full h-12 bg-gray-100 rounded-lg animate-pulse"></div>}>
                   <CustomDropdown
                     options={[
-                      { value: 'true', label: t('approved') },
-                      { value: 'false', label: t('cancelled') }
+                      { value: 'cancelled', label: t('status.cancelled') || t('cancelled') },
+                      { value: 'approved', label: t('status.approved') || t('approved') },
+                      { value: 'on_hold', label: t('status.on_hold') || 'On Hold' },
+                      { value: 'received', label: t('status.received') || 'Received' }
                     ]}
-                    value={approvalStatus}
-                    onChange={setApprovalStatus}
-                    placeholder={t('selectApprovalStatus')}
+                    value={status}
+                    onChange={setStatus}
+                    placeholder={t('selectStatus') || t('selectApprovalStatus')}
                     className="w-full"
                   />
                 </HydrationSafeWrapper>
@@ -405,7 +495,8 @@ export default function EditPost({ params }: EditPostProps) {
                 type="text"
                 id="location"
                 {...register('location', { required: t('locationRequired') })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled
+                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
                 placeholder={t('locationPlaceholder')}
               />
               {errors.location && (
@@ -430,7 +521,7 @@ export default function EditPost({ params }: EditPostProps) {
                   </option>
                   {organizations.map((org) => (
                     <option key={org.id} value={org.id}>
-                      {org.name}
+                      {getLocalizedName(org.name_ar, org.name_en) || org.name || 'Unnamed Organization'}
                     </option>
                   ))}
                 </select>
