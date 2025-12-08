@@ -201,7 +201,7 @@ class TransferRequestService:
         
         return transfer_request
     
-    def to_response(self, transfer_request: BranchTransferRequest) -> dict:
+    def to_response(self, transfer_request: BranchTransferRequest, can_approve: bool = False) -> dict:
         """Convert transfer request to response dict"""
         return {
             "id": transfer_request.id,
@@ -236,5 +236,6 @@ class TransferRequestService:
                 "first_name": transfer_request.requested_by_user.first_name,
                 "last_name": transfer_request.requested_by_user.last_name,
             } if transfer_request.requested_by_user else None,
+            "can_approve": can_approve,
         }
 

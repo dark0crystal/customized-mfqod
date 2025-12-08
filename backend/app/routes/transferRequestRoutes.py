@@ -64,8 +64,11 @@ async def get_incoming_transfer_requests(
     db: Session = Depends(get_session),
     transfer_service: TransferRequestService = Depends(get_transfer_request_service)
 ):
-    """Get transfer requests for branches managed by the current user (incoming requests)"""
+    """Get all transfer requests. Only managers of the destination branch can approve/reject."""
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+        
         from app.models import UserBranchManager
         managed_branch_ids = [
             row[0] for row in db.query(UserBranchManager.branch_id).filter(
@@ -73,22 +76,31 @@ async def get_incoming_transfer_requests(
             ).all()
         ]
         
-        if not managed_branch_ids:
-            return []
+        logger.info(f"User {current_user.id} manages {len(managed_branch_ids)} branches: {managed_branch_ids}")
         
+        # Get ALL transfer requests (no filtering by user)
         all_requests = transfer_service.get_transfer_requests(
+            user_id=None,  # Don't filter by user_id to get all requests
             branch_id=None,
             status_filter=status
         )
         
-        # Filter to only requests to branches managed by user
-        incoming_requests = [
-            req for req in all_requests 
-            if req.to_branch_id in managed_branch_ids
-        ]
+        logger.info(f"Found {len(all_requests)} total transfer requests with status={status}")
         
-        return [transfer_service.to_response(req) for req in incoming_requests]
+        # Return all requests, but set can_approve based on whether user manages the destination branch
+        result = []
+        for req in all_requests:
+            # User can approve/reject only if they manage the destination branch (to_branch_id)
+            can_approve = managed_branch_ids and req.to_branch_id in managed_branch_ids
+            result.append(transfer_service.to_response(req, can_approve=can_approve))
+        
+        logger.info(f"Returning {len(result)} transfer requests for user {current_user.id}")
+        
+        return result
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error retrieving incoming transfer requests: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error retrieving incoming transfer requests: {str(e)}")
 
 @router.get("/{request_id}", response_model=TransferRequestResponse)

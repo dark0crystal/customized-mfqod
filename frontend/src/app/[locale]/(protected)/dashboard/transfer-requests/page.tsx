@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { CheckCircle, XCircle, Clock, MapPin, Package, User, ArrowRight } from "lucide-react";
 import { tokenManager } from '@/utils/tokenManager';
@@ -23,17 +23,7 @@ const getAuthHeaders = (): HeadersInit => {
   return headers;
 };
 
-// Helper to format date
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-};
+import { formatDate } from '@/utils/dateFormatter';
 
 // Helper to get image URL
 const getImageUrl = (imageUrl: string): string => {
@@ -59,6 +49,7 @@ interface TransferRequest {
   updated_at: string;
   approved_at?: string;
   approved_by?: string;
+  can_approve?: boolean;
   item?: {
     id: string;
     title: string;
@@ -98,33 +89,41 @@ export default function TransferRequestsPage() {
     return nameAr || nameEn || '';
   };
 
-  useEffect(() => {
-    fetchTransferRequests();
-  }, [filterStatus]);
-
-  const fetchTransferRequests = async () => {
+  const fetchTransferRequests = useCallback(async () => {
     setLoading(true);
     try {
       const url = filterStatus 
         ? `${API_BASE_URL}/api/transfer-requests/incoming/?status=${filterStatus}`
         : `${API_BASE_URL}/api/transfer-requests/incoming/`;
       
+      console.log('Fetching transfer requests from:', url);
+      
       const response = await fetch(url, {
         headers: getAuthHeaders()
       });
 
+      console.log('Response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('Transfer requests data:', data);
         setTransferRequests(data);
       } else {
-        console.error('Failed to fetch transfer requests');
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        console.error('Failed to fetch transfer requests:', response.status, errorData);
+        setTransferRequests([]);
       }
     } catch (err) {
       console.error('Error fetching transfer requests:', err);
+      setTransferRequests([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStatus]);
+
+  useEffect(() => {
+    fetchTransferRequests();
+  }, [fetchTransferRequests]);
 
   const handleApprove = async (requestId: string) => {
     setProcessingId(requestId);
@@ -266,8 +265,18 @@ export default function TransferRequestsPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {transferRequests.map((request) => (
-              <div key={request.id} className="bg-white rounded-lg shadow-sm p-6">
+            {transferRequests.map((request) => {
+              const canApprove = request.can_approve ?? false;
+              const isPending = request.status === 'pending';
+              const showActions = isPending && canApprove;
+              
+              return (
+              <div 
+                key={request.id} 
+                className={`bg-white rounded-lg shadow-sm p-6 transition-all ${
+                  !canApprove ? 'opacity-60 bg-gray-50' : ''
+                }`}
+              >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(request.status)}`}>
@@ -275,7 +284,7 @@ export default function TransferRequestsPage() {
                     </span>
                     <span className="text-sm text-gray-500">{formatDate(request.created_at)}</span>
                   </div>
-                  {request.status === 'pending' && (
+                  {showActions ? (
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleApprove(request.id)}
@@ -294,7 +303,11 @@ export default function TransferRequestsPage() {
                         {t('reject')}
                       </button>
                     </div>
-                  )}
+                  ) : isPending && !canApprove ? (
+                    <div className="text-sm text-gray-500 italic">
+                      {t('noPermissionToApprove') || 'You don\'t manage this branch'}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -373,7 +386,8 @@ export default function TransferRequestsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>

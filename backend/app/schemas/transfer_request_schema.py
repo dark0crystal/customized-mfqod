@@ -34,6 +34,7 @@ class TransferRequestResponse(BaseModel):
     from_branch: Optional[dict] = None
     to_branch: Optional[dict] = None
     requested_by_user: Optional[dict] = None
+    can_approve: bool = Field(default=False, description="Whether the current user can approve/reject this request")
     
     class Config:
         from_attributes = True
