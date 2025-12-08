@@ -17,7 +17,9 @@ from app.schemas.item_schema import (
     BulkOperationResponse,
     BulkDeleteRequest,
     BulkUpdateRequest,
-    BulkApprovalRequest
+    BulkApprovalRequest,
+    BulkStatusRequest,
+    ItemStatus
 )
 
 # Import permission decorators
@@ -95,7 +97,7 @@ async def get_public_items(
             skip=skip,
             limit=limit,
             user_id=None,
-            approved_only=True,  # Always only approved items for public access
+            status=ItemStatus.APPROVED,  # Only show approved items (excludes received, on_hold, cancelled)
             include_deleted=False,  # Never include deleted items for public access
             item_type_id=item_type_id
         )
@@ -119,7 +121,8 @@ async def get_items(
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
     user_id: Optional[str] = Query(None, description="Filter by user ID"),
-    approved_only: bool = Query(False, description="Only return approved items"),
+    status: Optional[str] = Query(None, description="Filter by status (cancelled, approved, on_hold, received)"),
+    approved_only: bool = Query(False, description="DEPRECATED: Use status=approved instead. Only return approved items"),
     include_deleted: bool = Query(False, description="Include soft-deleted items"),
     item_type_id: Optional[str] = Query(None, description="Filter by item type"),
     branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
@@ -189,7 +192,8 @@ async def search_items(
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
     user_id: Optional[str] = Query(None, description="Filter by user ID"),
-    approved_only: bool = Query(False, description="Only return approved items"),
+    status: Optional[str] = Query(None, description="Filter by status (cancelled, approved, on_hold, received)"),
+    approved_only: bool = Query(False, description="DEPRECATED: Use status=approved instead. Only return approved items"),
     include_deleted: bool = Query(False, description="Include soft-deleted items"),
     item_type_id: Optional[str] = Query(None, description="Filter by item type"),
     branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
@@ -222,10 +226,19 @@ async def search_items(
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid date_to format. Use YYYY-MM-DD")
         
+        # Parse status if provided
+        status_enum = None
+        if status:
+            try:
+                status_enum = ItemStatus(status.lower())
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid status: {status}. Valid values are: cancelled, approved, on_hold, received")
+        
         filters = ItemFilterRequest(
             skip=skip,
             limit=limit,
             user_id=user_id,
+            status=status_enum,
             approved_only=approved_only,
             include_deleted=include_deleted,
             item_type_id=item_type_id,
@@ -234,10 +247,10 @@ async def search_items(
             date_to=parsed_date_to
         )
         
-        # When approved_only is True, show all approved items (skip branch-based access control)
+        # When approved_only is True or status is APPROVED, show all approved items (skip branch-based access control)
         # This allows the public search page to display all approved items
         # Otherwise, apply branch-based access control for regular queries
-        user_id_for_access_control = None if approved_only else current_user.id
+        user_id_for_access_control = None if (approved_only or status_enum == ItemStatus.APPROVED) else current_user.id
         
         items, total = item_service.search_items(q, filters, user_id_for_access_control)
         
@@ -407,7 +420,7 @@ async def toggle_item_approval(
     _: None = Depends(require_branch_access())
 ):
     """
-    Toggle the approval status of an item
+    Toggle the approval status of an item (toggles between approved and on_hold)
     Requires: can_approve_items permission
     """
     try:
@@ -417,6 +430,31 @@ async def toggle_item_approval(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error toggling approval: {str(e)}")
+
+@router.patch("/{item_id}/status", response_model=ItemResponse)
+@require_permission("can_approve_items")
+async def update_item_status(
+    item_id: str,
+    new_status: ItemStatus,
+    request: Request,
+    db: Session = Depends(get_session),
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access())
+):
+    """
+    Update item status explicitly
+    Requires: can_approve_items permission
+    """
+    try:
+        from app.models import ItemStatus as ModelItemStatus
+        # Convert schema enum to model enum
+        model_status = ModelItemStatus(new_status.value)
+        item = item_service.update_status(item_id, model_status)
+        return item
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating status: {str(e)}")
 
 @router.patch("/{item_id}/update-claims-count", response_model=ItemResponse)
 @require_permission("can_manage_claims")
@@ -551,7 +589,7 @@ async def bulk_approval_items(
     _: None = Depends(require_branch_access_for_bulk_operations())
 ):
     """
-    Bulk update approval status for multiple items
+    Bulk update approval status for multiple items (DEPRECATED: use bulk/status instead)
     Requires: BOTH can_approve_items AND can_bulk_edit_items permissions
     """
     try:
@@ -563,5 +601,28 @@ async def bulk_approval_items(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in bulk approval: {str(e)}")
+
+@router.patch("/bulk/status", response_model=BulkOperationResponse)
+@require_all_permissions(["can_approve_items", "can_bulk_edit_items"])
+async def bulk_update_status(
+    request: BulkStatusRequest,
+    req: Request,
+    db: Session = Depends(get_session),
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access_for_bulk_operations())
+):
+    """
+    Bulk update status for multiple items
+    Requires: BOTH can_approve_items AND can_bulk_edit_items permissions
+    """
+    try:
+        result = item_service.bulk_update_status(request)
+        
+        return BulkOperationResponse(
+            message="Bulk status update operation completed",
+            **result
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error in bulk status update: {str(e)}")
 
 
