@@ -1,10 +1,10 @@
 # routes/permission_routes.py
 from fastapi import APIRouter, HTTPException, Depends
 from sqlmodel import Session
-from services import permissionServices
-from models import Permission
-from db.database import get_session
-from schemas.permission_schema import (
+from app.services import permissionServices
+from app.models import Permission
+from app.db.database import get_session
+from app.schemas.permission_schema import (
     PermissionRequestSchema, 
     PermissionSchema, 
     PermissionWithRolesSchema,
