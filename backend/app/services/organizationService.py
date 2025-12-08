@@ -4,8 +4,8 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 
-from models import Organization, Branch  # Assuming these are your models
-from schemas.organization_schemas import OrganizationCreate, OrganizationUpdate
+from app.models import Organization, Branch  # Assuming these are your models
+from app.schemas.organization_schemas import OrganizationCreate, OrganizationUpdate
 
 
 class OrganizationService:
@@ -14,10 +14,17 @@ class OrganizationService:
 
     def create_organization(self, org_data: OrganizationCreate) -> Organization:
         """Create a new organization"""
-        # Check if organization name already exists
-        existing_org = self.db.query(Organization).filter(
-            Organization.name == org_data.name
-        ).first()
+        # Check if organization name already exists (check both AR and EN)
+        existing_org = None
+        if org_data.name_ar:
+            existing_org = self.db.query(Organization).filter(
+                Organization.name_ar == org_data.name_ar
+            ).first()
+        
+        if not existing_org and org_data.name_en:
+            existing_org = self.db.query(Organization).filter(
+                Organization.name_en == org_data.name_en
+            ).first()
         
         if existing_org:
             raise HTTPException(
@@ -26,8 +33,10 @@ class OrganizationService:
             )
         
         db_org = Organization(
-            name=org_data.name,
-            description=org_data.description
+            name_ar=org_data.name_ar,
+            name_en=org_data.name_en,
+            description_ar=org_data.description_ar,
+            description_en=org_data.description_en
         )
         
         self.db.add(db_org)
@@ -44,9 +53,13 @@ class OrganizationService:
         """Get an organization by ID"""
         return self.db.query(Organization).filter(Organization.id == org_id).first()
 
-    def get_organization_by_name(self, name: str) -> Optional[Organization]:
-        """Get an organization by name"""
-        return self.db.query(Organization).filter(Organization.name == name).first()
+    def get_organization_by_name(self, name_ar: str = None, name_en: str = None) -> Optional[Organization]:
+        """Get an organization by name (Arabic or English)"""
+        if name_ar:
+            return self.db.query(Organization).filter(Organization.name_ar == name_ar).first()
+        elif name_en:
+            return self.db.query(Organization).filter(Organization.name_en == name_en).first()
+        return None
 
     def update_organization(self, org_id: str, org_update: OrganizationUpdate) -> Organization:
         """Update an organization"""
@@ -60,20 +73,29 @@ class OrganizationService:
         
         update_data = org_update.model_dump(exclude_unset=True)
         
-        # If updating name, check for duplicates
-        if 'name' in update_data:
+        # If updating names, check for duplicates
+        existing_org = None
+        if 'name_ar' in update_data and update_data['name_ar']:
             existing_org = self.db.query(Organization).filter(
                 and_(
-                    Organization.name == update_data['name'],
+                    Organization.name_ar == update_data['name_ar'],
                     Organization.id != org_id
                 )
             ).first()
-            
-            if existing_org:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Organization name already exists"
+        
+        if not existing_org and 'name_en' in update_data and update_data['name_en']:
+            existing_org = self.db.query(Organization).filter(
+                and_(
+                    Organization.name_en == update_data['name_en'],
+                    Organization.id != org_id
                 )
+            ).first()
+        
+        if existing_org:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Organization name already exists"
+            )
         
         for field, value in update_data.items():
             setattr(db_org, field, value)

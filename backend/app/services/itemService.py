@@ -21,6 +21,7 @@ from app.schemas.item_schema import (
 )
 from app.services.notification_service import send_new_item_alert
 from app.middleware.branch_auth_middleware import get_user_accessible_items
+from app.services import permissionServices
 
 logger = logging.getLogger(__name__)
 
@@ -124,24 +125,30 @@ class ItemService:
             query = query.filter(Item.created_at <= filters.date_to)
         
         # Apply branch-based access control if user_id is provided
+        # Skip branch-based filtering for super_admin users (they have access to all items)
         if user_id:
-            try:
-                accessible_items = get_user_accessible_items(user_id, self.db)
-                if accessible_items:
-                    # Filter out None values to avoid SQL errors
-                    accessible_items = [item_id for item_id in accessible_items if item_id is not None]
+            # Check if user is super_admin - if so, skip branch-based filtering
+            if permissionServices.is_super_admin(self.db, user_id):
+                logger.info(f"Super admin user {user_id} - skipping branch-based access control")
+                # Super admin has access to all items, so don't filter
+            else:
+                try:
+                    accessible_items = get_user_accessible_items(user_id, self.db)
                     if accessible_items:
-                        query = query.filter(Item.id.in_(accessible_items))
+                        # Filter out None values to avoid SQL errors
+                        accessible_items = [item_id for item_id in accessible_items if item_id is not None]
+                        if accessible_items:
+                            query = query.filter(Item.id.in_(accessible_items))
+                        else:
+                            # User has no accessible items, return empty result
+                            return [], 0
                     else:
                         # User has no accessible items, return empty result
                         return [], 0
-                else:
-                    # User has no accessible items, return empty result
+                except Exception as e:
+                    logger.error(f"Error getting accessible items for user {user_id}: {e}")
+                    # If we can't determine accessible items, return empty to be safe
                     return [], 0
-            except Exception as e:
-                logger.error(f"Error getting accessible items for user {user_id}: {e}")
-                # If we can't determine accessible items, return empty to be safe
-                return [], 0
         
         # Get total count before pagination
         try:
@@ -265,13 +272,30 @@ class ItemService:
             query = query.filter(Item.created_at <= filters.date_to)
         
         # Apply branch-based access control if user_id is provided
+        # Skip branch-based filtering for super_admin users (they have access to all items)
         if user_id:
-            accessible_items = get_user_accessible_items(user_id, self.db)
-            if accessible_items:
-                query = query.filter(Item.id.in_(accessible_items))
+            # Check if user is super_admin - if so, skip branch-based filtering
+            if permissionServices.is_super_admin(self.db, user_id):
+                logger.info(f"Super admin user {user_id} - skipping branch-based access control in search")
+                # Super admin has access to all items, so don't filter
             else:
-                # User has no accessible items, return empty result
-                return [], 0
+                try:
+                    accessible_items = get_user_accessible_items(user_id, self.db)
+                    if accessible_items:
+                        # Filter out None values to avoid SQL errors
+                        accessible_items = [item_id for item_id in accessible_items if item_id is not None]
+                        if accessible_items:
+                            query = query.filter(Item.id.in_(accessible_items))
+                        else:
+                            # User has no accessible items, return empty result
+                            return [], 0
+                    else:
+                        # User has no accessible items, return empty result
+                        return [], 0
+                except Exception as e:
+                    logger.error(f"Error getting accessible items for user {user_id} in search: {e}")
+                    # If we can't determine accessible items, return empty to be safe
+                    return [], 0
         
         total = query.count()
         items = query.offset(filters.skip).limit(filters.limit).all()

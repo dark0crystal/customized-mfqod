@@ -1,6 +1,6 @@
 # services/imageService.py
 from sqlalchemy.orm import Session
-from models import Image  # Adjust import based on your model
+from app.models import Image  # Adjust import based on your model
 from typing import Optional
 
 class ImageService:
