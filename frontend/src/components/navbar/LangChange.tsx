@@ -23,7 +23,7 @@ export default function LanguageChange() {
                     onClick={(e) => handleLocaleChange(e, 'en')}
                     className="px-3 py-1 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors rounded-md hover:bg-gray-100"
                 >
-                    English
+                    EN
                 </Link>
             ) : (
                 <Link 
@@ -32,7 +32,7 @@ export default function LanguageChange() {
                     onClick={(e) => handleLocaleChange(e, 'ar')}
                     className="px-3 py-1 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors rounded-md hover:bg-gray-100"
                 >
-                    العربية
+                    عربي
                 </Link>
             )}
         </div>
