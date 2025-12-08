@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/* Leaflet Map Styles */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  z-index: 0;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+}
+
+.leaflet-popup-tip {
+  background: white;
+}
+
 .scrollbar-hide {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* Internet Explorer 10+ */
@@ -7,4 +22,126 @@
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* WebKit */
+}
+
+/* RTL/LTR Direction Support */
+.rtl {
+  direction: rtl;
+}
+
+.ltr {
+  direction: ltr;
+}
+
+/* RTL-specific utilities */
+.rtl .text-start {
+  text-align: right;
+}
+
+.rtl .text-end {
+  text-align: left;
+}
+
+.rtl .ms-auto {
+  margin-left: auto;
+}
+
+.rtl .me-auto {
+  margin-right: auto;
+}
+
+.rtl .ps-4 {
+  padding-left: 1rem;
+}
+
+.rtl .pe-4 {
+  padding-right: 1rem;
+}
+
+/* RTL-aware flexbox */
+.rtl .flex-row {
+  flex-direction: row-reverse;
+}
+
+.rtl .flex-row-reverse {
+  flex-direction: row;
+}
+
+/* RTL-aware positioning */
+.rtl .left-0 {
+  right: 0;
+  left: auto;
+}
+
+.rtl .right-0 {
+  left: 0;
+  right: auto;
+}
+
+.rtl .left-4 {
+  right: 1rem;
+  left: auto;
+}
+
+.rtl .right-4 {
+  left: 1rem;
+  right: auto;
+}
+
+/* RTL-aware transforms */
+.rtl .scale-x-100 {
+  transform: scaleX(-1);
+}
+
+/* Font families for different locales */
+.font-arabic {
+  font-family: 'Cairo', 'Noto Sans Arabic', 'Arial', sans-serif;
+}
+
+.font-latin {
+  font-family: 'Inter', 'Arial', sans-serif;
+}
+
+/* RTL-aware shadows and borders */
+.rtl .shadow-left {
+  box-shadow: -4px 0 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.rtl .shadow-right {
+  box-shadow: 4px 0 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* RTL-aware animations */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.rtl .animate-slide-in-right {
+  animation: slideInFromLeft 0.3s ease-out;
+}
+
+.rtl .animate-slide-in-left {
+  animation: slideInFromRight 0.3s ease-out;
+}
+
+.ltr .animate-slide-in-right {
+  animation: slideInFromRight 0.3s ease-out;
+}
+
+.ltr .animate-slide-in-left {
+  animation: slideInFromLeft 0.3s ease-out;
 }
