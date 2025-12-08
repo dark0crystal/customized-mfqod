@@ -14,6 +14,7 @@ import { tokenManager } from '@/utils/tokenManager';
 import imageUploadService, { UploadProgress } from '@/services/imageUploadService';
 import { useTranslations, useLocale } from 'next-intl';
 import { apiRequest } from '@/utils/api';
+import { formatDateOnly } from '@/utils/dateFormatter';
 
 const claimSchema = z.object({
   title: z.string().min(1, { message: "Title is required!" }),
@@ -80,6 +81,13 @@ interface Location {
   full_location?: string;
 }
 
+enum ItemStatus {
+  CANCELLED = "cancelled",
+  APPROVED = "approved",
+  ON_HOLD = "on_hold",
+  RECEIVED = "received"
+}
+
 interface ItemData {
   id: string;
   title: string;
@@ -88,7 +96,8 @@ interface ItemData {
   updated_at: string;
   claims_count: number;
   temporary_deletion: boolean;
-  approval: boolean;
+  status?: string;  // Item status: cancelled, approved, on_hold, received
+  approval: boolean;  // DEPRECATED: kept for backward compatibility
   item_type_id?: string;
   user_id?: string;
   item_type?: ItemType;
@@ -369,7 +378,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
 
                   <div className="space-y-1">
                     <p className="text-sm text-gray-500">{t('posted')}</p>
-                    <p className="font-medium text-gray-900">{new Date(item.created_at).toLocaleDateString()}</p>
+                    <p className="font-medium text-gray-900">{formatDateOnly(item.created_at)}</p>
                   </div>
 
                   {item.user && (
