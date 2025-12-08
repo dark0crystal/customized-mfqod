@@ -7,7 +7,7 @@ import asyncio
 import logging
 
 # Import Models
-from app.models import Item, ItemType as ItemTypeModel, User, Claim, Address, Branch, Organization, Image
+from app.models import Item, ItemType as ItemTypeModel, User, Claim, Address, Branch, Organization, Image, ItemStatus
 from app.schemas.item_schema import (
     CreateItemRequest, 
     UpdateItemRequest, 
@@ -44,13 +44,16 @@ class ItemService:
         if item_data.item_type_id and not self._item_type_exists(item_data.item_type_id):
             raise ValueError("Item type not found")
         
+        # Handle status field
+        status_value = item_data.status.value if hasattr(item_data.status, 'value') else item_data.status
+        
         new_item = Item(
             id=str(uuid.uuid4()),
             title=item_data.title,
             description=item_data.description,
             user_id=item_data.user_id,
             item_type_id=item_data.item_type_id,
-            approval=item_data.approval,
+            status=status_value,
             temporary_deletion=item_data.temporary_deletion,
             claims_count=0,
             created_at=datetime.now(timezone.utc),
@@ -109,8 +112,16 @@ class ItemService:
         if filters.user_id:
             query = query.filter(Item.user_id == filters.user_id)
         
+        # Status filtering (new way)
+        if filters.status:
+            query = query.filter(Item.status == filters.status.value)
+        elif filters.statuses:
+            status_values = [s.value for s in filters.statuses]
+            query = query.filter(Item.status.in_(status_values))
+        
+        # Backward compatibility: approved_only filter
         if filters.approved_only:
-            query = query.filter(Item.approval == True)
+            query = query.filter(Item.status == ItemStatus.APPROVED.value)
         
         if filters.item_type_id:
             query = query.filter(Item.item_type_id == filters.item_type_id)
@@ -321,6 +332,14 @@ class ItemService:
         
         # Update fields that are provided
         update_dict = update_data.model_dump(exclude_unset=True)
+        
+        # Handle status field
+        if 'status' in update_dict and update_dict['status'] is not None:
+            status_value = update_dict['status'].value if hasattr(update_dict['status'], 'value') else update_dict['status']
+            item.status = status_value
+            del update_dict['status']
+        
+        # Update other fields
         for field, value in update_dict.items():
             setattr(item, field, value)
         
@@ -332,12 +351,32 @@ class ItemService:
         return self._item_to_response(item)
     
     def toggle_approval(self, item_id: str) -> Optional[ItemResponse]:
-        """Toggle the approval status of an item"""
+        """Toggle the approval status of an item (toggles between approved and on_hold)"""
         item = self.get_item_by_id(item_id)
         if not item:
             raise ValueError("Item not found")
         
-        item.approval = not item.approval
+        # Toggle between approved and on_hold (don't change received or cancelled)
+        if item.status == ItemStatus.APPROVED.value:
+            item.status = ItemStatus.ON_HOLD.value
+        elif item.status == ItemStatus.ON_HOLD.value:
+            item.status = ItemStatus.APPROVED.value
+        # If status is received or cancelled, don't change it
+        
+        item.updated_at = datetime.now(timezone.utc)
+        
+        self.db.commit()
+        self.db.refresh(item)
+        
+        return self._item_to_response(item)
+    
+    def update_status(self, item_id: str, new_status: ItemStatus) -> Optional[ItemResponse]:
+        """Update item status explicitly"""
+        item = self.get_item_by_id(item_id)
+        if not item:
+            raise ValueError("Item not found")
+        
+        item.status = new_status.value
         item.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
@@ -433,12 +472,32 @@ class ItemService:
     # ===========================
     
     def delete_item(self, item_id: str, permanent: bool = False) -> bool:
-        """Delete an item (soft delete by default)"""
+        """Delete an item (soft delete by default, permanent deletes all related data)"""
         item = self.db.query(Item).filter(Item.id == item_id).first()
         if not item:
             raise ValueError("Item not found")
         
         if permanent:
+            # Delete all related data when permanently deleting
+            # 1. Delete all images associated with this item
+            self.db.query(Image).filter(
+                Image.imageable_type == "item",
+                Image.imageable_id == item_id
+            ).delete()
+            
+            # 2. Delete all claims associated with this item
+            self.db.query(Claim).filter(Claim.item_id == item_id).delete()
+            
+            # 3. Delete all addresses associated with this item
+            self.db.query(Address).filter(Address.item_id == item_id).delete()
+            
+            # 4. Delete all branch transfer requests for this item
+            from app.models import BranchTransferRequest
+            self.db.query(BranchTransferRequest).filter(
+                BranchTransferRequest.item_id == item_id
+            ).delete()
+            
+            # 5. Finally, delete the item itself
             self.db.delete(item)
         else:
             item.temporary_deletion = True
@@ -511,7 +570,7 @@ class ItemService:
         }
     
     def bulk_approval(self, request: BulkApprovalRequest) -> dict:
-        """Bulk update approval status"""
+        """Bulk update approval status (DEPRECATED: use bulk_update_status instead)"""
         successful = 0
         failed = 0
         errors = []
@@ -522,7 +581,42 @@ class ItemService:
                 if not item:
                     raise ValueError("Item not found")
                 
-                item.approval = request.approval_status
+                # Convert approval boolean to status
+                if request.approval_status:
+                    item.status = ItemStatus.APPROVED.value
+                else:
+                    # Only change to on_hold if not already received or cancelled
+                    if item.status not in [ItemStatus.RECEIVED.value, ItemStatus.CANCELLED.value]:
+                        item.status = ItemStatus.ON_HOLD.value
+                
+                item.updated_at = datetime.now(timezone.utc)
+                self.db.commit()
+                successful += 1
+            except Exception as e:
+                failed += 1
+                errors.append(f"Item {item_id}: {str(e)}")
+        
+        return {
+            "processed_items": len(request.item_ids),
+            "successful_items": successful,
+            "failed_items": failed,
+            "errors": errors
+        }
+    
+    def bulk_update_status(self, request) -> dict:
+        """Bulk update item status"""
+        from app.schemas.item_schema import BulkStatusRequest
+        successful = 0
+        failed = 0
+        errors = []
+        
+        for item_id in request.item_ids:
+            try:
+                item = self.get_item_by_id(item_id)
+                if not item:
+                    raise ValueError("Item not found")
+                
+                item.status = request.status.value
                 item.updated_at = datetime.now(timezone.utc)
                 self.db.commit()
                 successful += 1
@@ -548,17 +642,24 @@ class ItemService:
         if user_id:
             query = query.filter(Item.user_id == user_id)
         
+        base_query = query.filter(Item.temporary_deletion == False)
+        
         total_items = query.count()
-        active_items = query.filter(Item.temporary_deletion == False).count()
-        approved_items = query.filter(and_(Item.approval == True, Item.temporary_deletion == False)).count()
-        pending_items = query.filter(and_(Item.approval == False, Item.temporary_deletion == False)).count()
+        active_items = base_query.count()
+        approved_items = base_query.filter(Item.status == ItemStatus.APPROVED.value).count()
+        on_hold_items = base_query.filter(Item.status == ItemStatus.ON_HOLD.value).count()
+        received_items = base_query.filter(Item.status == ItemStatus.RECEIVED.value).count()
+        cancelled_items = base_query.filter(Item.status == ItemStatus.CANCELLED.value).count()
         deleted_items = query.filter(Item.temporary_deletion == True).count()
         
         return {
             "total_items": total_items,
             "active_items": active_items,
             "approved_items": approved_items,
-            "pending_items": pending_items,
+            "on_hold_items": on_hold_items,
+            "received_items": received_items,
+            "cancelled_items": cancelled_items,
+            "pending_items": on_hold_items,  # Backward compatibility
             "deleted_items": deleted_items
         }
     
@@ -690,7 +791,7 @@ class ItemService:
                 description=item.description or "",
                 claims_count=item.claims_count or 0,
                 temporary_deletion=item.temporary_deletion if item.temporary_deletion is not None else False,
-                approval=item.approval if item.approval is not None else False,
+                status=item.status if item.status else ItemStatus.ON_HOLD.value,
                 approved_claim_id=str(item.approved_claim_id) if item.approved_claim_id else None,
                 item_type_id=str(item.item_type_id) if item.item_type_id else None,
                 user_id=str(item.user_id) if item.user_id else None,
@@ -746,7 +847,7 @@ class ItemService:
             description=item.description,
             claims_count=item.claims_count,
             temporary_deletion=item.temporary_deletion,
-            approval=item.approval,
+            status=item.status if item.status else ItemStatus.ON_HOLD.value,
             approved_claim_id=item.approved_claim_id,
             item_type_id=item.item_type_id,
             user_id=item.user_id,

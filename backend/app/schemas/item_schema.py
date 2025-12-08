@@ -14,6 +14,13 @@ class ItemTypeEnum(str, Enum):
     article = "article" 
     document = "document"
 
+class ItemStatus(str, Enum):
+    """Item status enumeration"""
+    CANCELLED = "cancelled"
+    APPROVED = "approved"
+    ON_HOLD = "on_hold"
+    RECEIVED = "received"
+
 # =========================== 
 # Request Schemas
 # ===========================
@@ -23,7 +30,7 @@ class CreateItemRequest(BaseModel):
     description: str = Field(..., min_length=1, description="Item description/content")
     user_id: str = Field(..., description="ID of the user creating the item")
     item_type_id: Optional[str] = Field(None, description="ID of the item type")
-    approval: bool = Field(default=True, description="Whether the item is approved")
+    status: ItemStatus = Field(default=ItemStatus.ON_HOLD, description="Item status")
     temporary_deletion: bool = Field(default=False, description="Whether the item is marked for deletion")
 
     class Config:
@@ -33,7 +40,7 @@ class CreateItemRequest(BaseModel):
                 "description": "This is a sample article content",
                 "user_id": "user-uuid-here",
                 "item_type_id": "itemtype-uuid-here",
-                "approval": True,
+                "status": "on_hold",
                 "temporary_deletion": False
             }
         }
@@ -42,7 +49,7 @@ class UpdateItemRequest(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255, description="Item title")
     description: Optional[str] = Field(None, min_length=1, description="Item description/content")
     item_type_id: Optional[str] = Field(None, description="ID of the item type")
-    approval: Optional[bool] = Field(None, description="Whether the item is approved")
+    status: Optional[ItemStatus] = Field(None, description="Item status")
     temporary_deletion: Optional[bool] = Field(None, description="Whether the item is marked for deletion")
 
     class Config:
@@ -50,7 +57,7 @@ class UpdateItemRequest(BaseModel):
             "example": {
                 "title": "Updated Article Title",
                 "description": "Updated article content",
-                "approval": True
+                "status": "approved"
             }
         }
 
@@ -58,7 +65,9 @@ class ItemFilterRequest(BaseModel):
     skip: int = Field(default=0, ge=0, description="Number of items to skip")
     limit: int = Field(default=100, ge=1, le=1000, description="Maximum number of items to return")
     user_id: Optional[str] = Field(None, description="Filter by user ID")
-    approved_only: bool = Field(default=False, description="Only return approved items")
+    status: Optional[ItemStatus] = Field(None, description="Filter by status")
+    statuses: Optional[List[ItemStatus]] = Field(None, description="Filter by multiple statuses")
+    approved_only: bool = Field(default=False, description="DEPRECATED: Use status=APPROVED instead. Only return approved items")
     include_deleted: bool = Field(default=False, description="Include soft-deleted items")
     item_type_id: Optional[str] = Field(None, description="Filter by item type")
     branch_id: Optional[str] = Field(None, description="Filter by branch ID")
@@ -138,7 +147,7 @@ class ItemResponse(BaseModel):
     description: str
     claims_count: int
     temporary_deletion: bool
-    approval: bool
+    status: str
     approved_claim_id: Optional[str] = None
     item_type_id: Optional[str]
     user_id: Optional[str]
@@ -191,4 +200,8 @@ class BulkUpdateRequest(BaseModel):
 
 class BulkApprovalRequest(BaseModel):
     item_ids: List[str] = Field(..., min_items=1, max_items=100)
-    approval_status: bool = Field(..., description="Approval status to set for all items")
+    approval_status: bool = Field(..., description="DEPRECATED: Use BulkStatusRequest instead. Approval status to set for all items")
+
+class BulkStatusRequest(BaseModel):
+    item_ids: List[str] = Field(..., min_items=1, max_items=100)
+    status: ItemStatus = Field(..., description="Status to set for all items")
