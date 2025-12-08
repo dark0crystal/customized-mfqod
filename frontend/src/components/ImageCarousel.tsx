@@ -178,8 +178,9 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
 
   if (!images || images.length === 0) {
     return (
-      <div className={`flex items-center justify-center bg-gray-100 rounded-lg ${className}`} style={{ minHeight: '300px' }}>
-        <p className="text-gray-500">No images available</p>
+      <div className={`flex flex-col items-center justify-center bg-gray-200 rounded-lg ${className}`} style={{ minHeight: '300px' }}>
+        <span className="text-gray-500 text-lg">مفقود</span>
+        <span className="text-gray-400 text-sm mt-1">الصور غير متاحة</span>
       </div>
     );
   }
