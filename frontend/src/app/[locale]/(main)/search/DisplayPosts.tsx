@@ -3,7 +3,6 @@ import { useRouter } from "@/i18n/navigation";
 import { MdArrowOutward } from "react-icons/md";
 import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
-import defaultImage from "../../../../../public/img1.jpeg";
 import { IoMdResize } from "react-icons/io";
 import { useState, useEffect } from "react";
 
@@ -134,7 +133,7 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
       
       return `${baseUrl}${imageUrl}`;
     }
-    return defaultImage;
+    return null;
   };
 
   return (
@@ -180,23 +179,32 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
                     </button>
 
                     {/* Expand image */}
-                    <button
-                      title="Expand Image"
-                      onClick={() => handleImageSize(item.id)}
-                      className="absolute top-2 left-2 p-3 bg-white z-20 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
-                    >
-                      <IoMdResize />
-                    </button>
+                    {imageUrl && (
+                      <button
+                        title="Expand Image"
+                        onClick={() => handleImageSize(item.id)}
+                        className="absolute top-2 left-2 p-3 bg-white z-20 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
+                      >
+                        <IoMdResize />
+                      </button>
+                    )}
 
-                    <Image
-                      src={imageUrl}
-                      alt={`Item image ${index}`}
-                      fill
-                      style={{ objectFit: "cover" }}
-                      className="rounded-2xl cursor-zoom-in"
-                      onClick={() => handleImageSize(item.id)}
-                      sizes="400px"
-                    />
+                    {imageUrl ? (
+                      <Image
+                        src={imageUrl}
+                        alt={`Item image ${index}`}
+                        fill
+                        style={{ objectFit: "cover" }}
+                        className="rounded-2xl cursor-zoom-in"
+                        onClick={() => handleImageSize(item.id)}
+                        sizes="400px"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gray-200 flex flex-col items-center justify-center rounded-2xl">
+                        <span className="text-gray-500 text-lg">مفقود</span>
+                        <span className="text-gray-400 text-sm mt-1">الصور غير متاحة</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -234,16 +242,23 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
                         className="relative w-full h-full"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <Image
-                          src={imageUrl}
-                          alt={`Item image ${index} - expanded`}
-                          fill
-                          style={{ objectFit: "contain" }}
-                          className="cursor-zoom-out"
-                          onClick={() => setExpandedItemId(null)}
-                          sizes="90vw"
-                          priority
-                        />
+                        {imageUrl ? (
+                          <Image
+                            src={imageUrl}
+                            alt={`Item image ${index} - expanded`}
+                            fill
+                            style={{ objectFit: "contain" }}
+                            className="cursor-zoom-out"
+                            onClick={() => setExpandedItemId(null)}
+                            sizes="90vw"
+                            priority
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200 flex flex-col items-center justify-center">
+                            <span className="text-gray-500 text-2xl">مفقود</span>
+                            <span className="text-gray-400 text-base mt-2">الصور غير متاحة</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
