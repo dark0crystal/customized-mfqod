@@ -40,3 +40,4 @@ def downgrade():
     op.drop_table('email_verifications')
 
 
+

@@ -305,7 +305,7 @@ async def get_claims_stats(
 # Item-specific Claim Routes
 # ===========================
 
-@router.get("/item/{item_id}", response_model=List[ClaimResponse])
+@router.get("/item/{item_id}", response_model=List[ClaimWithDetails])
 async def get_item_claims(
     item_id: str,
     request: Request,
@@ -314,7 +314,7 @@ async def get_item_claims(
     db: Session = Depends(get_session),
     claim_service: ClaimService = Depends(get_claim_service)
 ):
-    """Get all claims for a specific item"""
+    """Get all claims for a specific item with user and item details"""
     try:
         # Check if user has permission to view claims for this item
         # (item owner or admin can see all claims, others can only see approved claims)
@@ -332,7 +332,7 @@ async def get_item_claims(
         if item.user_id != current_user.id and approved_only is None:
             approved_only = True
         
-        claims = claim_service.get_item_claims(item_id, approved_only=approved_only)
+        claims = claim_service.get_item_claims_with_details(item_id, approved_only=approved_only)
         return claims
         
     except HTTPException:
