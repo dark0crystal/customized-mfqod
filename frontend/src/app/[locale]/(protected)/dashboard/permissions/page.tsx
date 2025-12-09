@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react';
 import {
   Edit, Trash2, CheckCircle, AlertCircle, Save, X
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 const PermissionsManager = () => {
+  const t = useTranslations('permissions');
   const [permissions, setPermissions] = useState([]);
   const [roles, setRoles] = useState([]);
   const [selectedRoleId, setSelectedRoleId] = useState('');
@@ -40,7 +42,7 @@ const PermissionsManager = () => {
       setPermissions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch permissions:', error);
-      setError('Failed to load permissions');
+      setError(t('failedToLoadPermissions'));
       setPermissions([]);
     }
   };
@@ -53,7 +55,7 @@ const PermissionsManager = () => {
       setRoles(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch roles:', error);
-      setError('Failed to load roles');
+      setError(t('failedToLoadRoles'));
       setRoles([]);
     }
   };
@@ -66,7 +68,7 @@ const PermissionsManager = () => {
       setAssignedPermissions(Array.isArray(data) ? data.map(p => p.id) : []);
     } catch (error) {
       console.error('Failed to fetch assigned permissions:', error);
-      setError('Failed to load role permissions');
+      setError(t('failedToLoadRolePermissions'));
       setAssignedPermissions([]);
     }
   };
@@ -90,15 +92,15 @@ const PermissionsManager = () => {
         })
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSuccess('Permissions assigned successfully');
+      setSuccess(t('permissionsAssignedSuccessfully'));
     } catch (error) {
       console.error('Failed to assign permissions:', error);
-      setError('Failed to assign permissions');
+      setError(t('failedToAssignPermissions'));
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this permission?')) return;
+    if (!confirm(t('confirmDeletePermission'))) return;
     try {
       const res = await fetch(`${API_BASE}/api/permissions/${id}`, {
         method: 'DELETE',
@@ -106,13 +108,13 @@ const PermissionsManager = () => {
       });
       if (res.ok) {
         setPermissions(permissions.filter(p => p.id !== id));
-        setSuccess('Permission deleted');
+        setSuccess(t('permissionDeleted'));
       } else {
-        setError('Failed to delete permission');
+        setError(t('failedToDeletePermission'));
       }
     } catch (error) {
       console.error('Failed to delete permission:', error);
-      setError('Failed to delete permission');
+      setError(t('failedToDeletePermission'));
     }
   };
 
@@ -132,13 +134,13 @@ const PermissionsManager = () => {
         const updated = await res.json();
         setPermissions(permissions.map(p => p.id === updated.id ? updated : p));
         setEditingPermissionId(null);
-        setSuccess('Permission updated');
+        setSuccess(t('permissionUpdated'));
       } else {
-        setError('Failed to update permission');
+        setError(t('failedToUpdatePermission'));
       }
     } catch (error) {
       console.error('Failed to update permission:', error);
-      setError('Failed to update permission');
+      setError(t('failedToUpdatePermission'));
     }
   };
 
@@ -153,13 +155,13 @@ const PermissionsManager = () => {
         const created = await res.json();
         setPermissions([...permissions, created]);
         setNewPermission({ name: '', description: '' });
-        setSuccess('Permission created');
+        setSuccess(t('permissionCreated'));
       } else {
-        setError('Failed to create permission');
+        setError(t('failedToCreatePermission'));
       }
     } catch (error) {
       console.error('Failed to create permission:', error);
-      setError('Failed to create permission');
+      setError(t('failedToCreatePermission'));
     }
   };
 
@@ -184,34 +186,34 @@ const PermissionsManager = () => {
 
   return (
     <div className="max-w-5xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-4" style={{ color: '#3277AE' }}>Permission Management</h2>
+      <h2 className="text-2xl font-bold mb-4" style={{ color: '#3277AE' }}>{t('title')}</h2>
 
       {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-3 flex items-center"><AlertCircle className="w-5 h-5 mr-2" />{error}</div>}
       {success && <div className="bg-green-100 text-green-700 p-3 rounded mb-3 flex items-center"><CheckCircle className="w-5 h-5 mr-2" />{success}</div>}
 
       {/* Create New Permission */}
-      <div className="mb-6 border p-4 rounded-lg bg-white">
-        <h3 className="font-semibold mb-2">Add New Permission</h3>
+      <div className="mb-6 p-4 rounded-lg bg-white shadow">
+        <h3 className="font-semibold mb-2">{t('addNewPermission')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <input
             type="text"
-            className="border px-3 py-2 rounded focus:outline-none focus:ring-2 transition-colors"
+            className="border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
             style={{ 
               '--tw-ring-color': '#3277AE',
               '--tw-ring-offset-color': '#3277AE'
             } as React.CSSProperties & { [key: string]: string }}
-            placeholder="Permission name"
+            placeholder={t('permissionNamePlaceholder')}
             value={newPermission.name}
             onChange={(e) => setNewPermission({ ...newPermission, name: e.target.value })}
           />
           <input
             type="text"
-            className="border px-3 py-2 rounded focus:outline-none focus:ring-2 transition-colors"
+            className="border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
             style={{ 
               '--tw-ring-color': '#3277AE',
               '--tw-ring-offset-color': '#3277AE'
             } as React.CSSProperties & { [key: string]: string }}
-            placeholder="Description (optional)"
+            placeholder={t('descriptionPlaceholder')}
             value={newPermission.description}
             onChange={(e) => setNewPermission({ ...newPermission, description: e.target.value })}
           />
@@ -223,23 +225,23 @@ const PermissionsManager = () => {
           onMouseEnter={(e) => e.target.style.backgroundColor = '#2c6a9a'}
           onMouseLeave={(e) => e.target.style.backgroundColor = '#3277AE'}
         >
-          Create Permission
+          {t('createPermission')}
         </button>
       </div>
 
       {/* Role Selector */}
       <div className="mb-6">
-        <label className="block font-medium mb-1">Assign Permissions to Role</label>
+        <label className="block font-medium mb-1">{t('assignPermissionsToRole')}</label>
         <select
           value={selectedRoleId}
           onChange={(e) => setSelectedRoleId(e.target.value)}
-          className="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 transition-colors"
+          className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
           style={{ 
             '--tw-ring-color': '#3277AE',
             '--tw-ring-offset-color': '#3277AE'
           } as React.CSSProperties & { [key: string]: string }}
         >
-          <option value="">-- Select a role --</option>
+          <option value="">{t('selectRole')}</option>
           {roles.map(role => (
             <option key={role.id} value={role.id}>{role.name}</option>
           ))}
@@ -249,14 +251,14 @@ const PermissionsManager = () => {
       {/* Permissions List */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {permissions.map(perm => (
-          <div key={perm.id} className="border rounded-lg p-4 bg-white shadow-sm">
+          <div key={perm.id} className="rounded-lg p-4 bg-white shadow-sm">
             {editingPermissionId === perm.id ? (
               <>
                 <input
                   type="text"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full border px-2 py-1 mb-2 rounded focus:outline-none focus:ring-2 transition-colors"
+                  className="w-full border border-gray-300 px-2 py-1 mb-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
                   style={{ 
                     '--tw-ring-color': '#3277AE',
                     '--tw-ring-offset-color': '#3277AE'
@@ -265,18 +267,18 @@ const PermissionsManager = () => {
                 <textarea
                   value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  className="w-full border px-2 py-1 mb-2 rounded focus:outline-none focus:ring-2 transition-colors"
+                  className="w-full border border-gray-300 px-2 py-1 mb-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
                   style={{ 
                     '--tw-ring-color': '#3277AE',
                     '--tw-ring-offset-color': '#3277AE'
                   } as React.CSSProperties & { [key: string]: string }}
                 />
                 <div className="flex justify-end gap-2">
-                  <button onClick={handleUpdate} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded flex items-center gap-1">
-                    <Save className="w-4 h-4" /> Save
+                  <button onClick={handleUpdate} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded flex items-center gap-1">
+                    <Save className="w-4 h-4" /> {t('save')}
                   </button>
-                  <button onClick={() => setEditingPermissionId(null)} className="bg-gray-300 hover:bg-gray-400 px-3 py-1 rounded flex items-center gap-1">
-                    <X className="w-4 h-4" /> Cancel
+                  <button onClick={() => setEditingPermissionId(null)} className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded flex items-center gap-1">
+                    <X className="w-4 h-4" /> {t('cancel')}
                   </button>
                 </div>
               </>
@@ -303,7 +305,7 @@ const PermissionsManager = () => {
                       onChange={() => handlePermissionToggle(perm.id)}
                       className="mr-2"
                     />
-                    Assign to role
+                    {t('assignToRole')}
                   </label>
                 )}
               </>
@@ -320,7 +322,7 @@ const PermissionsManager = () => {
           onMouseEnter={(e) => e.target.style.backgroundColor = '#2c6a9a'}
           onMouseLeave={(e) => e.target.style.backgroundColor = '#3277AE'}
         >
-          Save Role Permissions
+          {t('saveRolePermissions')}
         </button>
       )}
     </div>
