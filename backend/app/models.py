@@ -1,6 +1,6 @@
 from __future__ import annotations
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text, Enum
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Text, Enum, TypeDecorator, Float
 from typing import Optional, List
 from datetime import datetime, timezone
 import uuid
@@ -13,6 +13,57 @@ Base = declarative_base()
 class UserType(enum.Enum):
     INTERNAL = "internal"
     EXTERNAL = "external"
+    
+    @classmethod
+    def _missing_(cls, value):
+        """Handle case-insensitive mapping for backward compatibility"""
+        if isinstance(value, str):
+            # Try to map common variations
+            value_lower = value.lower()
+            for member in cls:
+                if member.value.lower() == value_lower:
+                    return member
+            return None
+
+class ItemStatus(enum.Enum):
+    """Item status enumeration"""
+    CANCELLED = "cancelled"
+    APPROVED = "approved"
+    ON_HOLD = "on_hold"
+    RECEIVED = "received"
+    
+    @classmethod
+    def _missing_(cls, value):
+        """Handle case-insensitive mapping for backward compatibility"""
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for member in cls:
+                if member.value.lower() == value_lower:
+                    return member
+        return None
+
+class UserTypeConverter(TypeDecorator):
+    """Custom SQLAlchemy type to handle UserType enum conversion"""
+    impl = String
+    
+    def process_bind_param(self, value, dialect):
+        if isinstance(value, UserType):
+            return value.value
+        return value
+    
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            # Try direct lookup first
+            try:
+                return UserType(value)
+            except ValueError:
+                # Fallback to case-insensitive lookup
+                for member in UserType:
+                    if member.value.lower() == value.lower():
+                        return member
+                # If no match found, return the string value for debugging
+                raise ValueError(f"Unknown UserType value: {value}")
+        return value
 
 class LoginAttemptStatus(enum.Enum):
     SUCCESS = "success"
@@ -40,7 +91,7 @@ class User(Base):
     last_name: Mapped[str] = mapped_column(String)
     phone_number: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    user_type: Mapped[UserType] = mapped_column(Enum(UserType), default=UserType.EXTERNAL)
+    user_type: Mapped[UserType] = mapped_column(UserTypeConverter(), default=UserType.EXTERNAL)
     ad_dn: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     ad_sync_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     is_locked: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -52,6 +103,7 @@ class User(Base):
     role_id: Mapped[Optional[str]] = mapped_column(ForeignKey("role.id"), nullable=True)
     role: Mapped[Optional["Role"]] = relationship("Role", back_populates="users")
     items: Mapped[List["Item"]] = relationship("Item", back_populates="user")
+    missing_items: Mapped[List["MissingItem"]] = relationship("MissingItem", back_populates="user")
     claims: Mapped[List["Claim"]] = relationship("Claim", back_populates="user")
     login_attempts: Mapped[List["LoginAttempt"]] = relationship("LoginAttempt", back_populates="user")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -115,29 +167,56 @@ class Item(Base):
     description: Mapped[str] = mapped_column(Text)
     claims_count: Mapped[int] = mapped_column(Integer, default=0)
     temporary_deletion: Mapped[bool] = mapped_column(Boolean, default=False)
-    approval: Mapped[bool] = mapped_column(Boolean, default=True)
+    status: Mapped[str] = mapped_column(String, default=ItemStatus.ON_HOLD.value, nullable=False)
+    approved_claim_id: Mapped[Optional[str]] = mapped_column(ForeignKey("claim.id"), nullable=True)
     item_type_id: Mapped[Optional[str]] = mapped_column(ForeignKey("itemtype.id"), nullable=True)
     item_type: Mapped[Optional["ItemType"]] = relationship("ItemType", back_populates="items")
     user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
     user: Mapped[Optional["User"]] = relationship("User", back_populates="items")
-    claims: Mapped[List["Claim"]] = relationship("Claim", back_populates="item")
+    claims: Mapped[List["Claim"]] = relationship(
+        "Claim", 
+        back_populates="item", 
+        primaryjoin="Item.id == Claim.item_id"
+    )
+    approved_claim: Mapped[Optional["Claim"]] = relationship("Claim", foreign_keys=[approved_claim_id])
     addresses: Mapped[List["Address"]] = relationship("Address", back_populates="item")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    
+    # Add images relationship (polymorphic)
+    @property
+    def images(self):
+        """Get images for this item via polymorphic relationship"""
+        from sqlalchemy.orm import object_session
+        session = object_session(self)
+        if session:
+            return session.query(Image).filter(
+                Image.imageable_type == "item",
+                Image.imageable_id == self.id
+            ).all()
+        return []
 
 class ItemType(Base):
     __tablename__ = "itemtype"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    name: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    name_ar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    name_en: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    description_ar: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     items: Mapped[List["Item"]] = relationship("Item", back_populates="item_type")
+    missing_items: Mapped[List["MissingItem"]] = relationship("MissingItem", back_populates="item_type")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 class Branch(Base):
     __tablename__ = "branch"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    branch_name: Mapped[str] = mapped_column(String)
+    branch_name_ar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    branch_name_en: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    description_ar: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(nullable=True)
+    latitude: Mapped[Optional[float]] = mapped_column(nullable=True)
     organization_id: Mapped[str] = mapped_column(ForeignKey("organization.id"))
     organization: Mapped[Optional["Organization"]] = relationship("Organization", back_populates="branches")
     addresses: Mapped[List["Address"]] = relationship("Address", back_populates="branch")
@@ -152,8 +231,10 @@ class Branch(Base):
 class Organization(Base):
     __tablename__ = "organization"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    name: Mapped[str] = mapped_column(String)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    name_ar: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    name_en: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    description_ar: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     branches: Mapped[List["Branch"]] = relationship("Branch", back_populates="organization")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -161,10 +242,13 @@ class Organization(Base):
 class Address(Base):
     __tablename__ = "address"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    item_id: Mapped[str] = mapped_column(ForeignKey("item.id"))
+    item_id: Mapped[Optional[str]] = mapped_column(ForeignKey("item.id"), nullable=True)
     item: Mapped[Optional["Item"]] = relationship("Item", back_populates="addresses")
+    missing_item_id: Mapped[Optional[str]] = mapped_column(ForeignKey("missingitem.id"), nullable=True)
+    missing_item: Mapped[Optional["MissingItem"]] = relationship("MissingItem", back_populates="addresses")
     branch_id: Mapped[str] = mapped_column(ForeignKey("branch.id"))
     branch: Mapped[Optional["Branch"]] = relationship("Branch", back_populates="addresses")
+    full_location: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -188,10 +272,18 @@ class Claim(Base):
     user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
     user: Mapped[Optional["User"]] = relationship("User", back_populates="claims")
     item_id: Mapped[Optional[str]] = mapped_column(ForeignKey("item.id"), nullable=True)
-    item: Mapped[Optional["Item"]] = relationship("Item", back_populates="claims")
+    item: Mapped[Optional["Item"]] = relationship(
+        "Item", 
+        back_populates="claims",
+        primaryjoin="Claim.item_id == Item.id"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     
+    @property
+    def is_assigned(self) -> bool:
+        """Check if this claim is assigned as the correct claim for the item"""
+        return self.item is not None and self.item.approved_claim_id == self.id
     
 
 class LoginAttempt(Base):
@@ -233,4 +325,66 @@ class ADSyncLog(Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-    # don't forget to add the translated names
+class EmailVerification(Base):
+    __tablename__ = "email_verifications"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    email: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    otp_code: Mapped[str] = mapped_column(String, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+class MissingItem(Base):
+    __tablename__ = "missingitem"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String, default="lost")  # lost, found, returned
+    approval: Mapped[bool] = mapped_column(Boolean, default=True)
+    temporary_deletion: Mapped[bool] = mapped_column(Boolean, default=False)
+    item_type_id: Mapped[Optional[str]] = mapped_column(ForeignKey("itemtype.id"), nullable=True)
+    item_type: Mapped[Optional["ItemType"]] = relationship("ItemType", back_populates="missing_items")
+    user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="missing_items")
+    addresses: Mapped[List["Address"]] = relationship("Address", back_populates="missing_item")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    
+    # Add images relationship (polymorphic)
+    @property
+    def images(self):
+        """Get images for this missing item via polymorphic relationship"""
+        from sqlalchemy.orm import object_session
+        session = object_session(self)
+        if session:
+            return session.query(Image).filter(
+                Image.imageable_type == "missingitem",
+                Image.imageable_id == self.id
+            ).all()
+        return []
+
+class TransferStatus(enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    COMPLETED = "completed"
+
+class BranchTransferRequest(Base):
+    __tablename__ = "branch_transfer_requests"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    item_id: Mapped[str] = mapped_column(ForeignKey("item.id"), nullable=False)
+    item: Mapped["Item"] = relationship("Item")
+    from_branch_id: Mapped[str] = mapped_column(ForeignKey("branch.id"), nullable=False)
+    from_branch: Mapped["Branch"] = relationship("Branch", foreign_keys=[from_branch_id])
+    to_branch_id: Mapped[str] = mapped_column(ForeignKey("branch.id"), nullable=False)
+    to_branch: Mapped["Branch"] = relationship("Branch", foreign_keys=[to_branch_id])
+    requested_by: Mapped[str] = mapped_column(ForeignKey("user.id"), nullable=False)
+    requested_by_user: Mapped["User"] = relationship("User", foreign_keys=[requested_by])
+    status: Mapped[TransferStatus] = mapped_column(Enum(TransferStatus), default=TransferStatus.PENDING)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    approved_by: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
+    approved_by_user: Mapped[Optional["User"]] = relationship("User", foreign_keys=[approved_by])
+
