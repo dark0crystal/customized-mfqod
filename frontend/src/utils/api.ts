@@ -119,6 +119,20 @@ export const authApi = {
       },
     })
   },
+
+  sendOtp: async (email: string) => {
+    return apiRequest('/api/auth/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  },
+
+  verifyOtp: async (email: string, otpCode: string) => {
+    return apiRequest('/api/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp_code: otpCode }),
+    })
+  },
 }
 
 /**
