@@ -1,9 +1,11 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { useLocale } from "next-intl";
 
 interface ItemType {
   id: string;
-  name: string;
+  name_ar?: string;
+  name_en?: string;
 }
 
 interface SliderBarProps {
@@ -12,12 +14,20 @@ interface SliderBarProps {
 }
 
 const SliderBar = ({ onFilterChange, initialItemTypeId }: SliderBarProps) => {
+  const locale = useLocale();
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [currentItemTypeId, setCurrentItemTypeId] = useState<string>(initialItemTypeId || "");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const API_BASE = `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/item-types/`;
+
+  // Helper function to get localized name
+  const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
+    if (locale === 'ar' && nameAr) return nameAr;
+    if (locale === 'en' && nameEn) return nameEn;
+    return nameAr || nameEn || '';
+  };
 
   const getTokenFromCookies = (): string | null => {
     if (typeof document !== "undefined") {
@@ -88,7 +98,7 @@ const SliderBar = ({ onFilterChange, initialItemTypeId }: SliderBarProps) => {
               : "bg-violet-300 hover:bg-violet-400"
           }`}
         >
-          {itemType.name}
+          {getLocalizedName(itemType.name_ar, itemType.name_en) || 'Unnamed'}
         </button>
       ))}
     </div>
