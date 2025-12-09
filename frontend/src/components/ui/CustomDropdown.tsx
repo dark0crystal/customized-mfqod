@@ -6,6 +6,7 @@ import { useDirection } from "@/components/DirectionProvider";
 interface Option {
   value: string;
   label: string;
+  disabled?: boolean;
 }
 
 interface CustomDropdownProps {
@@ -81,11 +82,14 @@ export default function CustomDropdown({
             <button
               key={option.value}
               type="button"
-              onClick={() => handleSelect(option.value)}
-              className={`w-full px-4 py-3 text-start hover:bg-gray-100 hover:text-gray-900 transition-all duration-150 ${
-                option.value === value
-                  ? "bg-gray-100 text-gray-900 font-medium"
-                  : "text-gray-900"
+              onClick={() => !option.disabled && handleSelect(option.value)}
+              disabled={option.disabled}
+              className={`w-full px-4 py-3 text-start transition-all duration-150 ${
+                option.disabled
+                  ? "text-gray-400 bg-gray-50 cursor-not-allowed"
+                  : option.value === value
+                  ? "bg-gray-100 text-gray-900 font-medium hover:bg-gray-100"
+                  : "text-gray-900 hover:bg-gray-100 hover:text-gray-900"
               } ${
                 option === options[0] ? "rounded-t-lg" : ""
               } ${

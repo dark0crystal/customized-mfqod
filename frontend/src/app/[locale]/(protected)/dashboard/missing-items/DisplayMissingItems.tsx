@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { MdArrowOutward } from 'react-icons/md';
 import { IoMdResize } from 'react-icons/io';
 import { useTranslations, useLocale } from 'next-intl';
-import defaultImage from '../../../../../../public/img1.jpeg';
+import { formatDateWithLocale } from '@/utils/dateFormatter';
 
 interface LocationData {
   organization_name?: string;
@@ -137,14 +137,9 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
     }
   };
 
-  // Helper to format date
+  // Helper to format date - using utility function for consistency
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    return formatDateWithLocale(dateString, locale);
   };
 
   const getImageUrl = (itemId: string) => {
@@ -166,7 +161,7 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
       
       return `${baseUrl}${imageUrl}`;
     }
-    return defaultImage;
+    return null;
   };
 
   return (
@@ -240,35 +235,44 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
                     </button>
 
                     {/* Expand image */}
-                    <button
-                      title="Expand Image"
-                      onClick={() => handleImageSize(missingItem.id)}
-                      className="absolute top-2 left-2 p-3 bg-white z-20 text-black text-xl rounded-full transition-colors shadow-md"
-                      style={{ 
-                        '--tw-hover-bg': '#3277AE',
-                        '--tw-hover-text': 'white'
-                      } as React.CSSProperties & { [key: string]: string }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#3277AE';
-                        e.currentTarget.style.color = 'white';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'white';
-                        e.currentTarget.style.color = 'black';
-                      }}
-                    >
-                      <IoMdResize />
-                    </button>
+                    {imageUrl && (
+                      <button
+                        title="Expand Image"
+                        onClick={() => handleImageSize(missingItem.id)}
+                        className="absolute top-2 left-2 p-3 bg-white z-20 text-black text-xl rounded-full transition-colors shadow-md"
+                        style={{ 
+                          '--tw-hover-bg': '#3277AE',
+                          '--tw-hover-text': 'white'
+                        } as React.CSSProperties & { [key: string]: string }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#3277AE';
+                          e.currentTarget.style.color = 'white';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'white';
+                          e.currentTarget.style.color = 'black';
+                        }}
+                      >
+                        <IoMdResize />
+                      </button>
+                    )}
 
-                    <Image
-                      src={imageUrl}
-                      alt={`Missing item image ${index}`}
-                      fill
-                      style={{ objectFit: "cover" }}
-                      className="rounded-2xl cursor-zoom-in"
-                      onClick={() => handleImageSize(missingItem.id)}
-                      sizes="400px"
-                    />
+                    {imageUrl ? (
+                      <Image
+                        src={imageUrl}
+                        alt={`Missing item image ${index}`}
+                        fill
+                        style={{ objectFit: "cover" }}
+                        className="rounded-2xl cursor-zoom-in"
+                        onClick={() => handleImageSize(missingItem.id)}
+                        sizes="400px"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gray-200 flex flex-col items-center justify-center rounded-2xl">
+                        <span className="text-gray-500 text-lg">مفقود</span>
+                        <span className="text-gray-400 text-sm mt-1">الصور غير متاحة</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -318,16 +322,23 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
                         className="relative w-full h-full"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <Image
-                          src={imageUrl}
-                          alt={`Missing item image ${index} - expanded`}
-                          fill
-                          style={{ objectFit: "contain" }}
-                          className="cursor-zoom-out"
-                          onClick={() => setExpandedItemId(null)}
-                          sizes="90vw"
-                          priority
-                        />
+                        {imageUrl ? (
+                          <Image
+                            src={imageUrl}
+                            alt={`Missing item image ${index} - expanded`}
+                            fill
+                            style={{ objectFit: "contain" }}
+                            className="cursor-zoom-out"
+                            onClick={() => setExpandedItemId(null)}
+                            sizes="90vw"
+                            priority
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200 flex flex-col items-center justify-center">
+                            <span className="text-gray-500 text-2xl">مفقود</span>
+                            <span className="text-gray-400 text-base mt-2">الصور غير متاحة</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
