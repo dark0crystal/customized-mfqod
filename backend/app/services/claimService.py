@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 import uuid
 
-from app.models import Claim, User, Item
+from app.models import Claim, User, Item, ItemStatus
 from app.schemas.claim_schema import ClaimCreate, ClaimUpdate, ClaimResponse, ClaimWithDetails
 from app.services.notification_service import send_claim_status_notification, send_new_claim_alert
 import logging
@@ -274,9 +274,11 @@ class ClaimService:
         if claim.item:
             # If another claim was previously assigned, it will be replaced
             claim.item.approved_claim_id = claim.id
+            # Update item status to received
+            claim.item.status = ItemStatus.RECEIVED.value
             claim.item.updated_at = datetime.now(timezone.utc)
             self.db.commit()
-            logger.info(f"Claim {claim_id} assigned to item {claim.item.id}")
+            logger.info(f"Claim {claim_id} assigned to item {claim.item.id}, status set to RECEIVED")
         
         # Send email notification to claimer
         try:
@@ -309,12 +311,15 @@ class ClaimService:
             joinedload(Claim.item)
         ).filter(Claim.id == claim_id).first()
         
-        # If this claim was the assigned one, clear the assignment
+        # If this claim was the assigned one, clear the assignment and reset status
         if claim.item and claim.item.approved_claim_id == claim.id:
             claim.item.approved_claim_id = None
+            # Reset status to approved if it was received
+            if claim.item.status == ItemStatus.RECEIVED.value:
+                claim.item.status = ItemStatus.APPROVED.value
             claim.item.updated_at = datetime.now(timezone.utc)
             self.db.commit()
-            logger.info(f"Claim {claim_id} unassigned from item {claim.item.id}")
+            logger.info(f"Claim {claim_id} unassigned from item {claim.item.id}, status reset to APPROVED")
         
         # Send email notification to claimer
         try:
