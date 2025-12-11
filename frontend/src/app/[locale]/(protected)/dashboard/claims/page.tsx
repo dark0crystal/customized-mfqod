@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
+import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
+import { formatDateOnly } from '@/utils/dateFormatter';
 
 // Types
 interface Claim {
@@ -20,6 +22,7 @@ interface Claim {
   item_title?: string;
   item_description?: string;
   images?: string[];
+  is_assigned?: boolean;  // Whether this claim is assigned as the correct claim for the item
 }
 
 interface ClaimFilters {
@@ -85,7 +88,7 @@ export default function ClaimsPage() {
       setFilteredClaims(data);
     } catch (err) {
       console.error('Error fetching claims:', err);
-      setError('Failed to load claims. Please try again.');
+      setError(t('errorLoading'));
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +123,7 @@ export default function ClaimsPage() {
       }
     } catch (error) {
       console.error('Error updating claim approval:', error);
-      alert('Failed to update claim status. Please try again.');
+      alert(t('updateStatusError'));
     }
   };
 
@@ -151,17 +154,14 @@ export default function ClaimsPage() {
     fetchClaims();
   }, []);
 
-  // Format date
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  import { formatDateOnly } from '@/utils/dateFormatter';
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#3277AE' }}></div>
-          <p className="text-gray-500">Loading claims...</p>
+          <p className="text-gray-500">{t('loading')}</p>
         </div>
       </div>
     );
@@ -179,7 +179,7 @@ export default function ClaimsPage() {
             onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#2563eb'; }}
             onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#3277AE'; }}
           >
-            Try Again
+            {t('tryAgain')}
           </button>
         </div>
       </div>
@@ -191,8 +191,8 @@ export default function ClaimsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Claims Management</h1>
-          <p className="text-gray-600">Manage and review item claims</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('title')}</h1>
+          <p className="text-gray-600">{t('subtitle')}</p>
         </div>
 
         {/* Filters and Search */}
@@ -202,7 +202,7 @@ export default function ClaimsPage() {
             <div className="flex-1">
               <input
                 type="text"
-                placeholder="Search claims..."
+                placeholder={t('searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
@@ -223,7 +223,7 @@ export default function ClaimsPage() {
                   backgroundColor: filters.approved_only === undefined ? '#3277AE' : 'white'
                 }}
               >
-                All
+                {t('all')}
               </button>
               <button
                 onClick={() => setFilters({ ...filters, approved_only: true })}
@@ -236,7 +236,7 @@ export default function ClaimsPage() {
                   backgroundColor: filters.approved_only === true ? '#3277AE' : 'white'
                 }}
               >
-                Approved
+                {t('approved')}
               </button>
               <button
                 onClick={() => setFilters({ ...filters, approved_only: false })}
@@ -249,7 +249,7 @@ export default function ClaimsPage() {
                   backgroundColor: filters.approved_only === false ? '#3277AE' : 'white'
                 }}
               >
-                Pending
+                {t('pending')}
               </button>
             </div>
           </div>
@@ -265,14 +265,21 @@ export default function ClaimsPage() {
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-1">{claim.title}</h3>
                     <p className="text-sm text-gray-500">
-                      Claimed by: {claim.user_name || 'Unknown User'}
+                      {t('claimedBy')}: {claim.user_name || t('unknownUser')}
                     </p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    claim.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {claim.approval ? 'Approved' : 'Pending'}
-                  </span>
+                  <div className="flex flex-col gap-1 items-end">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      claim.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {claim.approval ? t('approved') : t('pending')}
+                    </span>
+                    {claim.is_assigned && (
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        {t('assigned') || 'Assigned'}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Claim Description */}
@@ -281,7 +288,7 @@ export default function ClaimsPage() {
                 {/* Item Information */}
                 {claim.item_title && (
                   <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-900 mb-1">Item: {claim.item_title}</p>
+                    <p className="text-sm font-medium text-gray-900 mb-1">{t('item')}: {claim.item_title}</p>
                     {claim.item_description && (
                       <p className="text-sm text-gray-600 line-clamp-2">{claim.item_description}</p>
                     )}
@@ -291,13 +298,13 @@ export default function ClaimsPage() {
                 {/* Claim Images */}
                 {claim.images && claim.images.length > 0 && (
                   <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-900 mb-2">Supporting Images:</p>
+                    <p className="text-sm font-medium text-gray-900 mb-2">{t('supportingImages')}:</p>
                     <div className="grid grid-cols-2 gap-2">
                       {claim.images.slice(0, 4).map((image, index) => (
                         <div key={index} className="relative h-20 rounded-lg overflow-hidden">
                           <Image
                             src={image}
-                            alt={`Supporting image ${index + 1}`}
+                            alt={`${t('supportingImage')} ${index + 1}`}
                             fill
                             className="object-cover"
                           />
@@ -309,9 +316,9 @@ export default function ClaimsPage() {
 
                 {/* Claim Details */}
                 <div className="text-sm text-gray-500 mb-4">
-                  <p>Created: {formatDate(claim.created_at)}</p>
+                  <p>{t('created')}: {formatDateOnly(claim.created_at)}</p>
                   {claim.updated_at !== claim.created_at && (
-                    <p>Updated: {formatDate(claim.updated_at)}</p>
+                    <p>{t('updated')}: {formatDateOnly(claim.updated_at)}</p>
                   )}
                 </div>
 
@@ -321,14 +328,14 @@ export default function ClaimsPage() {
                     onClick={() => setSelectedClaim(claim)}
                     className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    View Details
+                    {t('viewDetails')}
                   </button>
                   {!claim.approval && (
                     <button
                       onClick={() => handleClaimApproval(claim.id, true)}
                       className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                     >
-                      Approve
+                      {t('approve')}
                     </button>
                   )}
                   {claim.approval && (
@@ -336,7 +343,7 @@ export default function ClaimsPage() {
                       onClick={() => handleClaimApproval(claim.id, false)}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                     >
-                      Reject
+                      {t('reject')}
                     </button>
                   )}
                 </div>
@@ -349,11 +356,11 @@ export default function ClaimsPage() {
         {filteredClaims.length === 0 && (
           <div className="text-center py-12">
             <div className="text-gray-400 text-6xl mb-4">📋</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No claims found</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('noClaimsFound')}</h3>
             <p className="text-gray-500">
               {searchTerm || filters.approved_only !== undefined 
-                ? 'Try adjusting your search or filters'
-                : 'No claims have been submitted yet'
+                ? t('tryAdjustingFilters')
+                : t('noClaimsSubmitted')
               }
             </p>
           </div>
@@ -361,7 +368,7 @@ export default function ClaimsPage() {
 
         {/* Claim Details Modal */}
         {selectedClaim && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 {/* Modal Header */}
@@ -369,7 +376,7 @@ export default function ClaimsPage() {
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedClaim.title}</h2>
                     <p className="text-gray-600">
-                      Claimed by: {selectedClaim.user_name || 'Unknown User'}
+                      {t('claimedBy')}: {selectedClaim.user_name || t('unknownUser')}
                     </p>
                   </div>
                   <button
@@ -382,14 +389,14 @@ export default function ClaimsPage() {
 
                 {/* Claim Description */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Claim Description</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('claimDescription')}</h3>
                   <p className="text-gray-700 whitespace-pre-wrap">{selectedClaim.description}</p>
                 </div>
 
                 {/* Item Information */}
                 {selectedClaim.item_title && (
                   <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Item Information</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('itemInformation')}</h3>
                     <div className="p-4 bg-gray-50 rounded-lg">
                       <p className="font-medium text-gray-900 mb-2">{selectedClaim.item_title}</p>
                       {selectedClaim.item_description && (
@@ -402,13 +409,13 @@ export default function ClaimsPage() {
                 {/* Supporting Images */}
                 {selectedClaim.images && selectedClaim.images.length > 0 && (
                   <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Supporting Images</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('supportingImages')}</h3>
                     <div className="grid grid-cols-2 gap-4">
                       {selectedClaim.images.map((image, index) => (
                         <div key={index} className="relative h-32 rounded-lg overflow-hidden">
                           <Image
                             src={image}
-                            alt={`Supporting image ${index + 1}`}
+                            alt={`${t('supportingImage')} ${index + 1}`}
                             fill
                             className="object-cover"
                           />
@@ -420,19 +427,26 @@ export default function ClaimsPage() {
 
                 {/* Claim Status */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Status</h3>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    selectedClaim.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {selectedClaim.approval ? 'Approved' : 'Pending Review'}
-                  </span>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('status')}</h3>
+                  <div className="flex gap-2 flex-wrap">
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      selectedClaim.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {selectedClaim.approval ? t('approved') : t('pendingReview')}
+                    </span>
+                    {selectedClaim.is_assigned && (
+                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                        {t('assigned') || 'Assigned'}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Timestamps */}
                 <div className="mb-6 text-sm text-gray-500">
-                  <p>Created: {formatDate(selectedClaim.created_at)}</p>
+                  <p>{t('created')}: {formatDateOnly(selectedClaim.created_at)}</p>
                   {selectedClaim.updated_at !== selectedClaim.created_at && (
-                    <p>Last Updated: {formatDate(selectedClaim.updated_at)}</p>
+                    <p>{t('lastUpdated')}: {formatDateOnly(selectedClaim.updated_at)}</p>
                   )}
                 </div>
 
@@ -442,7 +456,7 @@ export default function ClaimsPage() {
                     onClick={() => setSelectedClaim(null)}
                     className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    Close
+                    {t('close')}
                   </button>
                   {!selectedClaim.approval && (
                     <button
@@ -452,7 +466,7 @@ export default function ClaimsPage() {
                       }}
                       className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                     >
-                      Approve Claim
+                      {t('approveClaim')}
                     </button>
                   )}
                   {selectedClaim.approval && (
@@ -463,7 +477,7 @@ export default function ClaimsPage() {
                       }}
                       className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                     >
-                      Reject Claim
+                      {t('rejectClaim')}
                     </button>
                   )}
                 </div>
