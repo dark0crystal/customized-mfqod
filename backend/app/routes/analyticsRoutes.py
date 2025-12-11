@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from app.db.database import get_session
-from app.models import Item, ItemType, Claim, User, Address
+from app.models import Item, ItemType, Claim, User, Address, ItemStatus
 from app.middleware.auth_middleware import get_current_user_required
 import logging
 
@@ -59,8 +59,9 @@ async def get_public_statistics(
     try:
         # Count total approved items (not deleted)
         # Use the same pattern as ItemService.get_items() for consistency
+        approved_filter = Item.status == ItemStatus.APPROVED.value
         total_items_query = db.query(func.count(Item.id)).filter(
-            Item.approval == True,
+            approved_filter,
             Item.temporary_deletion == False
         )
         total_items = total_items_query.scalar() or 0
@@ -68,7 +69,7 @@ async def get_public_statistics(
         # Count returned items (items with approved_claim_id)
         # An item is "returned" when it has an approved claim
         returned_items_query = db.query(func.count(Item.id)).filter(
-            Item.approval == True,
+            approved_filter,
             Item.temporary_deletion == False,
             Item.approved_claim_id.isnot(None)
         )
