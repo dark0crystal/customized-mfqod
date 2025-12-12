@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { tokenManager } from '@/utils/tokenManager';
 import { usePermissions } from "@/PermissionsContext";
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -32,13 +33,14 @@ type UserData = {
   email: string;
   first_name: string;
   last_name: string;
-  role_name: string;
+  role: string;
   status_name: string;
   created_at: string;
   updated_at: string;
 };
 
 export default function EditUserRole({ userId }: { userId: string }) {
+  const t = useTranslations('editUserRole');
   const { hasPermission, userRole, isLoading: permissionsLoading } = usePermissions();
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRole, setSelectedRole] = useState<string>("");
@@ -54,7 +56,7 @@ export default function EditUserRole({ userId }: { userId: string }) {
     async function fetchRolesAndUserRole() {
       try {
         setIsLoading(true);
-        
+
         // Fetch available roles from your FastAPI backend
         const rolesResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/roles/all`, {
           headers: getAuthHeaders()
@@ -69,10 +71,10 @@ export default function EditUserRole({ userId }: { userId: string }) {
         });
         if (!userResponse.ok) throw new Error("Failed to fetch user data");
         const userData: UserData = await userResponse.json();
-        
-        setCurrentRole(userData.role_name);
-        setSelectedRole(userData.role_name);
-        
+
+        setCurrentRole(userData.role);
+        setSelectedRole(userData.role);
+
         // Get current logged-in user info to check if editing self
         const currentUser = tokenManager.getUser();
         if (currentUser && currentUser.id) {
@@ -94,7 +96,7 @@ export default function EditUserRole({ userId }: { userId: string }) {
   // Submit handler to update the user role
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedRole) {
       setErrorMessage("Please select a role");
       return;
@@ -147,8 +149,8 @@ export default function EditUserRole({ userId }: { userId: string }) {
       <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
         <div className="text-center py-12">
           <div className="text-red-500 text-4xl mb-4">🔒</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Access Denied</h3>
-          <p className="text-gray-600">You don't have permission to manage user roles.</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('accessDeniedTitle')}</h3>
+          <p className="text-gray-600">{t('accessDeniedMessage')}</p>
         </div>
       </div>
     );
@@ -169,12 +171,12 @@ export default function EditUserRole({ userId }: { userId: string }) {
 
   return (
     <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">Edit User Role</h1>
-      
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">{t('title')}</h1>
+
       {currentRole && (
         <div className="mb-4 p-3 bg-gray-50 rounded-lg">
           <p className="text-sm text-gray-600">
-            Current Role: <span className="font-semibold text-gray-800">{currentRole}</span>
+            {t('currentRole')}: <span className="font-semibold text-gray-800">{currentRole}</span>
           </p>
         </div>
       )}
@@ -182,16 +184,16 @@ export default function EditUserRole({ userId }: { userId: string }) {
       {isEditingSelf && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-sm text-yellow-800">
-            ⚠️ You are editing your own role. You cannot elevate yourself to admin or super_admin.
+            {t('editingSelfWarning')}
           </p>
         </div>
       )}
-      
+
       <div className="space-y-4">
         {/* Role Selection */}
         <div>
           <label htmlFor="role_name" className="block text-sm font-medium text-gray-700 mb-2">
-            Select New Role
+            {t('selectNewRole')}
           </label>
           <select
             id="role_name"
@@ -199,7 +201,7 @@ export default function EditUserRole({ userId }: { userId: string }) {
             onChange={handleRoleChange}
             className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="" disabled>Select Role</option>
+            <option value="" disabled>{t('selectRole')}</option>
             {availableRoles.map((role) => (
               <option key={role.id} value={role.name}>
                 {role.name}
@@ -207,7 +209,7 @@ export default function EditUserRole({ userId }: { userId: string }) {
             ))}
           </select>
           {!selectedRole && errorMessage?.includes("select a role") && (
-            <p className="text-red-500 text-sm mt-1">Please select a role</p>
+            <p className="text-red-500 text-sm mt-1">{t('pleaseSelectRole')}</p>
           )}
         </div>
 
@@ -215,15 +217,16 @@ export default function EditUserRole({ userId }: { userId: string }) {
         <button
           onClick={handleSubmit}
           disabled={isSubmitting || !selectedRole || (isEditingSelf && (selectedRole.toLowerCase() === 'admin' || selectedRole.toLowerCase() === 'super_admin'))}
-          className="w-full px-4 py-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          className="w-full px-4 py-3 text-white rounded-md hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          style={{ backgroundColor: isSubmitting || !selectedRole || (isEditingSelf && (selectedRole.toLowerCase() === 'admin' || selectedRole.toLowerCase() === 'super_admin')) ? undefined : '#3277AE' }}
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Updating...
+              {t('updating')}
             </span>
           ) : (
-            "Update Role"
+            t('updateRole')
           )}
         </button>
 

@@ -102,7 +102,7 @@ export default function UserClaims({ userId }: UserClaimsProps) {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto mt-4 p-3 sm:p-5 bg-white border border-gray-200 rounded-2xl sm:rounded-3xl">
+    <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('userClaims') || 'User Claims'}</h2>
       
       {claims.length > 0 ? (
