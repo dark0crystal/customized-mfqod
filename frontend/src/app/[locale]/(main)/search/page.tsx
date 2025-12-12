@@ -124,7 +124,7 @@ export default function Search() {
       if (branchId) params.append("branch_id", branchId);
       params.append("skip", "0");
       params.append("limit", "100");
-      params.append("approved_only", "true");
+      params.append("status", "pending");
 
       if (params.toString()) {
         url += `?${params.toString()}`;
