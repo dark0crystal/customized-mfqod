@@ -153,7 +153,7 @@ export default function SideNavbar() {
           label: t('reportMissingItem'),
           icon: <FileText size={16} />,
           href: '/dashboard/report-missing-item',
-          requiredPermissions: ['create_post']
+          requiredPermissions: ['can_create_missing_items']
         },
         {
           id: 'missing-items',

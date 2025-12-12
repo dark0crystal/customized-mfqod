@@ -170,8 +170,10 @@ export default function EditUserRole({ userId }: { userId: string }) {
   const isEditingSelf = currentUserId === userId;
 
   return (
-    <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">{t('title')}</h1>
+    <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-gray-800">{t('title')}</h2>
+      </div>
 
       {currentRole && (
         <div className="mb-4 p-3 bg-gray-50 rounded-lg">

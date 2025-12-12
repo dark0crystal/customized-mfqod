@@ -6,6 +6,19 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+import { tokenManager } from '@/utils/tokenManager';
+
+// Helper function to create authenticated headers
+const getAuthHeaders = (): HeadersInit => {
+  const token = tokenManager.getAccessToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 type User = {
   id: string;
@@ -48,20 +61,22 @@ export default function ManageUsers() {
   const [error, setFetchError] = useState<string | null>(null);
 
   const fetchUsers = async (email: string) => {
-  try {
-    const response = await fetch(`${API_BASE}/api/users/search?email=${encodeURIComponent(email)}&page=1&limit=10`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch users");
-    }
+    try {
+      const response = await fetch(`${API_BASE}/api/users/search?email=${encodeURIComponent(email)}&page=1&limit=10`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch users");
+      }
 
-    const data: UserSearchResponse = await response.json();
-    setUsers(data.users);
-    setFetchError(null);
-  } catch (error: any) {
-    setUsers([]);
-    setFetchError(error.message || t('errorFetchingUsers'));
-  }
-};
+      const data: UserSearchResponse = await response.json();
+      setUsers(data.users);
+      setFetchError(null);
+    } catch (error: any) {
+      setUsers([]);
+      setFetchError(error.message || t('errorFetchingUsers'));
+    }
+  };
 
   const onSubmit: SubmitHandler<FormFields> = async (data) => {
     await fetchUsers(data.email);
@@ -96,7 +111,7 @@ export default function ManageUsers() {
                   type="submit"
                   disabled={isSubmitting}
                   className="px-8 py-3 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                  style={{ 
+                  style={{
                     backgroundColor: '#3277AE',
                     '--tw-ring-color': '#3277AE'
                   } as React.CSSProperties & { [key: string]: string }}
@@ -159,9 +174,8 @@ export default function ManageUsers() {
                 key={user.id}
                 className="block"
               >
-                <div className={`bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] border-l-4 ${
-                  user.role && userCardStyle[user.role] ? userCardStyle[user.role] : "border-gray-200"
-                }`}>
+                <div className={`bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] border-l-4 ${user.role && userCardStyle[user.role] ? userCardStyle[user.role] : "border-gray-200"
+                  }`}>
                   <div className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
