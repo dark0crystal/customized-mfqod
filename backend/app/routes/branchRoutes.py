@@ -476,7 +476,7 @@ def get_user_managed_branches(
 
 
 @router.post("/{branch_id}/managers/{user_id}", status_code=status.HTTP_201_CREATED)
-# @require_permission("can_assign_branch_managers")  # Uncomment if permissions are needed
+@require_permission("can_manage_users")
 def assign_branch_manager(
     branch_id: str,
     user_id: str,
@@ -484,7 +484,7 @@ def assign_branch_manager(
     db: Session = Depends(get_session),
     branch_service: BranchService = Depends(get_branch_service)
 ):
-    """Assign a user as manager of a branch"""
+    """Assign a user as manager of a branch - requires can_manage_users permission"""
     try:
         branch_service.assign_branch_manager(branch_id, user_id)
         return {"message": "User successfully assigned as branch manager"}
@@ -495,7 +495,7 @@ def assign_branch_manager(
 
 
 @router.delete("/{branch_id}/managers/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-# @require_permission("can_remove_branch_managers")  # Uncomment if permissions are needed
+@require_permission("can_manage_users")
 def remove_branch_manager(
     branch_id: str,
     user_id: str,
@@ -503,7 +503,7 @@ def remove_branch_manager(
     db: Session = Depends(get_session),
     branch_service: BranchService = Depends(get_branch_service)
 ):
-    """Remove a user as manager of a branch"""
+    """Remove a user as manager of a branch - requires can_manage_users permission"""
     try:
         branch_service.remove_branch_manager(branch_id, user_id)
         return None
