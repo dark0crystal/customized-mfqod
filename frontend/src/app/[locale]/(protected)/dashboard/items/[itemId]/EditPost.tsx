@@ -100,14 +100,14 @@ export default function EditPost({ params }: EditPostProps) {
   const router = useRouter();
   const t = useTranslations('editPost');
   const locale = useLocale();
-  
+
   // Helper function to get localized name
   const getLocalizedName = useCallback((nameAr?: string, nameEn?: string): string => {
     if (locale === 'ar' && nameAr) return nameAr;
     if (locale === 'en' && nameEn) return nameEn;
     return nameAr || nameEn || '';
   }, [locale]);
-  
+
   const [item, setItem] = useState<ItemData | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -197,7 +197,7 @@ export default function EditPost({ params }: EditPostProps) {
             if (currentAddress?.branch) {
               const branchId = currentAddress.branch.id ?? '';
               const orgId = currentAddress.branch.organization?.id ?? '';
-              
+
               if (orgId) {
                 setValue('organization_id', orgId);
                 // Fetch branches for this organization and preserve branch_id
@@ -263,7 +263,7 @@ export default function EditPost({ params }: EditPostProps) {
         if (newImages.length > 0) {
           setUploadingImages(true);
           setUploadProgress({ loaded: 0, total: 0, percentage: 0 });
-          
+
           try {
             await imageUploadService.uploadMultipleImages(
               'item',
@@ -273,7 +273,7 @@ export default function EditPost({ params }: EditPostProps) {
                 setUploadProgress(progress);
               }
             );
-            
+
             // Refresh item data to show new images
             const itemResponse = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
               headers: getAuthHeaders(),
@@ -282,7 +282,7 @@ export default function EditPost({ params }: EditPostProps) {
               const updatedItem = await itemResponse.json();
               setItem(updatedItem);
             }
-            
+
             setNewImages([]);
             setUploadProgress(null);
           } catch (uploadError: unknown) {
@@ -297,7 +297,7 @@ export default function EditPost({ params }: EditPostProps) {
             setUploadingImages(false);
           }
         }
-        
+
         // Only redirect if no images were uploaded or upload was successful
         if (newImages.length === 0 || uploadErrors.length === 0) {
           router.push('/dashboard/items');
@@ -349,172 +349,121 @@ export default function EditPost({ params }: EditPostProps) {
   }
 
   return (
-    <div className="p-6 sm:p-8">
-      <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">
-        {t('title')}
-      </h2>
+    <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <form onSubmit={handleSubmit(onSubmit)} className="p-6 md:p-8 space-y-10">
 
-          {/* Upload New Images Section */}
-          <div className="mb-6">
-            <CompressorFileInput 
-              onFilesSelected={setNewImages} 
-              showValidation={true} 
-              maxFiles={10}
-              showOptimizationSettings={false}
-              compressionQuality={0.7}
-              maxWidth={1200}
-              maxHeight={1200}
-            />
-            
-            {/* Upload Progress */}
-            {uploadProgress && uploadingImages && (
-              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-blue-900">{t('uploadingImages') || 'Uploading images...'}</span>
-                  <span className="text-sm text-blue-700">{uploadProgress.percentage}%</span>
-                </div>
-                <div className="w-full bg-blue-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                    style={{ width: `${uploadProgress.percentage}%` }}
-                  ></div>
-                </div>
-                {uploadProgress.total > 0 && (
-                  <div className="text-xs text-blue-600 mt-1">
-                    {Math.round(uploadProgress.loaded / 1024)} KB / {Math.round(uploadProgress.total / 1024)} KB
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Upload Errors */}
-            {uploadErrors.length > 0 && (
-              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <div className="text-sm text-red-800 font-medium mb-2">{t('someImagesFailed') || 'Some images failed to upload'}</div>
-                {uploadErrors.map((error, index) => (
-                  <div key={index} className="text-sm text-red-600 mb-1">
-                    <span className="font-medium">{error.error}:</span> {error.message}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Location History Section */}
-          {item.addresses && item.addresses.length > 0 && (
-            <div className="mb-6">
-              <LocationTracking addresses={item.addresses} />
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* --- Basic Information --- */}
+        <section>
+          <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">{t('title') || 'Basic Information'}</h2>
+          <div className="space-y-6">
             {/* Title */}
             <div>
-              <label htmlFor="title" className="block text-lg font-semibold text-gray-700 mb-2">
-                {t('titleLabel')} *
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                {t('titleLabel')}
               </label>
               <input
                 type="text"
                 id="title"
                 {...register('title', { required: t('titleRequired') })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border"
                 placeholder={t('titlePlaceholder')}
               />
               {errors.title && (
-                <p className="mt-2 text-sm text-red-500">{errors.title.message}</p>
+                <p className="mt-1 text-xs text-red-500">{errors.title.message}</p>
               )}
             </div>
 
             {/* Description */}
             <div>
-              <label htmlFor="description" className="block text-lg font-semibold text-gray-700 mb-2">
-                {t('descriptionLabel')} *
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                {t('descriptionLabel')}
               </label>
               <textarea
                 id="description"
                 rows={4}
                 {...register('description', { required: t('descriptionRequired') })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border"
                 placeholder={t('descriptionPlaceholder')}
               />
               {errors.description && (
-                <p className="mt-2 text-sm text-red-500">{errors.description.message}</p>
+                <p className="mt-1 text-xs text-red-500">{errors.description.message}</p>
               )}
             </div>
+          </div>
+        </section>
+
+        {/* --- Status & Classification --- */}
+        <section>
+          <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">{t('statusLabel') || 'Status & Classification'}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             {/* Item Status */}
             <div>
-              <label className="block text-lg font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 {t('statusLabel') || t('approvalStatus')}
               </label>
-              <div className="relative">
-                <HydrationSafeWrapper fallback={<div className="w-full h-12 bg-gray-100 rounded-lg animate-pulse"></div>}>
-                  <CustomDropdown
-                    options={[
-                      { value: 'cancelled', label: t('status.cancelled') || t('cancelled') },
-                      { value: 'approved', label: t('status.approved') || t('approved') },
-                      { value: 'on_hold', label: t('status.on_hold') || 'On Hold' },
-                      { value: 'received', label: t('status.received') || 'Received' }
-                    ]}
-                    value={status}
-                    onChange={setStatus}
-                    placeholder={t('selectStatus') || t('selectApprovalStatus')}
-                    className="w-full"
-                  />
-                </HydrationSafeWrapper>
-              </div>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border bg-white"
+              >
+                <option value="cancelled">{t('status.cancelled') || t('cancelled')}</option>
+                <option value="approved">{t('status.approved') || t('approved')}</option>
+                <option value="on_hold">{t('status.on_hold') || 'On Hold'}</option>
+                <option value="received">{t('status.received') || 'Received'}</option>
+              </select>
             </div>
 
             {/* Temporary Deletion */}
             <div>
-              <label className="block text-lg font-semibold text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 {t('deletionStatus')}
               </label>
-              <div className="relative">
-                <HydrationSafeWrapper fallback={<div className="w-full h-12 bg-gray-100 rounded-lg animate-pulse"></div>}>
-                  <CustomDropdown
-                    options={[
-                      { value: 'false', label: t('active') },
-                      { value: 'true', label: t('markedForDeletion') }
-                    ]}
-                    value={deletionStatus}
-                    onChange={setDeletionStatus}
-                    placeholder={t('selectDeletionStatus')}
-                    className="w-full"
-                  />
-                </HydrationSafeWrapper>
-              </div>
+              <select
+                value={deletionStatus}
+                onChange={(e) => setDeletionStatus(e.target.value)}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border bg-white"
+              >
+                <option value="false">{t('active')}</option>
+                <option value="true">{t('markedForDeletion')}</option>
+              </select>
             </div>
+          </div>
+        </section>
 
-            {/* Location */}
+        {/* --- Location & Assignment --- */}
+        <section>
+          <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">{t('locationLabel') || 'Location & Assignment'}</h2>
+          <div className="space-y-6">
+
+            {/* Location (Read-only) */}
             <div>
-              <label htmlFor="location" className="block text-lg font-semibold text-gray-700 mb-2">
-                {t('locationLabel')} *
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+                {t('locationLabel')}
               </label>
               <input
                 type="text"
                 id="location"
                 {...register('location', { required: t('locationRequired') })}
                 disabled
-                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                className="w-full rounded-md border-gray-300 shadow-sm bg-gray-50 text-gray-500 sm:text-sm p-2.5 border cursor-not-allowed"
                 placeholder={t('locationPlaceholder')}
               />
               {errors.location && (
-                <p className="mt-2 text-sm text-red-500">{errors.location.message}</p>
+                <p className="mt-1 text-xs text-red-500">{errors.location.message}</p>
               )}
             </div>
 
-            {/* Organization and Branch - Responsive Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Organization */}
               <div>
-                <label htmlFor="organization_id" className="block text-lg font-semibold text-gray-700 mb-2">
+                <label htmlFor="organization_id" className="block text-sm font-medium text-gray-700 mb-1">
                   {t('organizationLabel')}
                 </label>
                 <select
                   id="organization_id"
                   {...register('organization_id')}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border bg-white"
                 >
                   <option value="">
                     {loadingOrgs ? t('loadingOrganizations') : t('selectOrganization')}
@@ -529,14 +478,14 @@ export default function EditPost({ params }: EditPostProps) {
 
               {/* Branch */}
               <div>
-                <label htmlFor="branch_id" className="block text-lg font-semibold text-gray-700 mb-2">
+                <label htmlFor="branch_id" className="block text-sm font-medium text-gray-700 mb-1">
                   {t('branchLabel')}
                 </label>
                 <select
                   id="branch_id"
                   {...register('branch_id')}
                   disabled={!watchedOrganization || branches.length === 0}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border bg-white disabled:bg-gray-50 disabled:text-gray-400"
                 >
                   <option value="">
                     {!watchedOrganization ? t('selectOrganizationFirst') :
@@ -552,28 +501,87 @@ export default function EditPost({ params }: EditPostProps) {
                 </select>
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Submit Button */}
-            <div className="text-center">
-              <button 
-                type="submit" 
-                disabled={submitting} 
-                className="w-full sm:w-auto px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                {submitting ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    {t('updating')}
-                  </span>
-                ) : (
-                  t('updateItem')
-                )}
-              </button>
+        {/* --- Images --- */}
+        <section>
+          <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">{t('itemImages') || 'Images'}</h2>
+
+          <CompressorFileInput
+            onFilesSelected={setNewImages}
+            showValidation={true}
+            maxFiles={10}
+            showOptimizationSettings={false}
+            compressionQuality={0.7}
+            maxWidth={1200}
+            maxHeight={1200}
+          />
+
+          {/* Upload Progress */}
+          {uploadProgress && uploadingImages && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-blue-900">{t('uploadingImages') || 'Uploading images...'}</span>
+                <span className="text-sm text-blue-700">{uploadProgress.percentage}%</span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress.percentage}%` }}
+                ></div>
+              </div>
+              {uploadProgress.total > 0 && (
+                <div className="text-xs text-blue-600 mt-1">
+                  {Math.round(uploadProgress.loaded / 1024)} KB / {Math.round(uploadProgress.total / 1024)} KB
+                </div>
+              )}
             </div>
-          </form>
+          )}
+
+          {/* Upload Errors */}
+          {uploadErrors.length > 0 && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="text-sm text-red-800 font-medium mb-2">{t('someImagesFailed') || 'Some images failed to upload'}</div>
+              {uploadErrors.map((error, index) => (
+                <div key={index} className="text-sm text-red-600 mb-1">
+                  <span className="font-medium">{error.error}:</span> {error.message}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* --- Location History --- */}
+        {item.addresses && item.addresses.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">{t('locationHistory') || 'Location History'}</h2>
+            <LocationTracking addresses={item.addresses} />
+          </section>
+        )}
+
+        {/* --- Action Buttons --- */}
+        <div className="pt-6 border-t border-gray-100 flex justify-end">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="px-6 py-2.5 bg-[#3277AE] text-white rounded-lg font-medium hover:bg-[#2a6594] focus:ring-4 focus:ring-blue-100 transition-all disabled:opacity-70 flex items-center"
+          >
+            {submitting ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {t('updating')}
+              </>
+            ) : (
+              t('updateItem') || 'Save Changes'
+            )}
+          </button>
+        </div>
+
+      </form>
     </div>
   );
 }

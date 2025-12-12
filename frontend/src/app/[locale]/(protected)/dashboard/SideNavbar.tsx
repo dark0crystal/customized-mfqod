@@ -1,10 +1,10 @@
 "use client"
 import React, { useState, useEffect } from 'react';
-import { 
-  Home, 
-  FileText, 
-  Shield, 
-  PlusCircle, 
+import {
+  Home,
+  FileText,
+  Shield,
+  PlusCircle,
   Menu,
   X,
   ChevronDown,
@@ -90,9 +90,9 @@ export default function SideNavbar() {
   // Handle navigation with loading state
   const handleNavigation = (href: string, itemId: string) => {
     if (pathname === href) return; // Don't navigate if already on the page
-    
+
     setLoadingLinks(prev => new Set(prev).add(itemId));
-    
+
     // Clear loading state when navigation completes
     const handleRouteChange = () => {
       setLoadingLinks(prev => {
@@ -135,11 +135,11 @@ export default function SideNavbar() {
       requiredPermissions: ['create_post', 'edit_post'],
       children: [
         {
-        id: 'Items',
-        label: t('items'),
-        icon: <Package size={16} />,
-        href: '/dashboard/items',
-        requiredPermissions: ['create_post', 'edit_post']
+          id: 'Items',
+          label: t('items'),
+          icon: <Package size={16} />,
+          href: '/dashboard/items',
+          requiredPermissions: ['create_post', 'edit_post']
         },
         {
           id: 'report-found-item',
@@ -169,10 +169,10 @@ export default function SideNavbar() {
           href: '/dashboard/transfer-requests',
           requiredPermissions: ['can_view_items']
         }
-        
+
       ]
     },
-   
+
     {
       id: 'analytics',
       label: t('analytics'),
@@ -180,7 +180,7 @@ export default function SideNavbar() {
       href: '/dashboard/analytics',
       requiredPermissions: ['view_analytics']
     },
-    
+
     {
       id: 'admin',
       label: t('adminPanel'),
@@ -254,8 +254,8 @@ export default function SideNavbar() {
 
   // Toggle expanded state for items with children
   const toggleExpanded = (itemId: string) => {
-    setExpandedItems(prev => 
-      prev.includes(itemId) 
+    setExpandedItems(prev =>
+      prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
         : [...prev, itemId]
     );
@@ -288,7 +288,7 @@ export default function SideNavbar() {
             `}
             onClick={() => toggleExpanded(item.id)}
           >
-            <div className="flex items-center flex-1">
+            <div className="flex items-center flex-1 gap-2">
               <div className="text-gray-600 group-hover:text-blue-600 transition-colors">
                 {isLoading ? (
                   <Loader2 size={20} className="animate-spin" />
@@ -297,12 +297,12 @@ export default function SideNavbar() {
                 )}
               </div>
               {!isCollapsed && (
-                <span className="ml-3 text-sm font-medium text-gray-700 group-hover:text-blue-600">
+                <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600">
                   {item.label}
                 </span>
               )}
             </div>
-            
+
             {!isCollapsed && (
               <div className="text-gray-400 group-hover:text-blue-600 transition-colors">
                 {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -321,7 +321,7 @@ export default function SideNavbar() {
               ${isLoading ? 'opacity-75' : ''}
             `}
           >
-            <div className="flex items-center flex-1">
+            <div className="flex items-center flex-1 gap-2">
               <div className={`text-gray-600 group-hover:text-blue-600 transition-colors ${isActive ? 'text-blue-600' : ''}`}>
                 {isLoading ? (
                   <Loader2 size={20} className="animate-spin" />
@@ -330,7 +330,7 @@ export default function SideNavbar() {
                 )}
               </div>
               {!isCollapsed && (
-                <span className={`ml-3 text-sm font-medium text-gray-700 group-hover:text-blue-600 ${isActive ? 'text-blue-600' : ''}`}>
+                <span className={`text-sm font-medium text-gray-700 group-hover:text-blue-600 ${isActive ? 'text-blue-600' : ''}`}>
                   {item.label}
                 </span>
               )}
@@ -351,17 +351,17 @@ export default function SideNavbar() {
   return (
     <div className={`
       bg-white shadow-lg border-r border-gray-200 min-h-[88vh] max-h-[100vh] flex flex-col transition-all duration-300
-      ${isCollapsed ? 'w-16' : 'w-64'}
+      ${isCollapsed ? 'w-16' : 'w-72'}
     `}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           {!isCollapsed && (
             <div className="flex items-center space-x-2">
-              <Brand/>
+              <Brand />
             </div>
           )}
-          
+
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -374,7 +374,7 @@ export default function SideNavbar() {
       {/* User Info */}
       {isAuthenticated && (
         <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             <div className="w-10 h-10 rounded-full flex items-center justify-center border-2" style={{ backgroundColor: '#3277AE', borderColor: '#3277AE' }}>
               <User className="text-white" size={20} />
             </div>
@@ -403,11 +403,11 @@ export default function SideNavbar() {
           <button
             onClick={handleLogout}
             disabled={logoutLoading}
-            className="w-full flex items-center px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed gap-2"
           >
             <LogOut size={20} />
             {!isCollapsed && (
-              <span className="ml-3 text-sm font-medium">
+              <span className="text-sm font-medium">
                 {logoutLoading ? 'Logging out...' : t('logout')}
               </span>
             )}
