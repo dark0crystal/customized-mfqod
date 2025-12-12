@@ -93,6 +93,10 @@ class TokenManager {
   }
 
   isAuthenticated(): boolean {
+    // Only check authentication in browser environment
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return false;
+    }
     return !!this.getAccessToken();
   }
 
@@ -126,7 +130,7 @@ class TokenManager {
 
   private async performTokenRefresh(refreshToken: string): Promise<string> {
     try {
-      const response = await fetch(`${this.baseUrl}/users/refresh`, {
+      const response = await fetch(`${this.baseUrl}/api/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -193,12 +197,22 @@ class TokenManager {
         await this.refreshAccessToken();
       }
       
-      // Handle expired token
-      if (tokenInfo.is_expired) {
-        this.handleAuthFailure();
+      // Handle expired token - only clear if actually expired, not on network errors
+      if (tokenInfo.is_expired && tokenInfo.expires_at) {
+        // Only clear if we have a valid expiration time and it's actually expired
+        const now = Date.now();
+        const expiresAt = new Date(tokenInfo.expires_at).getTime();
+        if (expiresAt < now) {
+          this.handleAuthFailure();
+        }
       }
     } catch (error) {
+      // Don't clear tokens on network errors - just log the error
       console.error('Error checking token status:', error);
+      // Only clear tokens if it's a clear authentication error, not a network issue
+      if (error instanceof Error && error.message.includes('401')) {
+        this.handleAuthFailure();
+      }
     }
   }
 
@@ -216,7 +230,7 @@ class TokenManager {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/users/token/info`, {
+      const response = await fetch(`${this.baseUrl}/api/users/token/info`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -294,12 +308,12 @@ class TokenManager {
 
   async login(identifier: string, password: string): Promise<LoginResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/users/login`, {
+      const response = await fetch(`${this.baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ identifier, password }),
+        body: JSON.stringify({ email_or_username: identifier, password }),
       });
 
       if (!response.ok) {
@@ -323,12 +337,15 @@ class TokenManager {
     try {
       // Call logout endpoint if available
       const token = this.getAccessToken();
-      if (token) {
-        await fetch(`${this.baseUrl}/users/logout`, {
+      const refreshToken = this.getRefreshToken();
+      if (token && refreshToken) {
+        await fetch(`${this.baseUrl}/api/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({ refresh_token: refreshToken }),
         });
       }
     } catch (error) {
@@ -348,8 +365,8 @@ class TokenManager {
     this.clearTokens();
     
     // Only redirect in browser environment
-    if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-      window.location.href = '/login';
+    if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
+      window.location.href = '/auth/login';
     }
   }
 
