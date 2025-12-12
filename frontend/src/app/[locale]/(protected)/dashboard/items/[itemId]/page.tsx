@@ -125,7 +125,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const [showEditForm, setShowEditForm] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [transferBranches, setTransferBranches] = useState<Array<{id: string, branch_name_ar?: string, branch_name_en?: string, disabled?: boolean, isManaged?: boolean}>>([]);
+  const [transferBranches, setTransferBranches] = useState<Array<{ id: string, branch_name_ar?: string, branch_name_en?: string, disabled?: boolean, isManaged?: boolean }>>([]);
   const [selectedTransferBranch, setSelectedTransferBranch] = useState<string>('');
   const [transferNotes, setTransferNotes] = useState<string>('');
   const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
@@ -168,45 +168,45 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   useEffect(() => {
     const fetchTransferBranches = async () => {
       if (!showTransferModal || !item) return;
-      
+
       try {
         // Fetch all branches
         const allBranchesResponse = await fetch(`${API_BASE_URL}/api/branches/`, {
           headers: getAuthHeaders()
         });
-        
+
         // Fetch user's managed branches
         const managedBranchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
           headers: getAuthHeaders()
         });
-        
+
         if (allBranchesResponse.ok && managedBranchesResponse.ok) {
           const allBranches = await allBranchesResponse.json();
           const managedBranches = await managedBranchesResponse.json();
-          
+
           // Get current branch ID from item location
           const currentBranchId = item.addresses?.find(addr => addr.is_current)?.branch?.id;
-          
+
           // Create a set of managed branch IDs for quick lookup
-          const managedBranchIds = new Set(managedBranches.map((branch: {id: string}) => branch.id));
-          
+          const managedBranchIds = new Set(managedBranches.map((branch: { id: string }) => branch.id));
+
           // Process all branches: filter out current branch and mark managed branches as disabled
           // Note: Managed branches are still shown but in gray (disabled)
           const availableBranches = allBranches
-            .filter((branch: {id: string}) => branch.id !== currentBranchId)
-            .map((branch: {id: string, branch_name_ar?: string, branch_name_en?: string}) => ({
+            .filter((branch: { id: string }) => branch.id !== currentBranchId)
+            .map((branch: { id: string, branch_name_ar?: string, branch_name_en?: string }) => ({
               ...branch,
               disabled: managedBranchIds.has(branch.id),
               isManaged: managedBranchIds.has(branch.id)
             }));
-          
+
           setTransferBranches(availableBranches);
         } else if (allBranchesResponse.ok) {
           // Fallback: if managed branches fetch fails, just show all branches
           const allBranches = await allBranchesResponse.json();
           const currentBranchId = item.addresses?.find(addr => addr.is_current)?.branch?.id;
           const availableBranches = allBranches.filter(
-            (branch: {id: string}) => branch.id !== currentBranchId
+            (branch: { id: string }) => branch.id !== currentBranchId
           );
           setTransferBranches(availableBranches);
         }
@@ -244,7 +244,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
 
   const handleTransferRequest = async () => {
     if (!item || !selectedTransferBranch) return;
-    
+
     setIsSubmittingTransfer(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/transfer-requests/`, {
@@ -276,7 +276,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
 
   const handleDeleteItem = async () => {
     if (!item) return;
-    
+
     setIsDeleting(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}?permanent=true`, {
@@ -320,11 +320,11 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     );
   }
 
-  const userName = item.user?.name || 
-    (item.user?.first_name && item.user?.last_name 
-      ? `${item.user.first_name} ${item.user.last_name}` 
+  const userName = item.user?.name ||
+    (item.user?.first_name && item.user?.last_name
+      ? `${item.user.first_name} ${item.user.last_name}`
       : item.user?.first_name || item.user?.email || t('unknownUser'));
-  
+
   const userInitial = getInitials(userName);
   const userEmail = item.user?.email || '';
   const userRole = item.user?.role || 'N/A';
@@ -360,9 +360,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           <div className="lg:col-span-2 space-y-6">
             {/* Edit Form Section - Wider and on top */}
             {showEditForm ? (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <EditPost params={{ itemId: resolvedParams.itemId }} />
-              </div>
+              <EditPost params={{ itemId: resolvedParams.itemId }} />
             ) : (
               /* Read-only Item Information Section */
               <div className="bg-white rounded-lg shadow-sm p-6">
@@ -383,29 +381,27 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                   {/* Approval Status */}
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">{t('approvalStatus')}</label>
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                      item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
                       item.status === ItemStatus.RECEIVED ? 'bg-blue-100 text-blue-800' :
-                      item.status === ItemStatus.ON_HOLD ? 'bg-yellow-100 text-yellow-800' :
-                      item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
-                      item.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {item.status === ItemStatus.APPROVED ? t('approved') : 
-                       item.status === ItemStatus.RECEIVED ? (t('received') || 'Received') :
-                       item.status === ItemStatus.ON_HOLD ? (t('on_hold') || 'On Hold') :
-                       item.status === ItemStatus.CANCELLED ? t('cancelled') :
-                       item.approval ? t('approved') : t('cancelled')}
+                        item.status === ItemStatus.ON_HOLD ? 'bg-yellow-100 text-yellow-800' :
+                          item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
+                            item.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                      {item.status === ItemStatus.APPROVED ? t('approved') :
+                        item.status === ItemStatus.RECEIVED ? (t('received') || 'Received') :
+                          item.status === ItemStatus.ON_HOLD ? (t('on_hold') || 'On Hold') :
+                            item.status === ItemStatus.CANCELLED ? t('cancelled') :
+                              item.approval ? t('approved') : t('cancelled')}
                     </span>
                   </div>
 
                   {/* Temporary Deletion Status */}
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">{t('deletionStatus')}</label>
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                      item.temporary_deletion 
-                        ? 'bg-red-100 text-red-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${item.temporary_deletion
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-green-100 text-green-800'
+                      }`}>
                       {item.temporary_deletion ? t('markedForDeletion') : t('active')}
                     </span>
                   </div>
@@ -417,30 +413,30 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                   </div>
 
                   {/* Organization and Branch */}
-                  {(item.location?.organization_name_en || item.location?.organization_name_ar || 
+                  {(item.location?.organization_name_en || item.location?.organization_name_ar ||
                     item.location?.branch_name_en || item.location?.branch_name_ar) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Organization */}
-                      {(item.location?.organization_name_en || item.location?.organization_name_ar) && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-500 mb-1">{t('organization')}</label>
-                          <p className="text-base text-gray-900">
-                            {getLocalizedName(item.location.organization_name_ar, item.location.organization_name_en)}
-                          </p>
-                        </div>
-                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Organization */}
+                        {(item.location?.organization_name_en || item.location?.organization_name_ar) && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-500 mb-1">{t('organization')}</label>
+                            <p className="text-base text-gray-900">
+                              {getLocalizedName(item.location.organization_name_ar, item.location.organization_name_en)}
+                            </p>
+                          </div>
+                        )}
 
-                      {/* Branch */}
-                      {(item.location?.branch_name_en || item.location?.branch_name_ar) && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-500 mb-1">{t('branch')}</label>
-                          <p className="text-base text-gray-900">
-                            {getLocalizedName(item.location.branch_name_ar, item.location.branch_name_en)}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        {/* Branch */}
+                        {(item.location?.branch_name_en || item.location?.branch_name_ar) && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-500 mb-1">{t('branch')}</label>
+                            <p className="text-base text-gray-900">
+                              {getLocalizedName(item.location.branch_name_ar, item.location.branch_name_en)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                   {/* Location History */}
                   {item.addresses && item.addresses.length > 0 && (
@@ -452,7 +448,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                 </div>
               </div>
             )}
-            
+
             {/* Item Images Carousel */}
             {item.images && item.images.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm p-6">
@@ -479,63 +475,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
               </div>
             )}
 
-            {/* Item Images/Details Card */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">{t('itemImages')}</h2>
-                {item.images && item.images.length > 0 && (
-                  <span className="text-sm text-gray-600">
-                    {item.images.length} {item.images.length === 1 ? t('image') : t('images')}
-                  </span>
-                )}
-              </div>
 
-              {/* Images List */}
-              {item.images && item.images.length > 0 ? (
-                <div className="space-y-4">
-                  {item.images.map((image, index) => (
-                    <div key={image.id} className="flex gap-4 items-start">
-                      <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-                        <Image
-                          src={getImageUrl(image.url)}
-                          alt={image.description || `Item image ${index + 1}`}
-                          fill
-                          className="object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
-                          }}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{item.title}</p>
-                        <p className="text-sm text-gray-500 mt-1">{t('sku')}: {item.id.substring(0, 8).toUpperCase()}</p>
-                        {item.item_type && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-2">
-                            {getLocalizedName(item.item_type.name_ar, item.item_type.name_en)}
-                          </span>
-                        )}
-                        {image.description && (
-                          <p className="text-sm text-gray-600 mt-2">{image.description}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
-                  <p>{t('noImages')}</p>
-                </div>
-              )}
-
-              {/* Item Details */}
-              {item.description && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('description')}</h3>
-                  <p className="text-gray-700 text-sm leading-relaxed">{item.description}</p>
-                </div>
-              )}
-            </div>
 
             {/* Item Summary Card */}
             <div className="bg-white rounded-lg shadow-sm p-6">
@@ -573,21 +513,20 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">{t('itemStatus')}</h3>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                  item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
                   item.status === ItemStatus.RECEIVED ? 'bg-blue-100 text-blue-800' :
-                  item.status === ItemStatus.ON_HOLD ? 'bg-yellow-100 text-yellow-800' :
-                  item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
-                  item.approval ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {item.status === ItemStatus.APPROVED ? t('approved') : 
-                   item.status === ItemStatus.RECEIVED ? (t('received') || 'Received') :
-                   item.status === ItemStatus.ON_HOLD ? (t('on_hold') || 'On Hold') :
-                   item.status === ItemStatus.CANCELLED ? t('cancelled') :
-                   item.approval ? t('approved') : t('pending')}
+                    item.status === ItemStatus.ON_HOLD ? 'bg-yellow-100 text-yellow-800' :
+                      item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
+                        item.approval ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                  {item.status === ItemStatus.APPROVED ? t('approved') :
+                    item.status === ItemStatus.RECEIVED ? (t('received') || 'Received') :
+                      item.status === ItemStatus.ON_HOLD ? (t('on_hold') || 'On Hold') :
+                        item.status === ItemStatus.CANCELLED ? t('cancelled') :
+                          item.approval ? t('approved') : t('pending')}
                 </span>
               </div>
-              
+
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   {t('selectNewStatus')}
@@ -677,7 +616,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                   {item.location?.full_location && (
                     <p className="text-sm text-gray-600 pl-6">{item.location.full_location}</p>
                   )}
-                  
+
                   {item.addresses && item.addresses.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <LocationTracking addresses={item.addresses} />
@@ -728,7 +667,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                       </svg>
                     </button>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -803,7 +742,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                       <p className="text-sm text-gray-500 mt-1">{t('deleteItemTitle')}</p>
                     </div>
                   </div>
-                  
+
                   <div className="mb-6">
                     <p className="text-gray-700 mb-3">
                       {t('deleteItemConfirmation')}

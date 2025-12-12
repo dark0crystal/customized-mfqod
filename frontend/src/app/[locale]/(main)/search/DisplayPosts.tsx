@@ -48,7 +48,7 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
         setExpandedItemId(null);
       }
     };
-    
+
     if (expandedItemId) {
       document.addEventListener('keydown', handleEsc);
       // Prevent body scroll when image is expanded
@@ -56,7 +56,7 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
     } else {
       document.body.style.overflow = 'unset';
     }
-    
+
     return () => {
       document.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = 'unset';
@@ -82,35 +82,35 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
   // Helper to format location with localized organization and branch names
   const getLocationDisplay = (location?: LocationData): string => {
     if (!location) return t("location-not-specified");
-    
+
     const orgName = getLocalizedName(
       location.organization_name_ar,
       location.organization_name_en
     );
-    
+
     const branchName = getLocalizedName(
       location.branch_name_ar,
       location.branch_name_en
     );
-    
+
     // Build the location string with proper localization - only show locale-specific names
     const parts = [];
-    
+
     // Add organization name if available (only in selected locale)
     if (orgName) {
       parts.push(orgName);
     }
-    
+
     // Add branch name if available and different from organization (only in selected locale)
     if (branchName && branchName !== orgName) {
       parts.push(branchName);
     }
-    
+
     // Add full location if available and not already included
     if (location.full_location && !parts.some(part => location.full_location?.includes(part))) {
       parts.push(location.full_location);
     }
-    
+
     return parts.length > 0 ? parts.join(', ') : t("location-not-specified");
   };
 
@@ -119,18 +119,18 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
     if (itemImages && itemImages[0]?.url) {
       // If the url is already absolute, use as is
       if (/^https?:\/\//.test(itemImages[0].url)) return itemImages[0].url;
-      
+
       // Convert database URL format to static file serving format
       let imageUrl = itemImages[0].url.replace('/uploads/images/', '/static/images/');
-      
+
       // Ensure the imageUrl starts with a forward slash
       if (!imageUrl.startsWith('/')) {
         imageUrl = '/' + imageUrl;
       }
-      
+
       // Get base URL and ensure it doesn't end with a slash
       const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
-      
+
       return `${baseUrl}${imageUrl}`;
     }
     return null;
@@ -149,9 +149,8 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
               <div key={item.id}>
                 {/* Regular card view */}
                 <div
-                  className={`bg-white w-[350px] shadow-lg overflow-hidden rounded-2xl hover:shadow-xl transition-shadow duration-300 ${
-                    isExpanded ? "hidden" : ""
-                  }`}
+                  className={`bg-white w-[350px] shadow-lg overflow-hidden rounded-2xl hover:shadow-xl transition-shadow duration-300 ${isExpanded ? "hidden" : ""
+                    }`}
                 >
                   {/* Content */}
                   <div className="p-4 w-full">
@@ -201,8 +200,8 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gray-200 flex flex-col items-center justify-center rounded-2xl">
-                        <span className="text-gray-500 text-lg">مفقود</span>
-                        <span className="text-gray-400 text-sm mt-1">الصور غير متاحة</span>
+                        <span className="text-gray-500 text-lg">{t("brandName")}</span>
+                        <span className="text-gray-400 text-sm mt-1">{t("noImagesAvailable")}</span>
                       </div>
                     )}
                   </div>
@@ -210,7 +209,7 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
 
                 {/* Expanded image modal */}
                 {isExpanded && (
-                  <div 
+                  <div
                     className="fixed inset-0 bg-black bg-opacity-90 z-50 flex justify-center items-center p-4"
                     style={{ animation: "fadeIn .2s" }}
                     onClick={() => setExpandedItemId(null)}
@@ -238,7 +237,7 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
                       </button>
 
                       {/* Expanded image */}
-                      <div 
+                      <div
                         className="relative w-full h-full"
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -255,8 +254,8 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
                           />
                         ) : (
                           <div className="w-full h-full bg-gray-200 flex flex-col items-center justify-center">
-                            <span className="text-gray-500 text-2xl">مفقود</span>
-                            <span className="text-gray-400 text-base mt-2">الصور غير متاحة</span>
+                            <span className="text-gray-500 text-2xl">{t("brandName")}</span>
+                            <span className="text-gray-400 text-base mt-2">{t("noImagesAvailable")}</span>
                           </div>
                         )}
                       </div>
