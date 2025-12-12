@@ -84,8 +84,7 @@ interface Location {
 enum ItemStatus {
   CANCELLED = "cancelled",
   APPROVED = "approved",
-  ON_HOLD = "on_hold",
-  RECEIVED = "received"
+  PENDING = "pending"
 }
 
 interface ItemData {
@@ -96,7 +95,7 @@ interface ItemData {
   updated_at: string;
   claims_count: number;
   temporary_deletion: boolean;
-  status?: string;  // Item status: cancelled, approved, on_hold, received
+  status?: string;  // Item status: cancelled, approved, pending
   approval: boolean;  // DEPRECATED: kept for backward compatibility
   item_type_id?: string;
   user_id?: string;
@@ -157,7 +156,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
         setError(null);
 
         const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
-        
+
         // Get authentication token
         const getTokenFromCookies = (): string | null => {
           if (typeof document === "undefined") return null;
@@ -175,7 +174,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
         const headers: HeadersInit = {
           'Content-Type': 'application/json',
         };
-        
+
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
@@ -604,7 +603,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                     type="submit"
                     disabled={isSubmitting || isUploading}
                     className="w-full py-4 px-6 text-white font-bold text-lg rounded-lg focus:outline-none focus:ring-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200"
-                    style={{ 
+                    style={{
                       backgroundColor: '#3277AE',
                       '--tw-ring-color': '#3277AE'
                     } as React.CSSProperties & { [key: string]: string }}
