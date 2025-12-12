@@ -19,8 +19,7 @@ interface LocationData {
 enum ItemStatus {
   CANCELLED = "cancelled",
   APPROVED = "approved",
-  ON_HOLD = "on_hold",
-  RECEIVED = "received"
+  PENDING = "pending"
 }
 
 interface Item {
@@ -28,7 +27,7 @@ interface Item {
   title: string;
   description: string;
   location?: LocationData;
-  status?: string;  // Item status: cancelled, approved, on_hold, received
+  status?: string;  // Item status: cancelled, approved, pending
   approval?: boolean;  // DEPRECATED: kept for backward compatibility
   temporary_deletion?: boolean;
   claims_count?: number;
@@ -213,16 +212,14 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                         <span className="text-xs text-gray-500">{item.claims_count} {t("status.claims")}</span>
                         <span className={`text-xs px-2 py-1 rounded ${
                           item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
-                          item.status === ItemStatus.RECEIVED ? 'bg-blue-100 text-blue-800' :
-                          item.status === ItemStatus.ON_HOLD ? 'bg-yellow-100 text-yellow-800' :
+                          item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
                           item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
-                          item.approval ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
                         }`}>
                           {item.status === ItemStatus.APPROVED ? t("status.approved") :
-                           item.status === ItemStatus.RECEIVED ? (t("status.received") || "Received") :
-                           item.status === ItemStatus.ON_HOLD ? (t("status.on_hold") || "On Hold") :
+                           item.status === ItemStatus.PENDING ? (t("status.pending") || "Pending") :
                            item.status === ItemStatus.CANCELLED ? t("status.cancelled") :
-                           item.approval ? t("status.approved") : t("status.cancelled")}
+                           item.approval ? t("status.approved") : (t("status.pending") || "Pending")}
                         </span>
                       </div>
                     )}
