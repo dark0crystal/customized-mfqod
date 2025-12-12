@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, AlertCircle, CheckCircle } from 'lucide-react';
 import { usePermissions } from "@/PermissionsContext"
 import { useLocale } from "next-intl";
+import { formatDateOnly } from '@/utils/dateFormatter';
 
 const ItemTypesManager = () => {
   const locale = useLocale();
@@ -490,7 +491,7 @@ const ItemTypesManager = () => {
                   
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-gray-500">
-                      Created: {new Date(item.created_at).toLocaleDateString()}
+                      Created: {formatDateOnly(item.created_at)}
                     </span>
                     <span className="text-xs text-gray-500">
                       ID: {item.id}

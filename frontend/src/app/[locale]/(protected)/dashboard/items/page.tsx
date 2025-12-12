@@ -5,6 +5,13 @@ import { useTranslations, useLocale } from 'next-intl';
 import DisplayItems from './DisplayItems';
 
 // Define the Item type
+enum ItemStatus {
+  CANCELLED = "cancelled",
+  APPROVED = "approved",
+  ON_HOLD = "on_hold",
+  RECEIVED = "received"
+}
+
 type Item = {
   id: string;
   title: string;
@@ -18,7 +25,8 @@ type Item = {
     branch_name_en?: string;
     full_location?: string;
   };
-  approval?: boolean;
+  status?: string;  // Item status: cancelled, approved, on_hold, received
+  approval?: boolean;  // DEPRECATED: kept for backward compatibility
   temporary_deletion?: boolean;
   claims_count?: number;
   [key: string]: unknown;
