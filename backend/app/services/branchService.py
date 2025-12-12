@@ -203,6 +203,14 @@ class BranchService:
                 detail="User not found"
             )
         
+        # Check if user has permission to be a branch manager
+        from app.services import permissionServices
+        if not permissionServices.check_user_permission(self.db, user_id, "can_be_branch_manager"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not have permission to be assigned as a branch manager"
+            )
+        
         # Check if assignment already exists
         existing_assignment = self.db.query(UserBranchManager).filter(
             and_(

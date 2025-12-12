@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlmodel import Session, select
 from app.services import roleServices
 from app.models import Role
@@ -7,6 +7,8 @@ from datetime import datetime
 import uuid
 from app.services import userServices  # Make sure your services have `check_role_existence` and `remove_role`
 from app.schemas.role_schema import RoleRequestSchema, RoleSchema
+from app.utils.permission_decorator import require_permission
+
 router = APIRouter()
 
 # ================================== 
@@ -48,7 +50,8 @@ def list_roles(session: Session = Depends(get_session)):
     response_model=RoleSchema,
     summary="Add a new role"
 )
-def add_new_role(role: RoleRequestSchema, session: Session = Depends(get_session)):
+@require_permission("can_manage_roles")
+def add_new_role(request: Request, role: RoleRequestSchema, session: Session = Depends(get_session)):
     existing_role = roleServices.check_role_existence(session, role.name)
     if existing_role:
         raise HTTPException(status_code=409, detail="Role already exists in the system.")
@@ -82,7 +85,8 @@ Remove a role from the system by its ID.
 - A confirmation message
 """
 )
-def delete_role(role_id: str, session: Session = Depends(get_session)):
+@require_permission("can_manage_roles")
+def delete_role(request: Request, role_id: str, session: Session = Depends(get_session)):
     """
     Remove a role from the Role table.
 

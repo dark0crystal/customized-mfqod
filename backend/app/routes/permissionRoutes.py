@@ -1,5 +1,5 @@
 # routes/permission_routes.py
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlmodel import Session
 from app.services import permissionServices
 from app.models import Permission
@@ -12,6 +12,7 @@ from app.schemas.permission_schema import (
     RolePermissionSchema
 )
 from typing import List
+from app.utils.permission_decorator import require_permission
 
 router = APIRouter()
 
@@ -112,7 +113,9 @@ Create a new permission in the system.
 - The created permission with all its details
 """
 )
+@require_permission("can_manage_permissions")
 def add_new_permission(
+    request: Request,
     permission: PermissionRequestSchema, 
     session: Session = Depends(get_session)
 ):
@@ -145,7 +148,9 @@ Update an existing permission.
 - The updated permission details
 """
 )
+@require_permission("can_manage_permissions")
 def update_permission(
+    request: Request,
     permission_id: str,
     permission: PermissionRequestSchema,
     session: Session = Depends(get_session)
@@ -177,7 +182,8 @@ Remove a permission from the system by its ID.
 - This will also remove all role-permission associations for this permission
 """
 )
-def delete_permission(permission_id: str, session: Session = Depends(get_session)):
+@require_permission("can_manage_permissions")
+def delete_permission(request: Request, permission_id: str, session: Session = Depends(get_session)):
     """
     Remove a permission from the Permission table.
     
@@ -203,7 +209,9 @@ Assign a specific permission to a role.
 - A confirmation message
 """
 )
+@require_permission("can_manage_permissions")
 def assign_permission_to_role(
+    request: Request,
     assignment: RolePermissionSchema,
     session: Session = Depends(get_session)
 ):
@@ -236,7 +244,9 @@ Remove a specific permission from a role.
 - A confirmation message
 """
 )
+@require_permission("can_manage_permissions")
 def remove_permission_from_role(
+    request: Request,
     assignment: RolePermissionSchema,
     session: Session = Depends(get_session)
 ):
@@ -272,7 +282,9 @@ Assign multiple permissions to a role. This will replace all existing permission
 - Use this for bulk permission assignment
 """
 )
+@require_permission("can_manage_permissions")
 def assign_multiple_permissions_to_role(
+    request: Request,
     assignment: AssignPermissionToRoleSchema,
     session: Session = Depends(get_session)
 ):
