@@ -10,6 +10,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
 import { Link } from '@/i18n/navigation';
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
 // Zod schema for form validation
 const missingItemFormSchema = z.object({
@@ -42,7 +43,8 @@ interface Branch {
   description_en?: string;
   longitude?: number;
   latitude?: number;
-  organization_id: string;
+  organization_id?: string;
+  organization?: Organization;
   created_at?: string;
   updated_at?: string;
 }
@@ -99,11 +101,11 @@ const getAuthHeaders = (): HeadersInit => {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
+
   return headers;
 };
 
@@ -115,7 +117,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
   const t = useTranslations("forms");
   const locale = useLocale();
   const router = useRouter();
-  
+
   // API configuration
   const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
@@ -141,11 +143,11 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
     return nameAr || nameEn || '';
   };
 
-  const { 
-    register, 
-    handleSubmit, 
-    formState: { errors, isSubmitting }, 
-    reset, 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting, isDirty },
+    reset,
     setValue,
     watch
   } = useForm<MissingItemFormFields>({
@@ -169,17 +171,17 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
         const response = await fetch(`${API_BASE_URL}/api/missing-items/${missingItemId}`, {
           headers: getAuthHeaders(),
         });
-        
+
         if (response.ok) {
           const data = await response.json();
           console.log('Missing item data:', data);
           setMissingItem(data);
-          
+
           // Set form values
           setValue('title', data.title);
           setValue('content', data.description);
           setValue('item_type_id', data.item_type_id || '');
-          
+
           // Set organization and branch if available
           if (data.addresses && data.addresses.length > 0) {
             console.log('Addresses found:', data.addresses);
@@ -188,9 +190,11 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
             if (currentAddress?.branch) {
               console.log('Branch found:', currentAddress.branch);
               setValue('branch_id', currentAddress.branch.id);
-              if (currentAddress.branch.organization_id) {
-                console.log('Organization ID:', currentAddress.branch.organization_id);
-                setValue('orgnization', currentAddress.branch.organization_id);
+
+              const orgId = currentAddress.branch.organization?.id || currentAddress.branch.organization_id;
+              if (orgId) {
+                console.log('Organization ID:', orgId);
+                setValue('orgnization', orgId);
               }
             }
           }
@@ -218,9 +222,11 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
         if (currentAddress?.branch) {
           console.log('Setting branch_id:', currentAddress.branch.id);
           setValue('branch_id', currentAddress.branch.id);
-          if (currentAddress.branch.organization_id) {
-            console.log('Setting organization:', currentAddress.branch.organization_id);
-            setValue('orgnization', currentAddress.branch.organization_id);
+
+          const orgId = currentAddress.branch.organization?.id || currentAddress.branch.organization_id;
+          if (orgId) {
+            console.log('Setting organization:', orgId);
+            setValue('orgnization', orgId);
           }
         }
       }
@@ -232,13 +238,13 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        
+
         // Fetch organizations
         const organizationsResponse = await fetch(`${API_BASE_URL}/api/organizations/`, {
           method: 'GET',
           headers: getAuthHeaders(),
         });
-        
+
         if (organizationsResponse.ok) {
           const organizationsData = await organizationsResponse.json();
           console.log('Organizations loaded:', organizationsData);
@@ -254,7 +260,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           method: 'GET',
           headers: getAuthHeaders(),
         });
-        
+
         if (itemTypesResponse.ok) {
           const itemTypesData = await itemTypesResponse.json();
           setItemTypes(itemTypesData);
@@ -291,7 +297,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           method: 'GET',
           headers: getAuthHeaders(),
         });
-        
+
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
           setBranches(branchesData);
@@ -377,7 +383,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
 
       console.log("Missing item updated successfully");
       setConfetti(true);
-      
+
       // Redirect after success
       setTimeout(() => {
         router.push("/dashboard/missing-items");
@@ -402,15 +408,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
   }, [confetti]);
 
   // Loading state
-  if (isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
-        <div className="flex justify-center items-center h-64">
-          <div className="text-lg text-gray-600">Loading...</div>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <LoadingSpinner />;
 
   // Authentication error state
   if (authError) {
@@ -418,10 +416,10 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
       <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
         <div className="flex justify-center items-center h-64 flex-col">
           <div className="text-lg text-red-600 mb-4">{authError}</div>
-          <button 
+          <button
             onClick={() => router.push("/auth/login")}
             className="px-4 py-2 text-white rounded-lg transition-colors"
-            style={{ 
+            style={{
               backgroundColor: '#3277AE'
             }}
             onMouseEnter={(e) => {
@@ -443,10 +441,10 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
       <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
         <div className="flex justify-center items-center h-64 flex-col">
           <div className="text-lg text-red-600 mb-4">{c('missingItemNotFound')}</div>
-          <Link 
+          <Link
             href="/dashboard/missing-items"
             className="px-4 py-2 text-white rounded-lg transition-colors"
-            style={{ 
+            style={{
               backgroundColor: '#3277AE'
             }}
             onMouseEnter={(e) => {
@@ -464,7 +462,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
+    <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       {confetti && (
         <ReactConfetti
           width={window.innerWidth}
@@ -473,220 +471,179 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           numberOfPieces={200}
         />
       )}
-      
-      {/* Back Button */}
-      <div className="mb-6">
-        <Link 
-          href="/dashboard/missing-items" 
-          className="inline-flex items-center transition-colors"
-          style={{ color: '#3277AE' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#2a5f94';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = '#3277AE';
-          }}
-        >
-          ← {c('backToMissingItems')}
-        </Link>
-      </div>
-      
-      <h2 className="text-2xl font-bold text-center mb-6" style={{ color: '#3277AE' }}>
-        {c('editMissingItem')}
-      </h2>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Title Input */}
-        <div>
-          <label htmlFor="title" className="block text-lg font-semibold text-gray-700 mb-2">
-            {c("whatDidYouLose")}
-          </label>
-          <input
-            type="text"
-            id="title"
-            {...register("title")}
-            placeholder="e.g., Key, Wallet, etc."
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
-            style={{ 
-              '--tw-ring-color': '#3277AE',
-              '--tw-ring-offset-color': '#3277AE'
-            } as React.CSSProperties & { [key: string]: string }}
-          />
-          {errors.title && (
-            <p className="mt-2 text-sm text-red-500">{errors.title.message}</p>
-          )}
+      <form onSubmit={handleSubmit(onSubmit)} className="p-6 md:p-8 space-y-10">
+
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-gray-900">{c('editMissingItem')}</h2>
+          <Link href="/dashboard/missing-items" className="text-sm text-gray-500 hover:text-gray-900">
+            ← {c('backToMissingItems')}
+          </Link>
         </div>
 
-        {/* Content Input */}
-        <div>
-          <label htmlFor="content" className="block text-lg font-semibold text-gray-700 mb-2">
-            {c("Details")}
-          </label>
-          <textarea
-            id="content"
-            {...register("content")}
-            placeholder="Provide additional details about the missing item"
-            rows={4}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
-            style={{ 
-              '--tw-ring-color': '#3277AE',
-              '--tw-ring-offset-color': '#3277AE'
-            } as React.CSSProperties & { [key: string]: string }}
-          />
-          {errors.content && (
-            <p className="mt-2 text-sm text-red-500">{errors.content.message}</p>
-          )}
-        </div>
+        {/* Section 1: Item Details */}
+        <section>
+          <h3 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">
+            Item Details
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Title */}
+            <div className="md:col-span-2">
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                {c("whatDidYouLose")}
+              </label>
+              <input
+                type="text"
+                id="title"
+                {...register("title")}
+                placeholder="e.g., Key, Wallet, etc."
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#3277AE] focus:ring-[#3277AE] sm:text-sm p-2.5 border"
+              />
+              {errors.title && <p className="mt-1 text-sm text-red-500">{errors.title.message}</p>}
+            </div>
 
-        {/* Item Type Selection */}
-        <div>
-          <label htmlFor="item_type_id" className="block text-lg font-semibold text-gray-700 mb-2">
-            {c("itemType")}
-          </label>
-          <select
-            id="item_type_id"
-            {...register("item_type_id")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
-            style={{ 
-              '--tw-ring-color': '#3277AE',
-              '--tw-ring-offset-color': '#3277AE'
-            } as React.CSSProperties & { [key: string]: string }}
-          >
-            <option value="">{c("selectItemType")}</option>
-            {itemTypes.map((itemType) => (
-              <option key={itemType.id} value={itemType.id}>
-                {getLocalizedName(itemType.name_ar, itemType.name_en) || 'Unnamed'}
-              </option>
-            ))}
-          </select>
-          {errors.item_type_id && (
-            <p className="mt-2 text-sm text-red-500">{errors.item_type_id.message}</p>
-          )}
-        </div>
+            {/* Content */}
+            <div className="md:col-span-2">
+              <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-1">
+                {c("Details")}
+              </label>
+              <textarea
+                id="content"
+                {...register("content")}
+                placeholder="Provide additional details about the missing item"
+                rows={4}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#3277AE] focus:ring-[#3277AE] sm:text-sm p-2.5 border"
+              />
+              {errors.content && <p className="mt-1 text-sm text-red-500">{errors.content.message}</p>}
+            </div>
 
-        {/* Select Organization */}
-        <div>
-          <label htmlFor="orgnization" className="block text-lg font-semibold text-gray-700 mb-2">
-            {c("organization")}
-          </label>
-          <select
-            id="orgnization"
-            {...register("orgnization")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
-            style={{ 
-              '--tw-ring-color': '#3277AE',
-              '--tw-ring-offset-color': '#3277AE'
-            } as React.CSSProperties & { [key: string]: string }}
-            disabled={orgSelectDisabled}
-          >
-            {!orgSelectDisabled && (
-              <option value="">{c("selectOrganization")}</option>
-            )}
-            {organizations.length === 0 ? (
-              <option value="" disabled>Loading organizations...</option>
-            ) : (
-              organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {getLocalizedName(org.name_ar, org.name_en) || 'Unnamed Organization'}
+            {/* Item Type */}
+            <div>
+              <label htmlFor="item_type_id" className="block text-sm font-medium text-gray-700 mb-1">
+                {c("itemType")}
+              </label>
+              <select
+                id="item_type_id"
+                {...register("item_type_id")}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#3277AE] focus:ring-[#3277AE] sm:text-sm p-2.5 border bg-white"
+              >
+                <option value="">{c("selectItemType")}</option>
+                {itemTypes.map((itemType) => (
+                  <option key={itemType.id} value={itemType.id}>
+                    {getLocalizedName(itemType.name_ar, itemType.name_en) || 'Unnamed'}
+                  </option>
+                ))}
+              </select>
+              {errors.item_type_id && <p className="mt-1 text-sm text-red-500">{errors.item_type_id.message}</p>}
+            </div>
+          </div>
+        </section>
+
+        {/* Section 2: Location Information */}
+        <section>
+          <h3 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">
+            Location Information
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Country */}
+            <div>
+              <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
+                {c("country")}
+              </label>
+              <select
+                id="country"
+                {...register("country")}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#3277AE] focus:ring-[#3277AE] sm:text-sm p-2.5 border bg-white"
+              >
+                <option value="Oman">Oman</option>
+              </select>
+              {errors.country && <p className="mt-1 text-sm text-red-500">{errors.country.message}</p>}
+            </div>
+
+            {/* Organization */}
+            <div>
+              <label htmlFor="orgnization" className="block text-sm font-medium text-gray-700 mb-1">
+                {c("organization")}
+              </label>
+              <select
+                id="orgnization"
+                {...register("orgnization")}
+                disabled={orgSelectDisabled}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#3277AE] focus:ring-[#3277AE] sm:text-sm p-2.5 border bg-white disabled:bg-gray-100"
+              >
+                {!orgSelectDisabled && (
+                  <option value="">{c("selectOrganization")}</option>
+                )}
+                {organizations.length === 0 ? (
+                  <option value="" disabled>Loading organizations...</option>
+                ) : (
+                  organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {getLocalizedName(org.name_ar, org.name_en) || 'Unnamed Organization'}
+                    </option>
+                  ))
+                )}
+              </select>
+              {errors.orgnization && <p className="mt-1 text-sm text-red-500">{errors.orgnization.message}</p>}
+            </div>
+
+            {/* Branch */}
+            <div className="md:col-span-2">
+              <label htmlFor="branch_id" className="block text-sm font-medium text-gray-700 mb-1">
+                {c("branch")}
+              </label>
+              <select
+                id="branch_id"
+                {...register("branch_id")}
+                disabled={!watchedOrganization || branches.length === 0}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#3277AE] focus:ring-[#3277AE] sm:text-sm p-2.5 border bg-white disabled:bg-gray-100"
+              >
+                <option value="">
+                  {!watchedOrganization
+                    ? c("selectOrganizationFirst")
+                    : branches.length === 0
+                      ? c("noBranchesAvailable")
+                      : c("selectBranch")
+                  }
                 </option>
-              ))
-            )}
-          </select>
-          {errors.orgnization && (
-            <p className="mt-2 text-sm text-red-500">{errors.orgnization.message}</p>
-          )}
-        </div>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch'}
+                  </option>
+                ))}
+              </select>
+              {errors.branch_id && <p className="mt-1 text-sm text-red-500">{errors.branch_id.message}</p>}
+            </div>
+          </div>
+        </section>
 
-        {/* Select Branch */}
-        <div>
-          <label htmlFor="branch_id" className="block text-lg font-semibold text-gray-700 mb-2">
-            {c("branch")}
-          </label>
-          <select
-            id="branch_id"
-            {...register("branch_id")}
-            disabled={!watchedOrganization || branches.length === 0}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-            style={{ 
-              '--tw-ring-color': '#3277AE',
-              '--tw-ring-offset-color': '#3277AE'
-            } as React.CSSProperties & { [key: string]: string }}
+        {/* Action Buttons */}
+        <div className="pt-6 border-t border-gray-100 flex justify-end space-x-4">
+          <Link
+            href="/dashboard/missing-items"
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
           >
-            <option value="">
-              {!watchedOrganization 
-                ? c("selectOrganizationFirst")
-                : branches.length === 0 
-                  ? c("noBranchesAvailable")
-                  : c("selectBranch")
-              }
-            </option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch'}
-              </option>
-            ))}
-          </select>
-          {errors.branch_id && (
-            <p className="mt-2 text-sm text-red-500">{errors.branch_id.message}</p>
-          )}
-        </div>
-
-        {/* Select Country */}
-        <div>
-          <label htmlFor="country" className="block text-lg font-semibold text-gray-700 mb-2">
-            {c("country")}
-          </label>
-          <select
-            id="country"
-            {...register("country")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
-            style={{ 
-              '--tw-ring-color': '#3277AE',
-              '--tw-ring-offset-color': '#3277AE'
-            } as React.CSSProperties & { [key: string]: string }}
-          >
-            <option value="Oman">Oman</option>
-          </select>
-          {errors.country && (
-            <p className="mt-2 text-sm text-red-500">{errors.country.message}</p>
-          )}
-        </div>
-        
-        {/* Submit Button */}
-        <div className="text-center">
-          <button 
-            type="submit" 
-            disabled={isSubmitting || isProcessing || isLoading || !!authError} 
-            className="w-full p-3 text-white font-semibold rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            style={{ 
-              backgroundColor: '#3277AE',
-              '--tw-ring-color': '#3277AE'
-            } as React.CSSProperties & { [key: string]: string }}
-            onMouseEnter={(e) => {
-              if (!isSubmitting && !isProcessing && !isLoading && !authError) {
-                e.currentTarget.style.backgroundColor = '#2a5f94';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isSubmitting && !isProcessing && !isLoading && !authError) {
-                e.currentTarget.style.backgroundColor = '#3277AE';
-              }
-            }}
+            {c('cancel') || "Cancel"}
+          </Link>
+          <button
+            type="submit"
+            disabled={isSubmitting || isProcessing || isLoading || !!authError || !isDirty}
+            className="px-6 py-2.5 bg-[#3277AE] text-white rounded-lg font-medium hover:bg-[#2a6594] focus:ring-4 focus:ring-blue-100 transition-all disabled:opacity-70 flex items-center"
           >
             {isSubmitting || isProcessing ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 {c('updating')}
-              </span>
+              </>
             ) : (
               c('updateMissingItem')
             )}
           </button>
         </div>
-        
+
       </form>
     </div>
   );
