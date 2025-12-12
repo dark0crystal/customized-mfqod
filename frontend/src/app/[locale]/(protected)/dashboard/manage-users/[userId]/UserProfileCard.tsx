@@ -158,7 +158,7 @@ export default function UserProfileCard({ userId }: UserProfileCardProps) {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto mt-2 sm:mt-4 p-3 sm:p-5 bg-white border border-gray-200 rounded-2xl sm:rounded-3xl">
+    <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
       {/* Header Section */}
       <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6 mb-6">
         {/* Avatar and Basic Info */}
