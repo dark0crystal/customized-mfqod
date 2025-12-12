@@ -193,6 +193,10 @@ PERMISSIONS = [
         "name": "can_view_branch_managers",
         "description": "Can view branch managers"
     },
+    {
+        "name": "can_be_branch_manager",
+        "description": "User can be assigned as a branch manager"
+    },
     
     # ============================================
     # ADDRESSES PERMISSIONS
