@@ -18,8 +18,9 @@ Dependencies:
 from functools import wraps
 from fastapi import HTTPException, Depends, Request
 from sqlalchemy.orm import Session
-from db.database import get_session
-from services import permissionServices
+from app.db.database import get_session
+from app.services import permissionServices
+import logging
 from typing import Callable, List
 import jwt  
 
@@ -27,9 +28,15 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-# Configuration - adjust these based on your JWT setup
-JWT_SECRET_KEY =  os.getenv("SECRET_KEY")
-JWT_ALGORITHM = os.getenv("ALGORITHM")
+
+# Create logger instance
+logger = logging.getLogger(__name__)
+
+# Configuration - use the same config as auth service
+from app.config.auth_config import AuthConfig
+auth_config = AuthConfig()
+JWT_SECRET_KEY = auth_config.SECRET_KEY
+JWT_ALGORITHM = auth_config.JWT_ALGORITHM
 
 def extract_user_from_token(request: Request) -> str:
     """
@@ -155,20 +162,33 @@ def require_permission(permission_name: str):
             # Extract user ID from token
             user_id = extract_user_from_token(request)
             
-            # Check if user has the required permission using the permission service
-            has_permission = permissionServices.check_user_permission(
-                session, user_id, permission_name
-            )
-            
-            # Deny access if user lacks the required permission
-            if not has_permission:
-                raise HTTPException(
-                    status_code=403, 
-                    detail=f"Permission '{permission_name}' is required to access this resource"
+            # Check if user is super admin first (admins have access to everything)
+            if permissionServices.is_super_admin(session, user_id):
+                # Super admin has access to everything - skip permission check
+                logger.info(f"Super admin user {user_id} granted access to permission '{permission_name}'")
+                pass
+            else:
+                # Check if user has the required permission using the permission service
+                has_permission = permissionServices.check_user_permission(
+                    session, user_id, permission_name
                 )
+                
+                # Deny access if user lacks the required permission
+                if not has_permission:
+                    raise HTTPException(
+                        status_code=403, 
+                        detail=f"Permission '{permission_name}' is required to access this resource"
+                    )
             
             # Permission check passed, execute the original function
-            return await func(*args, **kwargs)
+            import asyncio
+            import inspect
+            
+            # Check if the function is async
+            if inspect.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
         return wrapper
     return decorator
 
@@ -231,22 +251,34 @@ def require_any_permission(permission_names: List[str]):
             # Extract user ID from token
             user_id = extract_user_from_token(request)
             
-            # Check if user has any of the required permissions
-            has_any_permission = False
-            for permission_name in permission_names:
-                if permissionServices.check_user_permission(session, user_id, permission_name):
-                    has_any_permission = True
-                    break  # Found a matching permission, no need to check others
-            
-            # Deny access if user has none of the required permissions
-            if not has_any_permission:
-                raise HTTPException(
-                    status_code=403, 
-                    detail=f"One of these permissions is required: {', '.join(permission_names)}"
-                )
+            # Check if user is super admin first (admins have access to everything)
+            if permissionServices.is_super_admin(session, user_id):
+                # Super admin has access to everything - skip permission check
+                logger.info(f"Super admin user {user_id} granted access to any of permissions: {permission_names}")
+                pass
+            else:
+                # Check if user has any of the required permissions
+                has_any_permission = False
+                for permission_name in permission_names:
+                    if permissionServices.check_user_permission(session, user_id, permission_name):
+                        has_any_permission = True
+                        break  # Found a matching permission, no need to check others
+                
+                # Deny access if user has none of the required permissions
+                if not has_any_permission:
+                    raise HTTPException(
+                        status_code=403, 
+                        detail=f"One of these permissions is required: {', '.join(permission_names)}"
+                    )
             
             # At least one permission matched, execute the original function
-            return await func(*args, **kwargs)
+            import inspect
+            
+            # Check if the function is async
+            if inspect.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
         return wrapper
     return decorator
 
@@ -309,25 +341,110 @@ def require_all_permissions(permission_names: List[str]):
             # Extract user ID from token
             user_id = extract_user_from_token(request)
             
-            # Check if user has all required permissions
-            missing_permissions = []
-            for permission_name in permission_names:
-                if not permissionServices.check_user_permission(session, user_id, permission_name):
-                    missing_permissions.append(permission_name)
-            
-            # Deny access if user is missing any required permissions
-            if missing_permissions:
-                raise HTTPException(
-                    status_code=403, 
-                    detail=f"Missing required permissions: {', '.join(missing_permissions)}"
-                )
+            # Check if user is super admin first (admins have access to everything)
+            if permissionServices.is_super_admin(session, user_id):
+                # Super admin has access to everything - skip permission check
+                logger.info(f"Super admin user {user_id} granted access to all permissions: {permission_names}")
+                pass
+            else:
+                # Check if user has all required permissions
+                missing_permissions = []
+                for permission_name in permission_names:
+                    if not permissionServices.check_user_permission(session, user_id, permission_name):
+                        missing_permissions.append(permission_name)
+                
+                # Deny access if user is missing any required permissions
+                if missing_permissions:
+                    raise HTTPException(
+                        status_code=403, 
+                        detail=f"Missing required permissions: {', '.join(missing_permissions)}"
+                    )
             
             # All permissions verified, execute the original function
-            return await func(*args, **kwargs)
+            import inspect
+            
+            # Check if the function is async
+            if inspect.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
         return wrapper
     return decorator
 
 # Alternative: Create a dependency for getting current user
+def require_super_admin():
+    """
+    Decorator to protect routes that require super admin (admin role) access only.
+    
+    This decorator automatically extracts the user ID from the request token
+    and checks if the user has the admin role.
+    
+    Usage:
+    @require_super_admin()
+    def admin_only_route():
+        pass
+    
+    Returns:
+        Callable: The decorated function with super admin checking logic.
+    
+    Raises:
+        HTTPException: 
+            - 401 if token is missing, invalid, or expired
+            - 403 if user is not a super admin
+            - 500 if request or database session is not available
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Extract request object and session from function arguments
+            request = None
+            session = None
+            
+            for arg in args:
+                if isinstance(arg, Request):
+                    request = arg
+                elif isinstance(arg, Session):
+                    session = arg
+            
+            if not request:
+                request = kwargs.get('request')
+            if not session:
+                session = kwargs.get('session') or kwargs.get('db')
+            
+            # Validate request and session availability
+            if not request:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Request object not available. Add 'request: Request' parameter to your route."
+                )
+            
+            if not session:
+                raise HTTPException(
+                    status_code=500, 
+                    detail="Database session not available. Add 'db: Session = Depends(get_session)' to your route."
+                )
+            
+            # Extract user ID from token
+            user_id = extract_user_from_token(request)
+            
+            # Check if user is super admin
+            if not permissionServices.is_super_admin(session, user_id):
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Super admin access required"
+                )
+            
+            # Super admin access verified, execute the original function
+            import inspect
+            
+            # Check if the function is async
+            if inspect.iscoroutinefunction(func):
+                return await func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
 def get_current_user_from_token(request: Request) -> str:
     """
     FastAPI dependency to extract current user from token.
@@ -347,7 +464,7 @@ Updated Integration Examples with Token-Based Authentication:
 -----------------------------------------------------------
 
 from fastapi import Request
-from utils.permission_decorator import require_permission, require_any_permission
+from app.utils.permission_decorator import require_permission, require_any_permission, require_super_admin
 
 # Basic usage - just add Request parameter
 @router.get("/users")
@@ -355,6 +472,14 @@ from utils.permission_decorator import require_permission, require_any_permissio
 def get_users(request: Request, db: Session = Depends(get_session)):
     # Route logic here - user authentication handled automatically
     # No need to manually pass user_id anymore!
+    pass
+
+# Super admin only access
+@router.get("/admin/system-settings")
+@require_super_admin()
+def get_system_settings(request: Request, db: Session = Depends(get_session)):
+    # Only users with 'admin' role can access this
+    # No need to assign individual permissions to admin users
     pass
 
 # Multiple permission options

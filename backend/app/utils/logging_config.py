@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 import traceback
 from sqlalchemy.orm import Session
-from models import LoginAttempt, LoginAttemptStatus
-from config.auth_config import AuthConfig
+from app.models import LoginAttempt, LoginAttemptStatus
+from app.config.auth_config import AuthConfig
 
 class SecurityLogger:
     """Enhanced logging for security events"""
