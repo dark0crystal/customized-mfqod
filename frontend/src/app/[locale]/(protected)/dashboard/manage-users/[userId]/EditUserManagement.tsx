@@ -5,6 +5,8 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import { useState, useEffect, useCallback } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { usePermissions } from "@/PermissionsContext";
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 const schema = z.object({
   org: z.string().nonempty("Please select an organization"),
@@ -46,6 +48,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
   const t = useTranslations('userDetails');
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting }, reset } = useForm<FormFields>();
   const locale = useLocale();
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
   
   // Helper function to get localized name
   const getLocalizedName = useCallback((nameAr?: string, nameEn?: string): string => {
@@ -101,6 +104,27 @@ export default function EditUserManagement({ userId }: { userId: string }) {
     }
     fetchUserManagedBranches();
   }, [userId]);
+
+  // Check permissions
+  if (permissionsLoading) {
+    return (
+      <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
+        <LoadingSpinner size="md" className="h-64" />
+      </div>
+    );
+  }
+
+  if (!hasPermission('can_manage_users')) {
+    return (
+      <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
+        <div className="text-center py-12">
+          <div className="text-red-500 text-4xl mb-4">🔒</div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Access Denied</h3>
+          <p className="text-gray-600">You don't have permission to manage users.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Fetch branches when organization changes
   useEffect(() => {
@@ -206,22 +230,21 @@ export default function EditUserManagement({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Link 
-            href="/dashboard/manage-users" 
-            className="inline-flex items-center text-gray-600 hover:text-gray-800 transition-colors mb-4"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Manage Users
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('title')}</h1>
-          <p className="text-gray-600">Manage branch assignments for this user</p>
-        </div>
+    <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
+      {/* Header */}
+      <div className="mb-8">
+        <Link 
+          href="/dashboard/manage-users" 
+          className="inline-flex items-center text-gray-600 hover:text-gray-800 transition-colors mb-4"
+        >
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Manage Users
+        </Link>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('title')}</h1>
+        <p className="text-gray-600">Manage branch assignments for this user</p>
+      </div>
 
         {/* Success Message */}
         {successMessage && (
@@ -375,7 +398,6 @@ export default function EditUserManagement({ userId }: { userId: string }) {
             </form>
           </div>
         </div>
-      </div>
     </div>
   );
 }
