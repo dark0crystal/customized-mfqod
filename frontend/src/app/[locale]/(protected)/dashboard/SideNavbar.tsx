@@ -25,6 +25,7 @@ import { Link } from '@/i18n/navigation';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
+import { usePendingItemsCount } from '@/hooks/usePendingItemsCount';
 
 // Helper to get user from cookies
 const getUserFromCookies = () => {
@@ -57,6 +58,7 @@ interface NavItem {
   requiredRole?: string;
   allowedRoles?: string[];
   children?: NavItem[];
+  showBadge?: boolean; // Whether to show pending items badge
 }
 
 export default function SideNavbar() {
@@ -69,6 +71,13 @@ export default function SideNavbar() {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations('dashboard.sideNavbar');
+  const { count: pendingItemsCount, loading: pendingLoading, error: pendingError } = usePendingItemsCount();
+  
+  // #region agent log
+  React.useEffect(() => {
+    fetch('http://127.0.0.1:7242/ingest/69e531fd-3951-4df8-bc69-ee7e2dc1cf2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SideNavbar.tsx:useEffect:badge_state',message:'Badge state in SideNavbar',data:{pendingItemsCount,loading:pendingLoading,error:pendingError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  }, [pendingItemsCount, pendingLoading, pendingError]);
+  // #endregion
 
   // Clear loading states when pathname changes
   useEffect(() => {
@@ -139,7 +148,8 @@ export default function SideNavbar() {
           label: t('items'),
           icon: <Package size={16} />,
           href: '/dashboard/items',
-          requiredPermissions: ['create_post', 'edit_post']
+          requiredPermissions: ['create_post', 'edit_post'],
+          showBadge: true
         },
         {
           id: 'report-found-item',
@@ -160,7 +170,8 @@ export default function SideNavbar() {
           label: t('missingItems'),
           icon: <FileText size={16} />,
           href: '/dashboard/missing-items',
-          requiredPermissions: ['create_post', 'edit_post']
+          requiredPermissions: ['create_post', 'edit_post'],
+          showBadge: true
         },
         {
           id: 'transfer-requests',
@@ -261,6 +272,21 @@ export default function SideNavbar() {
     );
   };
 
+  // Badge component - styled as pink circle with red number
+  const Badge = ({ count }: { count: number }) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/69e531fd-3951-4df8-bc69-ee7e2dc1cf2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SideNavbar.tsx:Badge:render',message:'Badge render check',data:{count,will_render:count > 0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    
+    if (count === 0) return null;
+    
+    return (
+      <span className="ml-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-pink-100 text-red-800 text-xs font-semibold">
+        {count > 99 ? '99+' : count}
+      </span>
+    );
+  };
+
   // Render navigation item
   const renderNavItem = (item: NavItem, depth: number = 0) => {
     if (!canAccessItem(item)) {
@@ -273,6 +299,13 @@ export default function SideNavbar() {
     const isActive = pathname === item.href;
     const isChildActive = item.children?.some(child => pathname === child.href);
     const isLoading = loadingLinks.has(item.id);
+    const shouldShowBadge = item.showBadge && pendingItemsCount > 0;
+    
+    // #region agent log
+    if (item.showBadge) {
+      fetch('http://127.0.0.1:7242/ingest/69e531fd-3951-4df8-bc69-ee7e2dc1cf2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SideNavbar.tsx:renderNavItem:badge_check',message:'Badge visibility check',data:{itemId:item.id,showBadge:item.showBadge,pendingItemsCount,shouldShowBadge},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    }
+    // #endregion
 
     return (
       <div key={item.id} className="mb-1">
@@ -297,9 +330,12 @@ export default function SideNavbar() {
                 )}
               </div>
               {!isCollapsed && (
-                <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600">
-                  {item.label}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600">
+                    {item.label}
+                  </span>
+                  {shouldShowBadge && <Badge count={pendingItemsCount} />}
+                </div>
               )}
             </div>
 
@@ -330,9 +366,12 @@ export default function SideNavbar() {
                 )}
               </div>
               {!isCollapsed && (
-                <span className={`text-sm font-medium text-gray-700 group-hover:text-blue-600 ${isActive ? 'text-blue-600' : ''}`}>
-                  {item.label}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className={`text-sm font-medium text-gray-700 group-hover:text-blue-600 ${isActive ? 'text-blue-600' : ''}`}>
+                    {item.label}
+                  </span>
+                  {shouldShowBadge && <Badge count={pendingItemsCount} />}
+                </div>
               )}
             </div>
           </Link>
