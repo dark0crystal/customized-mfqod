@@ -82,6 +82,7 @@ export default function ItemsPage() {
   const [error, setError] = useState<string | null>(null);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [viewMode, setViewMode] = useState<'managed' | 'all'>('managed');
 
   // Helper function to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -136,6 +137,7 @@ export default function ItemsPage() {
     branchId?: string;
     dateFrom?: string;
     dateTo?: string;
+    showAll?: boolean;
   }) => {
     setLoading(true);
     setError(null);
@@ -160,6 +162,12 @@ export default function ItemsPage() {
       if (filters?.branchId) params.append("branch_id", filters.branchId);
       if (filters?.dateFrom) params.append("date_from", filters.dateFrom);
       if (filters?.dateTo) params.append("date_to", filters.dateTo);
+      
+      // Add show_all parameter to bypass branch-based filtering
+      // Explicitly set to false when not showing all items to ensure backend applies filtering
+      const showAllValue = filters?.showAll === true ? "true" : "false";
+      params.append("show_all", showAllValue);
+      console.log('Fetching items with show_all:', showAllValue, 'filters:', filters);
       
       params.append("skip", "0");
       params.append("limit", "100");
@@ -310,6 +318,7 @@ export default function ItemsPage() {
     branchId?: string;
     dateFrom?: string;
     dateTo?: string;
+    showAll?: boolean;
   }) => {
     const filters = {
       itemTypeId: newFilters?.itemTypeId !== undefined ? newFilters.itemTypeId : currentItemTypeId,
@@ -317,6 +326,7 @@ export default function ItemsPage() {
       branchId: newFilters?.branchId !== undefined ? newFilters.branchId : selectedBranchId,
       dateFrom: newFilters?.dateFrom !== undefined ? newFilters.dateFrom : dateFrom,
       dateTo: newFilters?.dateTo !== undefined ? newFilters.dateTo : dateTo,
+      showAll: newFilters?.showAll !== undefined ? newFilters.showAll : viewMode === 'all',
     };
     
     fetchItems(filters);
@@ -328,37 +338,74 @@ export default function ItemsPage() {
     setSelectedBranchId("");
     setDateFrom("");
     setDateTo("");
-    fetchItems();
+    setViewMode('managed');
+    fetchItems({ showAll: false });
+  };
+
+  const handleViewModeChange = (mode: 'managed' | 'all') => {
+    setViewMode(mode);
+    const showAll = mode === 'all';
+    console.log('View mode changed to:', mode, 'showAll:', showAll);
+    applyFilters({ showAll });
   };
 
   useEffect(() => {
     fetchItemTypes();
     fetchBranches();
-    fetchItems();
+    fetchItems({ showAll: viewMode === 'all' });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="relative w-full min-h-[88vh]">
       {/* Header with title and filters */}
-      <div className="w-full p-4 bg-white border-b border-gray-200">
+      <div className="w-full px-2 sm:px-4 py-4 bg-white border-b border-gray-200 overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">{t("myItems")}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t("myItems")}</h1>
             
             {/* Clear Filters Button */}
             <button
               onClick={clearAllFilters}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 self-start lg:self-auto"
+              className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 self-start lg:self-auto whitespace-nowrap"
             >
               {t("filters.clearAllFilters")}
             </button>
           </div>
 
+          {/* View Mode Toggle */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {t("filters.viewMode")}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleViewModeChange('managed')}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                  viewMode === 'managed'
+                    ? 'bg-[#3277AE] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {t("filters.myManagedItems")}
+              </button>
+              <button
+                onClick={() => handleViewModeChange('all')}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                  viewMode === 'all'
+                    ? 'bg-[#3277AE] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {t("filters.allItems")}
+              </button>
+            </div>
+          </div>
+
           {/* Filters Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
             {/* Search Input */}
-            <div className="lg:col-span-1">
-              <label htmlFor="search-input" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="lg:col-span-1 min-w-0">
+              <label htmlFor="search-input" className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 {t("filters.searchItems")}
               </label>
               <input
@@ -367,14 +414,14 @@ export default function ItemsPage() {
                 placeholder={t("filters.searchPlaceholder")}
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-all duration-200 hover:bg-gray-50 hover:border-gray-400"
+                className="w-full min-w-0 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs sm:text-sm focus:ring-2 focus:border-[#3277AE] transition-all duration-200 hover:bg-gray-50 hover:border-gray-400"
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               />
             </div>
 
             {/* Item Type Filter */}
-            <div>
-              <label htmlFor="item-type-filter" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="min-w-0">
+              <label htmlFor="item-type-filter" className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 {t("filters.itemType")}
               </label>
               <select
@@ -388,7 +435,7 @@ export default function ItemsPage() {
                     handleItemTypeClick(value);
                   }
                 }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-all duration-200 hover:bg-gray-50 hover:border-gray-400"
+                className="w-full min-w-0 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs sm:text-sm focus:ring-2 focus:border-[#3277AE] transition-all duration-200 hover:bg-gray-50 hover:border-gray-400"
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               >
                 <option value="">{t("filters.allTypes")}</option>
@@ -401,15 +448,15 @@ export default function ItemsPage() {
             </div>
 
             {/* Branch Filter */}
-            <div>
-              <label htmlFor="branch-filter" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="min-w-0">
+              <label htmlFor="branch-filter" className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 {t("filters.branch")}
               </label>
               <select
                 id="branch-filter"
                 value={selectedBranchId}
                 onChange={(e) => handleBranchChange(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-all duration-200 hover:bg-gray-50 hover:border-gray-400"
+                className="w-full min-w-0 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs sm:text-sm focus:ring-2 focus:border-[#3277AE] transition-all duration-200 hover:bg-gray-50 hover:border-gray-400"
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               >
                 <option value="">{t("filters.allBranches")}</option>
@@ -423,18 +470,18 @@ export default function ItemsPage() {
             </div>
 
             {/* Date Range Filters */}
-            <div className="md:col-span-2 lg:col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="sm:col-span-2 lg:col-span-1 min-w-0">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 {t("filters.dateRange")}
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="date"
                   placeholder={t("filters.fromDate")}
                   value={dateFrom}
                   max={getTodayDate()}
                   onChange={(e) => handleDateFromChange(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
+                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs sm:text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
                   style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
                 />
                 <input
@@ -443,7 +490,7 @@ export default function ItemsPage() {
                   value={dateTo}
                   max={getTodayDate()}
                   onChange={(e) => handleDateToChange(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
+                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs sm:text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
                   style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
                 />
               </div>
@@ -459,7 +506,7 @@ export default function ItemsPage() {
       </div>
 
       {/* Main content */}
-      <div className="w-full p-4 overflow-y-auto">
+      <div className="w-full px-2 sm:px-4 py-4 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
           <div className="w-full pb-20">
             {loading ? (

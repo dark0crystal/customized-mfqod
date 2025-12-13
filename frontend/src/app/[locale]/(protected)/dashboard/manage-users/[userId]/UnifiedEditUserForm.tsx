@@ -365,21 +365,6 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                             <input {...register("phone_number")} className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" />
                         </div>
 
-                        {/* Account Status */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Account Status</label>
-                            <div className="flex items-center space-x-4 mt-2">
-                                <label className="inline-flex items-center">
-                                    <input type="radio" value="true" {...register("isActive", { setValueAs: v => v === "true" || v === true })} className="form-radio text-blue-600" />
-                                    <span className="ml-2 text-gray-700">Active</span>
-                                </label>
-                                <label className="inline-flex items-center">
-                                    <input type="radio" value="false" {...register("isActive", { setValueAs: v => v === "true" || v === true })} className="form-radio text-red-600" />
-                                    <span className="ml-2 text-gray-700">Inactive</span>
-                                </label>
-                            </div>
-                        </div>
-
                     </div>
                 </section>
 
