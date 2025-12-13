@@ -20,7 +20,7 @@ from app.schemas.item_schema import (
     ItemDetailResponse
 )
 from app.services.notification_service import send_new_item_alert
-from app.middleware.branch_auth_middleware import get_user_accessible_items
+from app.middleware.branch_auth_middleware import get_user_accessible_items, is_branch_manager
 from app.services import permissionServices
 
 logger = logging.getLogger(__name__)
@@ -136,12 +136,16 @@ class ItemService:
             query = query.filter(Item.created_at <= filters.date_to)
         
         # Apply branch-based access control if user_id is provided
-        # Skip branch-based filtering for super_admin users (they have access to all items)
+        # Skip branch-based filtering for super_admin users and branch managers (they have access to all items for viewing)
         if user_id:
             # Check if user is super_admin - if so, skip branch-based filtering
             if permissionServices.is_super_admin(self.db, user_id):
                 logger.info(f"Super admin user {user_id} - skipping branch-based access control")
                 # Super admin has access to all items, so don't filter
+            # Check if user is a branch manager - if so, skip branch-based filtering for viewing
+            elif is_branch_manager(user_id, self.db):
+                logger.info(f"Branch manager user {user_id} - skipping branch-based access control for viewing (can view all items)")
+                # Branch managers can view all items, so don't filter
             else:
                 try:
                     accessible_items = get_user_accessible_items(user_id, self.db)
@@ -283,12 +287,16 @@ class ItemService:
             query = query.filter(Item.created_at <= filters.date_to)
         
         # Apply branch-based access control if user_id is provided
-        # Skip branch-based filtering for super_admin users (they have access to all items)
+        # Skip branch-based filtering for super_admin users and branch managers (they have access to all items for viewing)
         if user_id:
             # Check if user is super_admin - if so, skip branch-based filtering
             if permissionServices.is_super_admin(self.db, user_id):
                 logger.info(f"Super admin user {user_id} - skipping branch-based access control in search")
                 # Super admin has access to all items, so don't filter
+            # Check if user is a branch manager - if so, skip branch-based filtering for viewing
+            elif is_branch_manager(user_id, self.db):
+                logger.info(f"Branch manager user {user_id} - skipping branch-based access control in search (can view all items)")
+                # Branch managers can view all items, so don't filter
             else:
                 try:
                     accessible_items = get_user_accessible_items(user_id, self.db)
@@ -351,17 +359,17 @@ class ItemService:
         return self._item_to_response(item)
     
     def toggle_approval(self, item_id: str) -> Optional[ItemResponse]:
-        """Toggle the approval status of an item (toggles between approved and on_hold)"""
+        """Toggle the approval status of an item (toggles between approved and pending)"""
         item = self.get_item_by_id(item_id)
         if not item:
             raise ValueError("Item not found")
         
-        # Toggle between approved and on_hold (don't change received or cancelled)
+        # Toggle between approved and pending (don't change cancelled)
         if item.status == ItemStatus.APPROVED.value:
-            item.status = ItemStatus.ON_HOLD.value
-        elif item.status == ItemStatus.ON_HOLD.value:
+            item.status = ItemStatus.PENDING.value
+        elif item.status == ItemStatus.PENDING.value:
             item.status = ItemStatus.APPROVED.value
-        # If status is received or cancelled, don't change it
+        # If status is cancelled, don't change it
         
         item.updated_at = datetime.now(timezone.utc)
         
@@ -384,6 +392,33 @@ class ItemService:
         
         return self._item_to_response(item)
     
+    def approve_item(self, item_id: str) -> ItemResponse:
+        """Approve an item (change status from pending to approved)
+        Requires: item status must be 'pending' and item must have an approved claim
+        """
+        item = self.get_item_by_id(item_id)
+        if not item:
+            raise ValueError("Item not found")
+        
+        # Check if item status is pending
+        if item.status != ItemStatus.PENDING.value:
+            raise ValueError(f"Item status must be 'pending' to approve. Current status: {item.status}")
+        
+        # Check if item has an approved claim
+        if not item.approved_claim_id:
+            raise ValueError("Item must have an approved claim before it can be approved")
+        
+        # Change status to approved
+        item.status = ItemStatus.APPROVED.value
+        item.updated_at = datetime.now(timezone.utc)
+        
+        self.db.commit()
+        self.db.refresh(item)
+        
+        logger.info(f"Item {item_id} approved (status changed from pending to approved)")
+        
+        return self._item_to_response(item)
+    
     def patch_item(self, item_id: str, update_data: dict) -> Optional[ItemResponse]:
         """Patch an item with location history tracking"""
         item = self.get_item_by_id(item_id)
@@ -400,6 +435,31 @@ class ItemService:
             if field in update_data:
                 setattr(item, field, update_data[field])
         
+        # Handle status update
+        if 'status' in update_data:
+            status_value = update_data['status']
+            # Validate status value
+            if status_value in [ItemStatus.PENDING.value, ItemStatus.APPROVED.value, ItemStatus.CANCELLED.value]:
+                item.status = status_value
+            else:
+                raise ValueError(f"Invalid status: {status_value}")
+        
+        # Handle temporary_deletion
+        if 'temporary_deletion' in update_data:
+            item.temporary_deletion = update_data['temporary_deletion']
+        
+        # Handle approved_claim_id
+        if 'approved_claim_id' in update_data:
+            approved_claim_id = update_data['approved_claim_id']
+            # Validate that the claim exists and belongs to this item
+            if approved_claim_id:
+                claim = self.db.query(Claim).filter(Claim.id == approved_claim_id).first()
+                if not claim:
+                    raise ValueError(f"Claim {approved_claim_id} not found")
+                if claim.item_id != item_id:
+                    raise ValueError(f"Claim {approved_claim_id} does not belong to item {item_id}")
+            item.approved_claim_id = approved_claim_id
+        
         # Handle location update with history tracking
         if location_changed and original_location:
             # Mark all current addresses as not current
@@ -413,9 +473,12 @@ class ItemService:
                 addr.updated_at = datetime.now(timezone.utc)
         
         # Create new address entry if location info is provided
-        if 'location' in update_data or 'organization_name' in update_data or 'branch_name' in update_data:
+        # Check for organization_id and branch_id (new way) or organization_name and branch_name (old way)
+        branch_id = None
+        if 'branch_id' in update_data and update_data['branch_id']:
+            branch_id = update_data['branch_id']
+        elif 'location' in update_data or 'organization_name' in update_data or 'branch_name' in update_data:
             # Find or create branch if organization and branch names are provided
-            branch_id = None
             if update_data.get('organization_name') and update_data.get('branch_name'):
                 # Try to find existing organization and branch
                 organization = self.db.query(Organization).filter(
@@ -430,8 +493,9 @@ class ItemService:
                     
                     if branch:
                         branch_id = branch.id
-            
-            # Create new address entry
+        
+        # Create new address entry if location info is provided
+        if branch_id or 'location' in update_data:
             new_address = Address(
                 id=str(uuid.uuid4()),
                 item_id=item_id,
@@ -585,9 +649,9 @@ class ItemService:
                 if request.approval_status:
                     item.status = ItemStatus.APPROVED.value
                 else:
-                    # Only change to on_hold if not already received or cancelled
-                    if item.status not in [ItemStatus.RECEIVED.value, ItemStatus.CANCELLED.value]:
-                        item.status = ItemStatus.ON_HOLD.value
+                    # Only change to pending if not already cancelled
+                    if item.status != ItemStatus.CANCELLED.value:
+                        item.status = ItemStatus.PENDING.value
                 
                 item.updated_at = datetime.now(timezone.utc)
                 self.db.commit()
@@ -647,8 +711,7 @@ class ItemService:
         total_items = query.count()
         active_items = base_query.count()
         approved_items = base_query.filter(Item.status == ItemStatus.APPROVED.value).count()
-        on_hold_items = base_query.filter(Item.status == ItemStatus.ON_HOLD.value).count()
-        received_items = base_query.filter(Item.status == ItemStatus.RECEIVED.value).count()
+        pending_items = base_query.filter(Item.status == ItemStatus.PENDING.value).count()
         cancelled_items = base_query.filter(Item.status == ItemStatus.CANCELLED.value).count()
         deleted_items = query.filter(Item.temporary_deletion == True).count()
         
@@ -656,10 +719,8 @@ class ItemService:
             "total_items": total_items,
             "active_items": active_items,
             "approved_items": approved_items,
-            "on_hold_items": on_hold_items,
-            "received_items": received_items,
+            "pending_items": pending_items,
             "cancelled_items": cancelled_items,
-            "pending_items": on_hold_items,  # Backward compatibility
             "deleted_items": deleted_items
         }
     
@@ -791,7 +852,7 @@ class ItemService:
                 description=item.description or "",
                 claims_count=item.claims_count or 0,
                 temporary_deletion=item.temporary_deletion if item.temporary_deletion is not None else False,
-                status=item.status if item.status else ItemStatus.ON_HOLD.value,
+                status=item.status if item.status else ItemStatus.PENDING.value,
                 approved_claim_id=str(item.approved_claim_id) if item.approved_claim_id else None,
                 item_type_id=str(item.item_type_id) if item.item_type_id else None,
                 user_id=str(item.user_id) if item.user_id else None,
@@ -847,7 +908,7 @@ class ItemService:
             description=item.description,
             claims_count=item.claims_count,
             temporary_deletion=item.temporary_deletion,
-            status=item.status if item.status else ItemStatus.ON_HOLD.value,
+            status=item.status if item.status else ItemStatus.PENDING.value,
             approved_claim_id=item.approved_claim_id,
             item_type_id=item.item_type_id,
             user_id=item.user_id,

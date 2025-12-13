@@ -15,6 +15,8 @@ import uuid
 from app.models import Claim, User, Item, ItemStatus
 from app.schemas.claim_schema import ClaimCreate, ClaimUpdate, ClaimResponse, ClaimWithDetails
 from app.services.notification_service import send_claim_status_notification, send_new_claim_alert
+from app.middleware.branch_auth_middleware import can_user_manage_item, is_branch_manager
+from app.services import permissionServices
 import logging
 import asyncio
 
@@ -139,6 +141,105 @@ class ClaimService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Error fetching claim"
             )
+    
+    def can_user_edit_claim(self, user_id: str, claim_id: str) -> bool:
+        """Check if a user can edit a claim"""
+        claim = self.get_claim_by_id(claim_id)
+        if not claim:
+            return False
+        
+        # If claim is approved, no one can edit it (except admins for approval status)
+        if claim.approval:
+            return False
+        
+        # Claim owner can always edit their own claim (if not approved)
+        if claim.user_id == user_id:
+            return True
+        
+        # Check if user is a moderator/admin
+        if permissionServices.is_super_admin(self.db, user_id):
+            return True
+        
+        # Check if user is a branch manager for the item's branch
+        if claim.item_id:
+            if can_user_manage_item(user_id, claim.item_id, self.db):
+                return True
+        
+        return False
+    
+    def get_claim_with_details(self, claim_id: str, user_id: Optional[str] = None) -> Dict[str, Any]:
+        """Get a claim with full details including images and edit permissions"""
+        from app.services.imageService import ImageService
+        
+        claim = self.get_claim_by_id(claim_id)
+        if not claim:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Claim not found"
+            )
+        
+        # Get images for this claim
+        image_service = ImageService(self.db)
+        images = image_service.get_images_by_entity("claim", claim_id)
+        image_urls = [{"id": img.id, "url": img.url} for img in images]
+        
+        # Extract user details
+        user_name = None
+        user_email = None
+        if claim.user:
+            if claim.user.first_name and claim.user.last_name:
+                user_name = f"{claim.user.first_name} {claim.user.last_name}".strip()
+            elif claim.user.first_name:
+                user_name = claim.user.first_name
+            elif claim.user.email:
+                user_name = claim.user.email.split('@')[0]
+            user_email = claim.user.email
+        
+        # Extract item details
+        item_title = None
+        item_description = None
+        item_branches = []
+        if claim.item:
+            item_title = claim.item.title
+            item_description = claim.item.description
+            # Get item branches
+            from app.middleware.branch_auth_middleware import get_item_branches
+            branch_ids = get_item_branches(claim.item_id, self.db)
+            if branch_ids:
+                from app.models import Branch
+                branches = self.db.query(Branch).filter(Branch.id.in_(branch_ids)).all()
+                item_branches = [
+                    {
+                        "id": branch.id,
+                        "name_ar": branch.branch_name_ar,
+                        "name_en": branch.branch_name_en
+                    }
+                    for branch in branches
+                ]
+        
+        # Check if user can edit
+        can_edit = False
+        if user_id:
+            can_edit = self.can_user_edit_claim(user_id, claim_id)
+        
+        return {
+            "id": claim.id,
+            "title": claim.title,
+            "description": claim.description,
+            "approval": claim.approval,
+            "user_id": claim.user_id,
+            "item_id": claim.item_id,
+            "created_at": claim.created_at,
+            "updated_at": claim.updated_at,
+            "is_assigned": claim.item and claim.item.approved_claim_id == claim.id if claim.item else False,
+            "user_name": user_name,
+            "user_email": user_email,
+            "item_title": item_title,
+            "item_description": item_description,
+            "item_branches": item_branches,
+            "images": image_urls,
+            "can_edit": can_edit
+        }
 
     def update_claim(self, claim_id: str, claim_update: ClaimUpdate, user_id: Optional[str] = None) -> Claim:
         """Update a claim"""
@@ -154,29 +255,24 @@ class ClaimService:
                     detail="Claim not found"
                 )
 
-            # Check if claim is approved and assigned to item - prevent editing by author
-            is_approved_and_assigned = (
-                claim.approval == True and 
-                claim.item and 
-                claim.item.approved_claim_id == claim.id
-            )
-            
-            # If claim is approved and assigned, only allow approval status changes (by admin)
-            # Block title/description changes by the author
-            if is_approved_and_assigned and user_id and claim.user_id == user_id:
-                # Author cannot edit approved/assigned claims (except approval which is admin-only)
-                if claim_update.title is not None or claim_update.description is not None:
+            # If updating title or description, check edit permissions
+            if (claim_update.title is not None or claim_update.description is not None) and user_id:
+                if not self.can_user_edit_claim(user_id, claim_id):
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        detail="You cannot edit a claim that has been approved and assigned to an item"
+                        detail="You do not have permission to edit this claim. Claims cannot be edited once approved."
                     )
 
-            # Check permissions - users can only update their own claims (except approval)
-            if user_id and claim.user_id != user_id and claim_update.approval is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You can only update your own claims"
-                )
+            # Approval status changes are admin-only
+            if claim_update.approval is not None and user_id:
+                # Only admins/moderators can change approval status
+                if not permissionServices.is_super_admin(self.db, user_id):
+                    # Check if user has admin permission
+                    if not permissionServices.check_user_permission(self.db, user_id, "admin"):
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Only administrators can change claim approval status"
+                        )
 
             # Update fields
             if claim_update.title is not None:
@@ -262,6 +358,26 @@ class ClaimService:
                 detail="Claim not found"
             )
         
+        if not claim.item:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Claim is not associated with an item"
+            )
+        
+        # Check if item already has an approved claim
+        previous_approved_claim = None
+        if claim.item.approved_claim_id and claim.item.approved_claim_id != claim_id:
+            # Get the previous approved claim
+            previous_approved_claim = self.db.query(Claim).filter(
+                Claim.id == claim.item.approved_claim_id
+            ).first()
+            
+            if previous_approved_claim:
+                # Unapprove the previous claim
+                previous_approved_claim.approval = False
+                previous_approved_claim.updated_at = datetime.now(timezone.utc)
+                logger.info(f"Unapproved previous claim {previous_approved_claim.id} for item {claim.item.id}")
+        
         # Update claim approval status
         claim = self.update_claim(claim_id, ClaimUpdate(approval=True))
         
@@ -272,13 +388,15 @@ class ClaimService:
         
         # Assign this claim to the item as the correct claim
         if claim.item:
-            # If another claim was previously assigned, it will be replaced
+            # Set the new claim as approved
             claim.item.approved_claim_id = claim.id
-            # Update item status to received
-            claim.item.status = ItemStatus.RECEIVED.value
+            # Keep item status as pending (don't change to RECEIVED)
+            # Only change status if it's not already pending
+            if claim.item.status != ItemStatus.PENDING.value:
+                claim.item.status = ItemStatus.PENDING.value
             claim.item.updated_at = datetime.now(timezone.utc)
             self.db.commit()
-            logger.info(f"Claim {claim_id} assigned to item {claim.item.id}, status set to RECEIVED")
+            logger.info(f"Claim {claim_id} assigned to item {claim.item.id}, status kept as PENDING")
         
         # Send email notification to claimer
         try:
@@ -289,6 +407,46 @@ class ClaimService:
             logger.error(f"Error sending claim approval notification: {e}")
         
         return claim
+
+    def check_existing_approved_claim(self, item_id: str) -> Optional[Dict[str, Any]]:
+        """Check if an item has an existing approved claim"""
+        item = self.db.query(Item).filter(Item.id == item_id).first()
+        
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Item not found"
+            )
+        
+        if not item.approved_claim_id:
+            return None
+        
+        # Get the approved claim
+        approved_claim = self.db.query(Claim).options(
+            joinedload(Claim.user)
+        ).filter(Claim.id == item.approved_claim_id).first()
+        
+        if not approved_claim:
+            return None
+        
+        # Return claim details
+        user_name = None
+        if approved_claim.user:
+            if approved_claim.user.first_name and approved_claim.user.last_name:
+                user_name = f"{approved_claim.user.first_name} {approved_claim.user.last_name}".strip()
+            elif approved_claim.user.first_name:
+                user_name = approved_claim.user.first_name
+            elif approved_claim.user.email:
+                user_name = approved_claim.user.email.split('@')[0]
+        
+        return {
+            "has_existing": True,
+            "claim_id": approved_claim.id,
+            "claim_title": approved_claim.title,
+            "claimer_name": user_name,
+            "claimer_email": approved_claim.user.email if approved_claim.user else None,
+            "approved_at": approved_claim.updated_at.isoformat() if approved_claim.updated_at else None
+        }
 
     def reject_claim(self, claim_id: str, custom_title: Optional[str] = None, custom_description: Optional[str] = None) -> Claim:
         """Reject a claim with optional custom message and clear assignment if it was assigned"""
@@ -314,12 +472,12 @@ class ClaimService:
         # If this claim was the assigned one, clear the assignment and reset status
         if claim.item and claim.item.approved_claim_id == claim.id:
             claim.item.approved_claim_id = None
-            # Reset status to approved if it was received
-            if claim.item.status == ItemStatus.RECEIVED.value:
-                claim.item.status = ItemStatus.APPROVED.value
+            # Reset status to pending if it was approved
+            if claim.item.status == ItemStatus.APPROVED.value:
+                claim.item.status = ItemStatus.PENDING.value
             claim.item.updated_at = datetime.now(timezone.utc)
             self.db.commit()
-            logger.info(f"Claim {claim_id} unassigned from item {claim.item.id}, status reset to APPROVED")
+            logger.info(f"Claim {claim_id} unassigned from item {claim.item.id}, status reset to PENDING")
         
         # Send email notification to claimer
         try:

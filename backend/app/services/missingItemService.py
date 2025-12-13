@@ -525,14 +525,14 @@ class MissingItemService:
                     "is_current": addr.is_current,
                     "branch": {
                         "id": addr.branch.id,
-                        "branch_name": addr.branch.branch_name_en if addr.branch else None,
-                        "branch_name_ar": addr.branch.branch_name_ar if addr.branch else None,
+                        "branch_name": addr.branch.branch_name_en,
+                        "branch_name_ar": addr.branch.branch_name_ar,
                         "organization": {
                             "id": addr.branch.organization.id,
                             "name": addr.branch.organization.name_en if addr.branch.organization else None,
                             "name_ar": addr.branch.organization.name_ar if addr.branch.organization else None,
                             "name_en": addr.branch.organization.name_en if addr.branch.organization else None
-                        } if addr.branch and addr.branch.organization else None
+                        } if addr.branch.organization else None
                     } if addr.branch else None
                 }
                 for addr in missing_item.addresses
