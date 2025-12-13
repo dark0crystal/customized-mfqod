@@ -26,6 +26,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
 import { usePendingItemsCount } from '@/hooks/usePendingItemsCount';
+import { usePendingTransferRequestsCount } from '@/hooks/usePendingTransferRequestsCount';
 
 // Helper to get user from cookies
 const getUserFromCookies = () => {
@@ -72,6 +73,7 @@ export default function SideNavbar() {
   const router = useRouter();
   const t = useTranslations('dashboard.sideNavbar');
   const { count: pendingItemsCount, loading: pendingLoading, error: pendingError } = usePendingItemsCount();
+  const { count: pendingTransferRequestsCount } = usePendingTransferRequestsCount();
   
   // #region agent log
   React.useEffect(() => {
@@ -178,7 +180,8 @@ export default function SideNavbar() {
           label: t('transferRequests'),
           icon: <ArrowRightLeft size={16} />,
           href: '/dashboard/transfer-requests',
-          requiredPermissions: ['can_view_items']
+          requiredPermissions: ['can_view_items'],
+          showBadge: true
         }
 
       ]
@@ -287,6 +290,17 @@ export default function SideNavbar() {
     );
   };
 
+  // Yellow badge component for transfer requests
+  const TransferRequestBadge = ({ count }: { count: number }) => {
+    if (count === 0) return null;
+    
+    return (
+      <span className="ml-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
+        {count > 99 ? '99+' : count}
+      </span>
+    );
+  };
+
   // Render navigation item
   const renderNavItem = (item: NavItem, depth: number = 0) => {
     if (!canAccessItem(item)) {
@@ -299,7 +313,8 @@ export default function SideNavbar() {
     const isActive = pathname === item.href;
     const isChildActive = item.children?.some(child => pathname === child.href);
     const isLoading = loadingLinks.has(item.id);
-    const shouldShowBadge = item.showBadge && pendingItemsCount > 0;
+    const shouldShowBadge = item.showBadge && pendingItemsCount > 0 && item.id !== 'transfer-requests';
+    const shouldShowTransferBadge = item.showBadge && pendingTransferRequestsCount > 0 && item.id === 'transfer-requests';
     
     // #region agent log
     if (item.showBadge) {
@@ -335,6 +350,7 @@ export default function SideNavbar() {
                     {item.label}
                   </span>
                   {shouldShowBadge && <Badge count={pendingItemsCount} />}
+                  {shouldShowTransferBadge && <TransferRequestBadge count={pendingTransferRequestsCount} />}
                 </div>
               )}
             </div>
@@ -371,6 +387,7 @@ export default function SideNavbar() {
                     {item.label}
                   </span>
                   {shouldShowBadge && <Badge count={pendingItemsCount} />}
+                  {shouldShowTransferBadge && <TransferRequestBadge count={pendingTransferRequestsCount} />}
                 </div>
               )}
             </div>
