@@ -198,10 +198,12 @@ class ClaimService:
         # Extract item details
         item_title = None
         item_description = None
+        item_status = None
         item_branches = []
         if claim.item:
             item_title = claim.item.title
             item_description = claim.item.description
+            item_status = claim.item.status
             # Get item branches
             from app.middleware.branch_auth_middleware import get_item_branches
             branch_ids = get_item_branches(claim.item_id, self.db)
@@ -236,6 +238,7 @@ class ClaimService:
             "user_email": user_email,
             "item_title": item_title,
             "item_description": item_description,
+            "item_status": item_status,
             "item_branches": item_branches,
             "images": image_urls,
             "can_edit": can_edit
@@ -528,9 +531,11 @@ class ClaimService:
                 # Extract item details
                 item_title = None
                 item_description = None
+                item_status = None
                 if claim.item:
                     item_title = claim.item.title
                     item_description = claim.item.description
+                    item_status = claim.item.status
                 
                 # Create ClaimWithDetails
                 claim_detail = ClaimWithDetails(
@@ -546,7 +551,8 @@ class ClaimService:
                     user_name=user_name,
                     user_email=user_email,
                     item_title=item_title,
-                    item_description=item_description
+                    item_description=item_description,
+                    item_status=item_status
                 )
                 claims_with_details.append(claim_detail)
             
@@ -562,8 +568,9 @@ class ClaimService:
     def claim_to_response(self, claim: Claim) -> ClaimResponse:
         """Convert Claim model to ClaimResponse with safe property access"""
         try:
-            # Safely calculate is_assigned
+            # Safely calculate is_assigned and get item_status
             is_assigned = False
+            item_status = None
             try:
                 if claim and claim.item_id:
                     # Only try to access item if item_id exists
@@ -574,14 +581,18 @@ class ClaimService:
                         approved_claim_id = getattr(item, 'approved_claim_id', None)
                         if approved_claim_id and claim.id:
                             is_assigned = str(approved_claim_id) == str(claim.id)
+                        # Get item status
+                        item_status = getattr(item, 'status', None)
             except (AttributeError, TypeError, ValueError) as item_error:
-                # If accessing item fails, just set is_assigned to False
+                # If accessing item fails, just set is_assigned to False and item_status to None
                 logger.warning(f"Error accessing item for claim {claim.id if claim else 'unknown'}: {item_error}")
                 is_assigned = False
+                item_status = None
             except Exception as item_error:
                 # Catch any other unexpected errors
                 logger.warning(f"Unexpected error accessing item for claim {claim.id if claim else 'unknown'}: {item_error}")
                 is_assigned = False
+                item_status = None
             
             # Ensure all required fields are present and valid
             return ClaimResponse(
@@ -593,7 +604,8 @@ class ClaimService:
                 item_id=str(claim.item_id) if claim.item_id else None,
                 created_at=claim.created_at if claim.created_at else datetime.now(timezone.utc),
                 updated_at=claim.updated_at if claim.updated_at else datetime.now(timezone.utc),
-                is_assigned=is_assigned
+                is_assigned=is_assigned,
+                item_status=item_status
             )
         except Exception as e:
             logger.error(f"Error converting claim to response: {e}")

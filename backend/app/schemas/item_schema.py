@@ -18,8 +18,7 @@ class ItemStatus(str, Enum):
     """Item status enumeration"""
     CANCELLED = "cancelled"
     APPROVED = "approved"
-    ON_HOLD = "on_hold"
-    RECEIVED = "received"
+    PENDING = "pending"
 
 # =========================== 
 # Request Schemas
@@ -30,7 +29,7 @@ class CreateItemRequest(BaseModel):
     description: str = Field(..., min_length=1, description="Item description/content")
     user_id: str = Field(..., description="ID of the user creating the item")
     item_type_id: Optional[str] = Field(None, description="ID of the item type")
-    status: ItemStatus = Field(default=ItemStatus.ON_HOLD, description="Item status")
+    status: ItemStatus = Field(default=ItemStatus.PENDING, description="Item status")
     temporary_deletion: bool = Field(default=False, description="Whether the item is marked for deletion")
 
     class Config:
@@ -40,7 +39,7 @@ class CreateItemRequest(BaseModel):
                 "description": "This is a sample article content",
                 "user_id": "user-uuid-here",
                 "item_type_id": "itemtype-uuid-here",
-                "status": "on_hold",
+                "status": "pending",
                 "temporary_deletion": False
             }
         }

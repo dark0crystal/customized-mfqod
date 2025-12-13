@@ -30,6 +30,7 @@ class ClaimResponse(ClaimBase):
     created_at: datetime
     updated_at: datetime
     is_assigned: Optional[bool] = False  # Whether this claim is assigned as the correct claim for the item
+    item_status: Optional[str] = None  # Status of the item this claim is for
     
     class Config:
         from_attributes = True
@@ -41,6 +42,7 @@ class ClaimWithDetails(ClaimResponse):
     user_email: Optional[str] = None
     item_title: Optional[str] = None
     item_description: Optional[str] = None
+    item_status: Optional[str] = None
 
 
 class ClaimWithImages(ClaimResponse):
