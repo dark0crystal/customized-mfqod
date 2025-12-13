@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from '@/i18n/navigation';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { tokenManager } from '@/utils/tokenManager';
 import LocationTracking from '@/components/LocationTracking';
@@ -96,9 +96,11 @@ interface ItemData {
 
 interface EditPostProps {
   params: { itemId: string };
+  onSave?: () => void;
+  onCancel?: () => void;
 }
 
-export default function EditPost({ params }: EditPostProps) {
+export default function EditPost({ params, onSave, onCancel }: EditPostProps) {
   const router = useRouter();
   const t = useTranslations('editPost');
   const locale = useLocale();
@@ -124,6 +126,32 @@ export default function EditPost({ params }: EditPostProps) {
   const [uploadingImages, setUploadingImages] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ItemFormFields>();
+  const formRef = useRef<HTMLFormElement>(null);
+  
+  // Handle save button click from parent
+  useEffect(() => {
+    const handleSaveClick = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (formRef.current) {
+        const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+        formRef.current.dispatchEvent(submitEvent);
+        // Also try direct submit
+        const submitButton = formRef.current.querySelector('button[type="submit"]') as HTMLButtonElement;
+        if (submitButton) {
+          submitButton.click();
+        }
+      }
+    };
+    
+    const saveButton = document.getElementById('save-changes-button');
+    if (saveButton) {
+      saveButton.addEventListener('click', handleSaveClick);
+      return () => {
+        saveButton.removeEventListener('click', handleSaveClick);
+      };
+    }
+  }, []);
 
   const watchedOrganization = watch('organization_id');
 
@@ -296,7 +324,16 @@ export default function EditPost({ params }: EditPostProps) {
 
         // Only redirect if no images were uploaded or upload was successful
         if (newImages.length === 0 || uploadErrors.length === 0) {
-          router.push('/dashboard/items');
+          if (onSave) {
+            // Call onSave callback and reload page to show updated data
+            onSave();
+            // Small delay to ensure state updates
+            setTimeout(() => {
+              window.location.reload();
+            }, 100);
+          } else {
+            router.push('/dashboard/items');
+          }
         }
       } else {
         console.error('Failed to update item');
@@ -346,7 +383,7 @@ export default function EditPost({ params }: EditPostProps) {
 
   return (
     <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <form onSubmit={handleSubmit(onSubmit)} className="p-6 md:p-8 space-y-10">
+      <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="p-6 md:p-8 space-y-10">
 
         {/* --- Basic Information --- */}
         <section>
@@ -516,27 +553,6 @@ export default function EditPost({ params }: EditPostProps) {
             <LocationTracking addresses={item.addresses} />
           </section>
         )}
-
-        {/* --- Action Buttons --- */}
-        <div className="pt-6 border-t border-gray-100 flex justify-end">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="px-6 py-2.5 bg-[#3277AE] text-white rounded-lg font-medium hover:bg-[#2a6594] focus:ring-4 focus:ring-blue-100 transition-all disabled:opacity-70 flex items-center"
-          >
-            {submitting ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                {t('updating')}
-              </>
-            ) : (
-              t('updateItem') || 'Save Changes'
-            )}
-          </button>
-        </div>
 
       </form>
     </div>
