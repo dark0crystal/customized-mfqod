@@ -40,7 +40,7 @@ export default function AccountStatusCard({ userId }: { userId: string }) {
     }, [userId]);
 
     const toggleStatus = async () => {
-        if (!confirm(isActive ? "Are you sure you want to deactivate this user?" : "Are you sure you want to activate this user?")) {
+        if (!confirm(isActive ? t('deactivateConfirm') : t('activateConfirm'))) {
             return;
         }
 
@@ -64,7 +64,7 @@ export default function AccountStatusCard({ userId }: { userId: string }) {
             }
 
             setIsActive(!isActive);
-            setSuccessMessage(`User ${isActive ? "deactivated" : "activated"} successfully`);
+            setSuccessMessage(isActive ? t('userDeactivatedSuccessfully') : t('userActivatedSuccessfully'));
         } catch (error: any) {
             setErrorMessage(error.message);
         } finally {
@@ -79,17 +79,17 @@ export default function AccountStatusCard({ userId }: { userId: string }) {
     return (
         <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <div className="mb-6">
-                <h2 className="text-xl font-bold text-gray-800">Account Status</h2>
-                <p className="text-sm text-gray-500 mt-1">Manage user account access</p>
+                <h2 className="text-xl font-bold text-gray-800">{t('accountStatus')}</h2>
+                <p className="text-sm text-gray-500 mt-1">{t('manageUserAccountAccess')}</p>
             </div>
 
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <div>
-                    <p className="font-medium text-gray-900">Current Status</p>
+                    <p className="font-medium text-gray-900">{t('currentStatus')}</p>
                     <div className="flex items-center mt-1">
                         <span className={`inline-block w-2.5 h-2.5 rounded-full mr-2 ${isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
                         <span className={`text-sm ${isActive ? 'text-green-700' : 'text-red-700'} font-medium`}>
-                            {isActive ? "Active" : "Inactive"}
+                            {isActive ? t('active') : t('inactive')}
                         </span>
                     </div>
                 </div>
@@ -102,7 +102,7 @@ export default function AccountStatusCard({ userId }: { userId: string }) {
                         : "bg-green-100 text-green-700 hover:bg-green-200"
                         } disabled:opacity-50`}
                 >
-                    {isUpdating ? "Updating..." : (isActive ? "Deactivate" : "Activate")}
+                    {isUpdating ? t('updating') : (isActive ? t('deactivate') : t('activate'))}
                 </button>
             </div>
 
