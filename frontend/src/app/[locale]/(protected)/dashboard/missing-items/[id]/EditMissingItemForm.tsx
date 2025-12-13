@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation";
 import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
 import { Link } from '@/i18n/navigation';
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import Image from "next/image";
+import ImageCarousel, { CarouselImage } from "@/components/ImageCarousel";
 
 // Zod schema for form validation
 const missingItemFormSchema = z.object({
@@ -21,7 +23,6 @@ const missingItemFormSchema = z.object({
   country: z.string().min(1, "Please select a country"),
   orgnization: z.string().min(1, "Please select an organization"),
   item_type_id: z.string().min(1, "Please select an item type"),
-  branch_id: z.string().min(1, "Please select a branch"),
 });
 
 type MissingItemFormFields = z.infer<typeof missingItemFormSchema>;
@@ -70,7 +71,7 @@ interface MissingItem {
   item_type?: ItemType;
   addresses?: Array<{
     id: string;
-    branch_id: string;
+    branch_id?: string;
     branch?: Branch;
     is_current: boolean;
   }>;
@@ -123,7 +124,6 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
   const [missingItem, setMissingItem] = useState<MissingItem | null>(null);
   const [compressedFiles, setCompressedFiles] = useState<File[]>([]);
   const [confetti, setConfetti] = useState(false);
@@ -143,26 +143,34 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
     return nameAr || nameEn || '';
   };
 
+  // Helper function to get image URL
+  const getImageUrl = (imageUrl: string): string => {
+    if (!imageUrl) return '';
+    if (/^https?:\/\//.test(imageUrl)) return imageUrl;
+    let processedUrl = imageUrl.replace('/uploads/images/', '/static/images/');
+    if (!processedUrl.startsWith('/')) {
+      processedUrl = '/' + processedUrl;
+    }
+    const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
+    return `${baseUrl}${processedUrl}`;
+  };
+
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting, isDirty },
     reset,
-    setValue,
-    watch
+    setValue
   } = useForm<MissingItemFormFields>({
     defaultValues: {
       country: "Oman",
       type: "",
       place: "",
       orgnization: "",
-      item_type_id: "",
-      branch_id: ""
+      item_type_id: ""
     }
   });
 
-  // Watch for organization changes
-  const watchedOrganization = watch("orgnization");
 
   // Fetch missing item data
   useEffect(() => {
@@ -182,15 +190,13 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           setValue('content', data.description);
           setValue('item_type_id', data.item_type_id || '');
 
-          // Set organization and branch if available
+          // Set organization if available
           if (data.addresses && data.addresses.length > 0) {
             console.log('Addresses found:', data.addresses);
             const currentAddress = data.addresses.find((addr: any) => addr.is_current) || data.addresses[0];
             console.log('Current address:', currentAddress);
             if (currentAddress?.branch) {
               console.log('Branch found:', currentAddress.branch);
-              setValue('branch_id', currentAddress.branch.id);
-
               const orgId = currentAddress.branch.organization?.id || currentAddress.branch.organization_id;
               if (orgId) {
                 console.log('Organization ID:', orgId);
@@ -211,18 +217,15 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
     fetchMissingItem();
   }, [missingItemId, API_BASE_URL, setValue]);
 
-  // Set organization and branch values after organizations are loaded
+  // Set organization values after organizations are loaded
   useEffect(() => {
     if (missingItem && organizations.length > 0) {
-      console.log('Setting organization and branch values after organizations loaded');
+      console.log('Setting organization values after organizations loaded');
       console.log('Missing item:', missingItem);
       console.log('Organizations:', organizations);
       if (missingItem.addresses && missingItem.addresses.length > 0) {
         const currentAddress = missingItem.addresses.find((addr: any) => addr.is_current) || missingItem.addresses[0];
         if (currentAddress?.branch) {
-          console.log('Setting branch_id:', currentAddress.branch.id);
-          setValue('branch_id', currentAddress.branch.id);
-
           const orgId = currentAddress.branch.organization?.id || currentAddress.branch.organization_id;
           if (orgId) {
             console.log('Setting organization:', orgId);
@@ -283,41 +286,6 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
     }
   }, [authError, API_BASE_URL]);
 
-  // Fetch branches when organization changes
-  useEffect(() => {
-    const fetchBranches = async () => {
-      if (!watchedOrganization) {
-        setBranches([]);
-        setValue("branch_id", "");
-        return;
-      }
-
-      try {
-        const branchesResponse = await fetch(`${API_BASE_URL}/api/organizations/${watchedOrganization}/branches`, {
-          method: 'GET',
-          headers: getAuthHeaders(),
-        });
-
-        if (branchesResponse.ok) {
-          const branchesData = await branchesResponse.json();
-          setBranches(branchesData);
-        } else if (branchesResponse.status === 401) {
-          setAuthError("Authentication failed. Please log in again.");
-        } else {
-          console.error('Failed to fetch branches for organization');
-          setBranches([]);
-        }
-      } catch (error) {
-        console.error('Error fetching branches:', error);
-        setBranches([]);
-      }
-    };
-
-    if (watchedOrganization && !authError) {
-      fetchBranches();
-    }
-  }, [watchedOrganization, API_BASE_URL, authError, setValue]);
-
   const onSubmit = async (data: MissingItemFormFields) => {
     if (authError) {
       alert("Please log in first to update the missing item.");
@@ -358,27 +326,6 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           console.error('Could not parse error response');
         }
         throw new Error(errorMessage);
-      }
-
-      // Update address if branch changed
-      if (missingItem?.addresses && missingItem.addresses.length > 0) {
-        const currentAddress = missingItem.addresses.find(addr => addr.is_current);
-        if (currentAddress && currentAddress.branch_id !== data.branch_id) {
-          const addressUpdatePayload = {
-            branch_id: data.branch_id,
-            is_current: true
-          };
-
-          const addressResponse = await fetch(`${API_BASE_URL}/api/addresses/${currentAddress.id}`, {
-            method: "PUT",
-            headers: getAuthHeaders(),
-            body: JSON.stringify(addressUpdatePayload),
-          });
-
-          if (!addressResponse.ok) {
-            console.error('Failed to update address');
-          }
-        }
       }
 
       console.log("Missing item updated successfully");
@@ -586,35 +533,43 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
               </select>
               {errors.orgnization && <p className="mt-1 text-sm text-red-500">{errors.orgnization.message}</p>}
             </div>
-
-            {/* Branch */}
-            <div className="md:col-span-2">
-              <label htmlFor="branch_id" className="block text-sm font-medium text-gray-700 mb-1">
-                {c("branch")}
-              </label>
-              <select
-                id="branch_id"
-                {...register("branch_id")}
-                disabled={!watchedOrganization || branches.length === 0}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#3277AE] focus:ring-[#3277AE] sm:text-sm p-2.5 border bg-white disabled:bg-gray-100"
-              >
-                <option value="">
-                  {!watchedOrganization
-                    ? c("selectOrganizationFirst")
-                    : branches.length === 0
-                      ? c("noBranchesAvailable")
-                      : c("selectBranch")
-                  }
-                </option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch'}
-                  </option>
-                ))}
-              </select>
-              {errors.branch_id && <p className="mt-1 text-sm text-red-500">{errors.branch_id.message}</p>}
-            </div>
           </div>
+        </section>
+
+        {/* Section 3: Images */}
+        <section>
+          <h3 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">
+            {c("uploadImages")}
+          </h3>
+          {missingItem?.images && missingItem.images.length > 0 ? (
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-md font-medium text-gray-700">
+                  {missingItem.images.length} {missingItem.images.length === 1 ? c("image") || "image" : c("images") || "images"}
+                </h4>
+              </div>
+              <div className="w-full" style={{ minHeight: '400px' }}>
+                <ImageCarousel
+                  images={missingItem.images.map((img): CarouselImage => ({
+                    id: img.id,
+                    url: getImageUrl(img.url),
+                    alt: img.description || `Missing item image`,
+                    description: img.description,
+                  }))}
+                  isModal={false}
+                  showCounter={true}
+                  showDots={true}
+                  className="rounded-lg"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center">
+              <p className="text-gray-500 text-sm">
+                {c("noImages") || "No images found"}
+              </p>
+            </div>
+          )}
         </section>
 
         {/* Action Buttons */}

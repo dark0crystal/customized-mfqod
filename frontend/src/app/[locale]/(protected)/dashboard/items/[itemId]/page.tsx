@@ -150,6 +150,8 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const [loadingClaims, setLoadingClaims] = useState(false);
   const [selectedClaimId, setSelectedClaimId] = useState<string>('');
   const [pendingStatusChange, setPendingStatusChange] = useState<string | null>(null);
+  const [showPendingDisclaimer, setShowPendingDisclaimer] = useState(false);
+  const [pendingStatusChangeToPending, setPendingStatusChangeToPending] = useState<string | null>(null);
 
   // Helper to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -260,6 +262,17 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   };
 
   const handleStatusChange = async (newStatus: string) => {
+    // If changing from approved to pending, check if there's a connected claim
+    if (previousStatus === 'approved' && newStatus === 'pending') {
+      // Check if item has an approved claim connected
+      if (item?.approved_claim_id) {
+        // Show disclaimer modal
+        setPendingStatusChangeToPending(newStatus);
+        setShowPendingDisclaimer(true);
+        return; // Don't update status yet - wait for user confirmation
+      }
+    }
+    
     // If changing from pending to approved, check if claim is needed
     if (previousStatus === 'pending' && newStatus === 'approved') {
       // Check if item already has an approved claim
@@ -294,6 +307,17 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
         await handleStatusChange(status);
         return;
       }
+      // If no selected claim and no modal, prevent the change
+      if (!selectedClaimId && !showClaimModal) {
+        alert(t('noClaimForApproved') || 'Cannot approve this item. Please select a claim first.');
+        return;
+      }
+    }
+    
+    // If trying to change to approved, ensure approved_claim_id exists
+    if (status === 'approved' && !item.approved_claim_id && !selectedClaimId) {
+      alert(t('noClaimForApproved') || 'Cannot approve this item. Please select a claim first.');
+      return;
     }
     
     setIsUpdating(true);
@@ -384,6 +408,49 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     setShowClaimModal(false);
     setPendingStatusChange(null);
     setSelectedClaimId('');
+  };
+
+  const handlePendingDisclaimerConfirm = async () => {
+    // Proceed with status change to pending and clear approved_claim_id
+    setShowPendingDisclaimer(false);
+    setIsUpdating(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          status: 'pending',
+          approved_claim_id: null
+        }),
+      });
+
+      if (response.ok) {
+        const updatedData = await response.json();
+        setItem(updatedData);
+        setStatus('pending');
+        setPreviousStatus('pending');
+        setPendingStatusChangeToPending(null);
+      } else {
+        const errorData = await response.json();
+        alert(errorData.detail || t('updateStatusError') || 'Failed to update status');
+        // Revert status on error
+        setStatus(previousStatus);
+      }
+    } catch (err) {
+      console.error('Error updating status:', err);
+      alert(t('updateStatusError') || 'Failed to update status');
+      // Revert status on error
+      setStatus(previousStatus);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handlePendingDisclaimerCancel = () => {
+    // Revert status to previous (status was never actually changed)
+    setStatus(previousStatus);
+    setShowPendingDisclaimer(false);
+    setPendingStatusChangeToPending(null);
   };
 
 
@@ -964,6 +1031,42 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                       {t('confirm') || 'Confirm'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Pending Disclaimer Modal */}
+            {showPendingDisclaimer && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    {t('pendingToApprovedDisclaimerTitle') || 'Discard Connected Claim?'}
+                  </h3>
+                  <p className="text-gray-700 mb-4">
+                    {t('pendingToApprovedDisclaimer') || 'Changing this item from approved to pending will discard the connected claim. Do you want to continue?'}
+                  </p>
+                  {item?.approved_claim_id && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                      <p className="text-sm text-gray-700">
+                        <strong>{t('connectedClaimWillBeDiscarded') || 'The connected claim will be discarded when changing status to pending.'}</strong>
+                      </p>
+                    </div>
+                  )}
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      onClick={handlePendingDisclaimerCancel}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      {t('cancel') || 'Cancel'}
+                    </button>
+                    <button
+                      onClick={handlePendingDisclaimerConfirm}
+                      disabled={isUpdating}
+                      className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                      {isUpdating ? (t('updating') || 'Updating...') : (t('confirm') || 'Continue')}
                     </button>
                   </div>
                 </div>

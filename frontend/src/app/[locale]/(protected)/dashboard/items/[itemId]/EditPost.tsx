@@ -5,8 +5,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { tokenManager } from '@/utils/tokenManager';
 import LocationTracking from '@/components/LocationTracking';
-import CustomDropdown from '@/components/ui/CustomDropdown';
-import HydrationSafeWrapper from '@/components/HydrationSafeWrapper';
 import { useTranslations, useLocale } from 'next-intl';
 import CompressorFileInput from '@/components/forms/CompressorFileInput';
 import imageUploadService, { UploadProgress, UploadError } from '@/services/imageUploadService';
@@ -100,7 +98,7 @@ interface EditPostProps {
   onCancel?: () => void;
 }
 
-export default function EditPost({ params, onSave, onCancel }: EditPostProps) {
+export default function EditPost({ params, onSave }: EditPostProps) {
   const router = useRouter();
   const t = useTranslations('editPost');
   const locale = useLocale();
@@ -134,9 +132,7 @@ export default function EditPost({ params, onSave, onCancel }: EditPostProps) {
       e.preventDefault();
       e.stopPropagation();
       if (formRef.current) {
-        const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-        formRef.current.dispatchEvent(submitEvent);
-        // Also try direct submit
+        // Find the hidden submit button and click it
         const submitButton = formRef.current.querySelector('button[type="submit"]') as HTMLButtonElement;
         if (submitButton) {
           submitButton.click();
@@ -265,7 +261,15 @@ export default function EditPost({ params, onSave, onCancel }: EditPostProps) {
     try {
       const locationChanged = data.location !== originalLocation;
 
-      const updateData: any = {
+      const updateData: {
+        title: string;
+        description: string;
+        locationChanged: boolean;
+        originalLocation?: string;
+        organization_id: string;
+        branch_id: string;
+        location: string;
+      } = {
         title: data.title,
         description: data.description,
         locationChanged,
@@ -553,6 +557,16 @@ export default function EditPost({ params, onSave, onCancel }: EditPostProps) {
             <LocationTracking addresses={item.addresses} />
           </section>
         )}
+
+        {/* Hidden submit button for parent to trigger */}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="hidden"
+          aria-hidden="true"
+        >
+          {t('updateItem') || 'Save Changes'}
+        </button>
 
       </form>
     </div>
