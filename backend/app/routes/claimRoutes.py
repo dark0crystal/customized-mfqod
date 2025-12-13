@@ -16,7 +16,7 @@ from app.schemas.claim_schema import (
 from app.services.claimService import ClaimService
 from app.middleware.auth_middleware import get_current_user_required
 from app.utils.permission_decorator import require_permission
-from app.models import User
+from app.models import User, Claim
 import logging
 
 logger = logging.getLogger(__name__)
@@ -145,7 +145,7 @@ async def get_my_claims(
         raise HTTPException(status_code=500, detail=f"Error retrieving user claims: {str(e)}")
 
 
-@router.get("/{claim_id}", response_model=ClaimResponse)
+@router.get("/{claim_id}")
 async def get_claim(
     claim_id: str,
     request: Request,
@@ -153,7 +153,7 @@ async def get_claim(
     db: Session = Depends(get_session),
     claim_service: ClaimService = Depends(get_claim_service)
 ):
-    """Get a specific claim by ID"""
+    """Get a specific claim by ID with full details"""
     try:
         claim = claim_service.get_claim_by_id(claim_id)
         
@@ -163,16 +163,29 @@ async def get_claim(
                 detail="Claim not found"
             )
         
-        # Users can only view their own claims or claims on their items
-        if (claim.user_id != current_user.id and 
-            (not claim.item or claim.item.user_id != current_user.id)):
+        # Check access: users can view their own claims, claims on their items, or if they're branch managers/admins
+        has_access = False
+        if claim.user_id == current_user.id:
+            has_access = True
+        elif claim.item and claim.item.user_id == current_user.id:
+            has_access = True
+        else:
+            # Check if user is branch manager or admin
+            from app.middleware.branch_auth_middleware import can_user_manage_item
+            from app.services import permissionServices
+            if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
+                has_access = True
+            elif permissionServices.is_super_admin(db, current_user.id):
+                has_access = True
+        
+        if not has_access:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied"
             )
         
-        # Convert to ClaimResponse for safe serialization
-        return claim_service.claim_to_response(claim)
+        # Get full claim details with images and edit permissions
+        return claim_service.get_claim_with_details(claim_id, current_user.id)
         
     except HTTPException:
         raise
@@ -181,7 +194,8 @@ async def get_claim(
         raise HTTPException(status_code=500, detail=f"Error retrieving claim: {str(e)}")
 
 
-@router.put("/{claim_id}", response_model=ClaimResponse)
+@router.put("/{claim_id}")
+@router.patch("/{claim_id}")
 async def update_claim(
     claim_id: str,
     claim_update: ClaimUpdate,
@@ -193,7 +207,8 @@ async def update_claim(
     """Update a claim"""
     try:
         updated_claim = claim_service.update_claim(claim_id, claim_update, current_user.id)
-        return updated_claim
+        # Return full claim details after update
+        return claim_service.get_claim_with_details(claim_id, current_user.id)
         
     except HTTPException:
         raise
@@ -225,6 +240,37 @@ async def delete_claim(
 # =========================== 
 # Claim Management Routes (Admin)
 # ===========================
+
+@router.get("/{claim_id}/check-existing-approved")
+@require_permission("admin")
+async def check_existing_approved_claim(
+    claim_id: str,
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_session),
+    claim_service: ClaimService = Depends(get_claim_service)
+):
+    """Check if the item associated with this claim has an existing approved claim"""
+    try:
+        # Get the claim to find the item_id
+        claim = db.query(Claim).filter(Claim.id == claim_id).first()
+        if not claim:
+            raise HTTPException(status_code=404, detail="Claim not found")
+        
+        if not claim.item_id:
+            return {"has_existing": False}
+        
+        result = claim_service.check_existing_approved_claim(claim.item_id)
+        if result:
+            return result
+        return {"has_existing": False}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking existing approved claim for claim {claim_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error checking existing approved claim: {str(e)}")
+
 
 @router.patch("/{claim_id}/approve", response_model=ClaimResponse)
 @require_permission("admin")
@@ -362,9 +408,11 @@ async def upload_image_to_claim(
         if not claim:
             raise HTTPException(status_code=404, detail="Claim not found")
         
-        # Only claim owner can upload images to their claim
-        if claim.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        # Check if user can edit the claim (owner, branch manager, or admin)
+        from app.services.claimService import ClaimService
+        claim_service = ClaimService(db)
+        if not claim_service.can_user_edit_claim(current_user.id, claim_id):
+            raise HTTPException(status_code=403, detail="Access denied: You do not have permission to upload images to this claim")
         
         # Use image service to handle the upload
         from app.services.imageService import ImageService
@@ -456,9 +504,21 @@ async def get_claim_images(
         if not claim:
             raise HTTPException(status_code=404, detail="Claim not found")
         
-        # Users can view images if they own the claim or own the item being claimed
-        if (claim.user_id != current_user.id and 
-            (not claim.item or claim.item.user_id != current_user.id)):
+        # Check access: users can view if they own the claim, own the item, or are branch managers/admins
+        has_access = False
+        if claim.user_id == current_user.id:
+            has_access = True
+        elif claim.item and claim.item.user_id == current_user.id:
+            has_access = True
+        else:
+            from app.middleware.branch_auth_middleware import can_user_manage_item
+            from app.services import permissionServices
+            if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
+                has_access = True
+            elif permissionServices.is_super_admin(db, current_user.id):
+                has_access = True
+        
+        if not has_access:
             raise HTTPException(status_code=403, detail="Access denied")
         
         # Get images from image service
@@ -473,3 +533,59 @@ async def get_claim_images(
     except Exception as e:
         logger.error(f"Error retrieving claim images: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving claim images: {str(e)}")
+
+
+@router.delete("/{claim_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_claim_image(
+    claim_id: str,
+    image_id: str,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_session),
+    claim_service: ClaimService = Depends(get_claim_service)
+):
+    """Delete an image from a claim"""
+    try:
+        # Verify claim exists
+        claim = claim_service.get_claim_by_id(claim_id)
+        if not claim:
+            raise HTTPException(status_code=404, detail="Claim not found")
+        
+        # Check if user can edit the claim (owner, branch manager, or admin)
+        if not claim_service.can_user_edit_claim(current_user.id, claim_id):
+            raise HTTPException(status_code=403, detail="Access denied: You do not have permission to delete images from this claim")
+        
+        # Get the image
+        from app.models import Image
+        image = db.query(Image).filter(
+            Image.id == image_id,
+            Image.imageable_type == "claim",
+            Image.imageable_id == claim_id
+        ).first()
+        
+        if not image:
+            raise HTTPException(status_code=404, detail="Image not found")
+        
+        # Delete the image file
+        import os
+        if image.url:
+            # Extract filename from URL
+            filename = image.url.split("/")[-1]
+            file_path = os.path.join("../storage/uploads/images", filename)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    logger.warning(f"Failed to delete image file {file_path}: {e}")
+        
+        # Delete the image record
+        db.delete(image)
+        db.commit()
+        
+        logger.info(f"Image {image_id} deleted from claim {claim_id} by user {current_user.id}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting claim image {image_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error deleting image: {str(e)}")

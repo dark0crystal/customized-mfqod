@@ -14,14 +14,14 @@ router = APIRouter()
 class AddressCreate(BaseModel):
     item_id: Optional[str] = None
     missing_item_id: Optional[str] = None
-    branch_id: str
+    branch_id: Optional[str] = None
     is_current: bool = True
 
 class AddressResponse(BaseModel):
     id: str
     item_id: Optional[str] = None
     missing_item_id: Optional[str] = None
-    branch_id: str
+    branch_id: Optional[str] = None
     is_current: bool
     created_at: datetime
     updated_at: datetime
@@ -57,10 +57,14 @@ async def create_address(
             if not missing_item:
                 raise HTTPException(status_code=404, detail="Missing item not found")
         
-        # Validate that branch exists
-        branch = db.query(Branch).filter(Branch.id == address.branch_id).first()
-        if not branch:
-            raise HTTPException(status_code=404, detail="Branch not found")
+        # Validate that branch exists (required for items, optional for missing items)
+        if address.branch_id:
+            branch = db.query(Branch).filter(Branch.id == address.branch_id).first()
+            if not branch:
+                raise HTTPException(status_code=404, detail="Branch not found")
+        elif address.item_id:
+            # Branch is required for items
+            raise HTTPException(status_code=400, detail="branch_id is required for items")
         
         # If this is set as current, mark all other addresses for this item/missing item as not current
         if address.is_current:
@@ -165,6 +169,15 @@ async def update_address(
                     Address.missing_item_id == address_update.missing_item_id,
                     Address.id != address_id
                 ).update({"is_current": False})
+        
+        # Validate branch if provided
+        if address_update.branch_id:
+            branch = db.query(Branch).filter(Branch.id == address_update.branch_id).first()
+            if not branch:
+                raise HTTPException(status_code=404, detail="Branch not found")
+        elif address_update.item_id:
+            # Branch is required for items
+            raise HTTPException(status_code=400, detail="branch_id is required for items")
         
         # Update address fields
         address.item_id = address_update.item_id

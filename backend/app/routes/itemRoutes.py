@@ -86,8 +86,9 @@ async def get_public_items(
     db: Session = Depends(get_session)
 ):
     """
-    Get approved items for public viewing (no authentication required)
-    Only returns approved items and excludes deleted items
+    Get pending items for public viewing (no authentication required)
+    Only returns pending items and excludes deleted items
+    Approved items are hidden from public search
     """
     try:
         # Create ItemService directly to avoid any middleware issues
@@ -97,7 +98,7 @@ async def get_public_items(
             skip=skip,
             limit=limit,
             user_id=None,
-            status=ItemStatus.APPROVED,  # Only show approved items (excludes received, on_hold, cancelled)
+            status=ItemStatus.PENDING,  # Only show pending items (excludes approved, cancelled)
             include_deleted=False,  # Never include deleted items for public access
             item_type_id=item_type_id
         )
@@ -121,13 +122,14 @@ async def get_items(
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
     user_id: Optional[str] = Query(None, description="Filter by user ID"),
-    status: Optional[str] = Query(None, description="Filter by status (cancelled, approved, on_hold, received)"),
+    status: Optional[str] = Query(None, description="Filter by status (cancelled, approved, pending)"),
     approved_only: bool = Query(False, description="DEPRECATED: Use status=approved instead. Only return approved items"),
     include_deleted: bool = Query(False, description="Include soft-deleted items"),
     item_type_id: Optional[str] = Query(None, description="Filter by item type"),
     branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
     date_from: Optional[str] = Query(None, description="Filter items created from this date (YYYY-MM-DD)"),
     date_to: Optional[str] = Query(None, description="Filter items created until this date (YYYY-MM-DD)"),
+    show_all: bool = Query(False, description="Show all items regardless of branch access (skip branch-based filtering)"),
     db: Session = Depends(get_session),
     item_service: ItemService = Depends(get_item_service),
     current_user = Depends(get_current_user_required)
@@ -167,10 +169,13 @@ async def get_items(
             date_to=parsed_date_to
         )
         
-        # When approved_only is True, show all approved items (skip branch-based access control)
-        # This allows the public search page to display all approved items
+        # When approved_only is True or show_all is True, show all items (skip branch-based access control)
+        # This allows the public search page to display all approved items, or users to view all items
         # Otherwise, apply branch-based access control for regular queries
-        user_id_for_access_control = None if approved_only else current_user.id
+        user_id_for_access_control = None if (approved_only or show_all) else current_user.id
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"get_items: show_all={show_all}, approved_only={approved_only}, user_id_for_access_control={user_id_for_access_control}, current_user.id={current_user.id}")
         
         items, total = item_service.get_items(filters, user_id_for_access_control)
         
@@ -192,13 +197,14 @@ async def search_items(
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
     user_id: Optional[str] = Query(None, description="Filter by user ID"),
-    status: Optional[str] = Query(None, description="Filter by status (cancelled, approved, on_hold, received)"),
+    status: Optional[str] = Query(None, description="Filter by status (cancelled, approved, pending)"),
     approved_only: bool = Query(False, description="DEPRECATED: Use status=approved instead. Only return approved items"),
     include_deleted: bool = Query(False, description="Include soft-deleted items"),
     item_type_id: Optional[str] = Query(None, description="Filter by item type"),
     branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
     date_from: Optional[str] = Query(None, description="Filter items created from this date (YYYY-MM-DD)"),
     date_to: Optional[str] = Query(None, description="Filter items created until this date (YYYY-MM-DD)"),
+    show_all: bool = Query(False, description="Show all items regardless of branch access (skip branch-based filtering)"),
     db: Session = Depends(get_session),
     item_service: ItemService = Depends(get_item_service),
     current_user = Depends(get_current_user_required)
@@ -232,7 +238,7 @@ async def search_items(
             try:
                 status_enum = ItemStatus(status.lower())
             except ValueError:
-                raise HTTPException(status_code=400, detail=f"Invalid status: {status}. Valid values are: cancelled, approved, on_hold, received")
+                raise HTTPException(status_code=400, detail=f"Invalid status: {status}. Valid values are: cancelled, approved, pending")
         
         filters = ItemFilterRequest(
             skip=skip,
@@ -247,10 +253,10 @@ async def search_items(
             date_to=parsed_date_to
         )
         
-        # When approved_only is True or status is APPROVED, show all approved items (skip branch-based access control)
-        # This allows the public search page to display all approved items
+        # When approved_only is True, status is APPROVED, or show_all is True, show all items (skip branch-based access control)
+        # This allows the public search page to display all approved items, or users to view all items
         # Otherwise, apply branch-based access control for regular queries
-        user_id_for_access_control = None if (approved_only or status_enum == ItemStatus.APPROVED) else current_user.id
+        user_id_for_access_control = None if (approved_only or status_enum == ItemStatus.APPROVED or show_all) else current_user.id
         
         items, total = item_service.search_items(q, filters, user_id_for_access_control)
         
@@ -311,6 +317,76 @@ async def get_item_statistics(
         return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving statistics: {str(e)}")
+
+@router.get("/pending-count", response_model=dict)
+@require_permission("can_view_items")
+async def get_pending_items_count(
+    request: Request,
+    db: Session = Depends(get_session),
+    item_service: ItemService = Depends(get_item_service),
+    current_user = Depends(get_current_user_required)
+):
+    """
+    Get count of pending items accessible to the current user based on branch assignments
+    Requires: can_view_items permission
+    """
+    import json
+    import os
+    from datetime import datetime
+    
+    # #region agent log
+    try:
+        log_data = {
+            "sessionId": "debug-session",
+            "runId": "run1",
+            "hypothesisId": "B",
+            "location": "itemRoutes.py:get_pending_items_count:entry",
+            "message": "API endpoint called",
+            "data": {"user_id": current_user.id, "user_email": getattr(current_user, 'email', 'N/A')},
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
+        with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+            f.write(json.dumps(log_data) + "\n")
+    except: pass
+    # #endregion
+    
+    try:
+        count = item_service.get_pending_items_count(current_user.id)
+        
+        # #region agent log
+        try:
+            log_data = {
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "B",
+                "location": "itemRoutes.py:get_pending_items_count:return",
+                "message": "API returning count",
+                "data": {"count": count},
+                "timestamp": int(datetime.now().timestamp() * 1000)
+            }
+            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                f.write(json.dumps(log_data) + "\n")
+        except: pass
+        # #endregion
+        
+        return {"count": count}
+    except Exception as e:
+        # #region agent log
+        try:
+            log_data = {
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "B",
+                "location": "itemRoutes.py:get_pending_items_count:error",
+                "message": "API error",
+                "data": {"error": str(e)},
+                "timestamp": int(datetime.now().timestamp() * 1000)
+            }
+            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                f.write(json.dumps(log_data) + "\n")
+        except: pass
+        # #endregion
+        raise HTTPException(status_code=500, detail=f"Error retrieving pending items count: {str(e)}")
 
 @router.get("/public/{item_id}", response_model=ItemDetailResponse)
 async def get_public_item(
@@ -420,7 +496,7 @@ async def toggle_item_approval(
     _: None = Depends(require_branch_access())
 ):
     """
-    Toggle the approval status of an item (toggles between approved and on_hold)
+    Toggle the approval status of an item (toggles between approved and pending)
     Requires: can_approve_items permission
     """
     try:
@@ -455,6 +531,28 @@ async def update_item_status(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating status: {str(e)}")
+
+@router.patch("/{item_id}/approve", response_model=ItemResponse)
+@require_permission("can_approve_items")
+async def approve_item(
+    item_id: str,
+    request: Request,
+    db: Session = Depends(get_session),
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access())
+):
+    """
+    Approve an item (change status from pending to approved)
+    Requires: item status must be 'pending' and item must have an approved claim
+    Requires: can_approve_items permission
+    """
+    try:
+        item = item_service.approve_item(item_id)
+        return item
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error approving item: {str(e)}")
 
 @router.patch("/{item_id}/update-claims-count", response_model=ItemResponse)
 @require_permission("can_manage_claims")
