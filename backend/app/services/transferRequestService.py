@@ -143,6 +143,35 @@ class TransferRequestService:
                 detail=f"Transfer request is already {transfer_request.status.value}"
             )
         
+        # Check if user manages the source branch - if so, they cannot approve
+        from app.models import UserBranchManager
+        user_manages_source = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == approved_by_user_id,
+                UserBranchManager.branch_id == transfer_request.from_branch_id
+            )
+        ).first()
+        
+        if user_manages_source:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot approve a transfer request from a branch you manage"
+            )
+        
+        # Check if user manages the destination branch - they must manage it to approve
+        user_manages_destination = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == approved_by_user_id,
+                UserBranchManager.branch_id == transfer_request.to_branch_id
+            )
+        ).first()
+        
+        if not user_manages_destination:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only approve transfer requests to branches you manage"
+            )
+        
         # Update transfer request status
         transfer_request.status = TransferStatus.APPROVED
         transfer_request.approved_by = approved_by_user_id
@@ -187,6 +216,35 @@ class TransferRequestService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Transfer request is already {transfer_request.status.value}"
+            )
+        
+        # Check if user manages the source branch - if so, they cannot reject
+        from app.models import UserBranchManager
+        user_manages_source = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == rejected_by_user_id,
+                UserBranchManager.branch_id == transfer_request.from_branch_id
+            )
+        ).first()
+        
+        if user_manages_source:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot reject a transfer request from a branch you manage"
+            )
+        
+        # Check if user manages the destination branch - they must manage it to reject
+        user_manages_destination = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == rejected_by_user_id,
+                UserBranchManager.branch_id == transfer_request.to_branch_id
+            )
+        ).first()
+        
+        if not user_manages_destination:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only reject transfer requests to branches you manage"
             )
         
         transfer_request.status = TransferStatus.REJECTED
