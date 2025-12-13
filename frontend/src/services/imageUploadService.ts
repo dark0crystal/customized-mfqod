@@ -30,7 +30,7 @@ export interface UploadProgress {
   percentage: number;
 }
 
-class ImageUploadService {
+export class ImageUploadService {
   private baseUrl: string;
 
   constructor() {
