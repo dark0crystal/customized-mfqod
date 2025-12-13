@@ -8,8 +8,7 @@ import DisplayItems from './DisplayItems';
 enum ItemStatus {
   CANCELLED = "cancelled",
   APPROVED = "approved",
-  ON_HOLD = "on_hold",
-  RECEIVED = "received"
+  PENDING = "pending"
 }
 
 type Item = {
@@ -25,7 +24,7 @@ type Item = {
     branch_name_en?: string;
     full_location?: string;
   };
-  status?: string;  // Item status: cancelled, approved, on_hold, received
+  status?: string;  // Item status: cancelled, approved, pending
   approval?: boolean;  // DEPRECATED: kept for backward compatibility
   temporary_deletion?: boolean;
   claims_count?: number;
