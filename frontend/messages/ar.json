@@ -169,6 +169,10 @@
     "unnamedBranch": "فرع بدون اسم",
     "dragDropPlaceholder": "انقر أو اسحب الصور هنا للرفع",
     "dropImagesHere": "أسقط الصور هنا",
+    "uploadImagesHelper": "رفع الصور سيساعدنا في التعرف على غرضك المفقود بسرعة",
+    "image": "صورة",
+    "images": "صور",
+    "noImages": "لم يتم العثور على صور",
     "validation": {
       "titleRequired": "هذا الحقل مطلوب",
       "contentRequired": "يرجى تقديم تفاصيل إضافية",
@@ -414,6 +418,7 @@
       "status": {
         "approved": "معتمد",
         "cancelled": "ملغي",
+        "pending": "في الانتظار",
         "on_hold": "قيد الانتظار",
         "received": "تم الاستلام",
         "claims": "ادعاءات"
@@ -464,9 +469,11 @@
         "status": {
           "cancelled": "ملغي",
           "approved": "معتمد",
+          "pending": "في الانتظار",
           "on_hold": "قيد الانتظار",
           "received": "تم الاستلام"
         },
+        "pending": "في الانتظار",
         "createdBy": "أنشأه",
         "createdOn": "أُنشئ في",
         "role": "الدور",
@@ -495,7 +502,8 @@
         "transferRequestSubmitted": "تم إرسال طلب النقل بنجاح",
         "transferRequestFailed": "فشل إرسال طلب النقل",
         "optional": "اختياري",
-        "notes": "ملاحظات"
+        "notes": "ملاحظات",
+        "noClaimsToApprove": "لا يمكن الموافقة على هذا المنشور. لا توجد مطالبات لهذا المنشور. يرجى إنشاء مطالبة أولاً قبل الموافقة."
       }
     },
     "transferRequests": {
@@ -592,7 +600,34 @@
       "close": "إغلاق",
       "approveClaim": "الموافقة على المطالبة",
       "rejectClaim": "رفض المطالبة",
-      "updateStatusError": "فشل تحديث حالة المطالبة. يرجى المحاولة مرة أخرى."
+      "updateStatusError": "فشل تحديث حالة المطالبة. يرجى المحاولة مرة أخرى.",
+      "claimDetails": "تفاصيل المطالبة",
+      "backToClaims": "العودة إلى المطالبات",
+      "edit": "تعديل",
+      "description": "الوصف",
+      "saving": "جاري الحفظ...",
+      "save": "حفظ",
+      "cancel": "إلغاء",
+      "uploadImage": "رفع صورة",
+      "uploading": "جاري الرفع...",
+      "image": "صورة",
+      "noImages": "لا توجد صور مرفوعة بعد",
+      "deleteImage": "حذف الصورة",
+      "claimInformation": "معلومات المطالبة",
+      "claimer": "المدعي",
+      "viewItem": "عرض الغرض",
+      "branch": "الفرع",
+      "disclaimerTitle": "مطالبة معتمدة موجودة",
+      "disclaimerMessage": "يوجد بالفعل مطالبة معتمدة لهذا المنشور. الموافقة على هذه المطالبة ستعيد إلغاء الموافقة على المطالبة السابقة. هل تريد المتابعة؟",
+      "currentApprovedClaim": "المطالبة المعتمدة الحالية:",
+      "confirm": "متابعة",
+      "claimNotFound": "المطالبة غير موجودة",
+      "accessDenied": "تم رفض الوصول",
+      "errorFetchingClaim": "فشل تحميل تفاصيل المطالبة",
+      "errorUpdatingClaim": "فشل تحديث المطالبة",
+      "errorUploadingImage": "فشل رفع الصورة",
+      "errorDeletingImage": "فشل حذف الصورة",
+      "confirmDeleteImage": "هل أنت متأكد من أنك تريد حذف هذه الصورة؟"
     },
     "common": {
       "loading": "جاري التحميل...",

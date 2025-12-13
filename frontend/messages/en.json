@@ -169,6 +169,10 @@
     "unnamedBranch": "Unnamed Branch",
     "dragDropPlaceholder": "Click or drag images here to upload",
     "dropImagesHere": "Drop images here",
+    "uploadImagesHelper": "Uploading images will help us identify your missing item quickly",
+    "image": "image",
+    "images": "images",
+    "noImages": "No images found",
     "validation": {
       "titleRequired": "This field is required",
       "contentRequired": "Please provide additional details",
@@ -412,6 +416,7 @@
       "status": {
         "approved": "Approved",
         "cancelled": "Cancelled",
+        "pending": "Pending",
         "on_hold": "On Hold",
         "received": "Received",
         "claims": "Claims"
@@ -462,9 +467,11 @@
         "status": {
           "cancelled": "Cancelled",
           "approved": "Approved",
+          "pending": "Pending",
           "on_hold": "On Hold",
           "received": "Received"
         },
+        "pending": "Pending",
         "createdBy": "Created By",
         "createdOn": "Created on",
         "role": "Role",
@@ -493,7 +500,8 @@
         "transferRequestSubmitted": "Transfer request submitted successfully",
         "transferRequestFailed": "Failed to submit transfer request",
         "optional": "Optional",
-        "notes": "Notes"
+        "notes": "Notes",
+        "noClaimsToApprove": "Cannot approve this post. There are no claims for this post. Please create a claim first before approving."
       }
     },
     "transferRequests": {
@@ -590,7 +598,34 @@
       "close": "Close",
       "approveClaim": "Approve Claim",
       "rejectClaim": "Reject Claim",
-      "updateStatusError": "Failed to update claim status. Please try again."
+      "updateStatusError": "Failed to update claim status. Please try again.",
+      "claimDetails": "Claim Details",
+      "backToClaims": "Back to Claims",
+      "edit": "Edit",
+      "description": "Description",
+      "saving": "Saving...",
+      "save": "Save",
+      "cancel": "Cancel",
+      "uploadImage": "Upload Image",
+      "uploading": "Uploading...",
+      "image": "image",
+      "noImages": "No images uploaded yet",
+      "deleteImage": "Delete Image",
+      "claimInformation": "Claim Information",
+      "claimer": "Claimer",
+      "viewItem": "View Item",
+      "branch": "Branch",
+      "disclaimerTitle": "Existing Approved Claim",
+      "disclaimerMessage": "There is already an approved claim for this post. Approving this claim will unapprove the previous claim. Do you want to continue?",
+      "currentApprovedClaim": "Current approved claim:",
+      "confirm": "Continue",
+      "claimNotFound": "Claim not found",
+      "accessDenied": "Access denied",
+      "errorFetchingClaim": "Failed to fetch claim details",
+      "errorUpdatingClaim": "Failed to update claim",
+      "errorUploadingImage": "Failed to upload image",
+      "errorDeletingImage": "Failed to delete image",
+      "confirmDeleteImage": "Are you sure you want to delete this image?"
     },
     "common": {
       "loading": "Loading...",
