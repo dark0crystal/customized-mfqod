@@ -42,6 +42,14 @@ export default function Claims({ postId }: { postId: string }) {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [pendingClaimId, setPendingClaimId] = useState<string | null>(null);
+  const [existingClaimInfo, setExistingClaimInfo] = useState<{
+    has_existing: boolean;
+    claim_id?: string;
+    claim_title?: string;
+    claimer_name?: string;
+  } | null>(null);
 
   const fetchClaims = useCallback(async () => {
     setIsLoading(true);
@@ -67,7 +75,46 @@ export default function Claims({ postId }: { postId: string }) {
     fetchClaims();
   }, [fetchClaims]);
 
+  async function checkExistingApprovedClaim(claimId: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/claims/${claimId}/check-existing-approved`, {
+        headers: getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        return false;
+      }
+      
+      const data = await response.json();
+      if (data.has_existing) {
+        setExistingClaimInfo(data);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking existing approved claim:', error);
+      return false;
+    }
+  }
+
   async function handleClaimApproval(claimId: string, approval: boolean) {
+    // If rejecting, proceed directly
+    if (!approval) {
+      await proceedWithApproval(claimId, approval);
+      return;
+    }
+
+    // If approving, check for existing approved claim
+    const hasExisting = await checkExistingApprovedClaim(claimId);
+    if (hasExisting) {
+      setPendingClaimId(claimId);
+      setShowDisclaimer(true);
+    } else {
+      await proceedWithApproval(claimId, approval);
+    }
+  }
+
+  async function proceedWithApproval(claimId: string, approval: boolean) {
     try {
       const endpoint = approval 
         ? `${API_BASE_URL}/api/claims/${claimId}/approve`
@@ -82,6 +129,9 @@ export default function Claims({ postId }: { postId: string }) {
       if (response.ok) {
         console.log('Claim status updated');
         fetchClaims();
+        setShowDisclaimer(false);
+        setPendingClaimId(null);
+        setExistingClaimInfo(null);
       } else {
         console.error('Failed to update claim status');
       }
@@ -90,8 +140,60 @@ export default function Claims({ postId }: { postId: string }) {
     }
   }
 
+  function handleDisclaimerConfirm() {
+    if (pendingClaimId) {
+      proceedWithApproval(pendingClaimId, true);
+    }
+  }
+
+  function handleDisclaimerCancel() {
+    setShowDisclaimer(false);
+    setPendingClaimId(null);
+    setExistingClaimInfo(null);
+  }
+
   return (
     <div>
+      {/* Disclaimer Modal */}
+      {showDisclaimer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {t('disclaimerTitle') || 'Existing Approved Claim'}
+            </h3>
+            <p className="text-gray-700 mb-4">
+              {t('disclaimerMessage') || 'There is already an approved claim for this post. Approving this claim will unapprove the previous claim. Do you want to continue?'}
+            </p>
+            {existingClaimInfo && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-gray-700">
+                  <strong>{t('currentApprovedClaim') || 'Current approved claim:'}</strong> {existingClaimInfo.claim_title || 'N/A'}
+                </p>
+                {existingClaimInfo.claimer_name && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    {t('claimer') || 'Claimer:'} {existingClaimInfo.claimer_name}
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleDisclaimerCancel}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                {t('cancel') || 'Cancel'}
+              </button>
+              <button
+                onClick={handleDisclaimerConfirm}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                {t('confirm') || 'Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isLoading && (
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
