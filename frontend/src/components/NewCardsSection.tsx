@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
+import { useTranslations } from 'next-intl';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
 export default function NewCardsSection() {
+  const t = useTranslations('stats');
   const [branchesCount, setBranchesCount] = useState<number | null>(null);
   const [itemsCount, setItemsCount] = useState<number | null>(null);
   const [returnedCount, setReturnedCount] = useState<number | null>(null);
@@ -154,11 +156,11 @@ export default function NewCardsSection() {
                 )}
               </div>
               <div className="text-gray-600 font-medium">
-                عدد العناصر
+                {t('itemsCount')}
               </div>
               {errorItems && (
                 <div className="text-xs text-red-500 mt-1">
-                  خطأ في التحميل
+                  {t('loadingError')}
                 </div>
               )}
             </div>
@@ -173,11 +175,11 @@ export default function NewCardsSection() {
                 )}
               </div>
               <div className="text-gray-600 font-medium">
-                عدد الفروع
+                {t('branchesCount')}
               </div>
               {errorBranches && (
                 <div className="text-xs text-red-500 mt-1">
-                  خطأ في التحميل
+                  {t('loadingError')}
                 </div>
               )}
             </div>
@@ -192,11 +194,11 @@ export default function NewCardsSection() {
                 )}
               </div>
               <div className="text-gray-600 font-medium">
-                تم إرجاعها حتى الآن
+                {t('returnedCount')}
               </div>
               {errorReturned && (
                 <div className="text-xs text-red-500 mt-1">
-                  خطأ في التحميل
+                  {t('loadingError')}
                 </div>
               )}
             </div>
