@@ -176,12 +176,13 @@ export default function ReportFoundItem() {
   }, []);
 
   // Fetch data on component mount - get user's managed branches and derive organizations
+  // Note: Only fetches branches that the current user manages, not all branches
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         
-        // Fetch user's managed branches
+        // Fetch user's managed branches only (not all branches)
         const branchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
           method: 'GET',
           headers: getAuthHeaders(),
@@ -189,7 +190,15 @@ export default function ReportFoundItem() {
         
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
-          setBranches(branchesData);
+          // branchesData contains only branches managed by the current user
+          // Filter by organization if one is already selected
+          let filteredBranches = branchesData;
+          if (watchedOrganization) {
+            filteredBranches = branchesData.filter(
+              (branch: Branch) => branch.organization_id === watchedOrganization
+            );
+          }
+          setBranches(filteredBranches);
           
           // Extract unique organizations from managed branches
           const orgMap = new Map();
@@ -223,14 +232,15 @@ export default function ReportFoundItem() {
           setOrgSelectDisabled(uniqueOrganizations.length === 1);
           
           // If only one branch available, select it
-          if (branchesData.length === 1) {
-            setValue("branch_id", branchesData[0].id);
+          if (filteredBranches.length === 1) {
+            setValue("branch_id", filteredBranches[0].id);
           }
         } else if (branchesResponse.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
           return;
         } else {
           console.error('Failed to fetch managed branches');
+          setBranches([]);
         }
 
         // Fetch item types with authentication
@@ -265,10 +275,12 @@ export default function ReportFoundItem() {
   }, [authError, API_BASE_URL, setValue]);
 
 
-  // Fetch user's managed branches instead of organization branches
+  // Fetch user's managed branches when organization changes
+  // Note: This ensures branches are always filtered to only show managed branches for the selected organization
   useEffect(() => {
     const fetchManagedBranches = async () => {
       try {
+        // Fetch only branches managed by the current user (not all branches)
         const branchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
           method: 'GET',
           headers: getAuthHeaders(),
@@ -276,6 +288,7 @@ export default function ReportFoundItem() {
         
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
+          // branchesData contains only branches managed by the current user
           // Filter branches by selected organization if one is selected
           let filteredBranches = branchesData;
           if (watchedOrganization) {
@@ -283,6 +296,7 @@ export default function ReportFoundItem() {
               (branch: Branch) => branch.organization_id === watchedOrganization
             );
           }
+          // Set branches state - this will only contain managed branches (filtered by org if selected)
           setBranches(filteredBranches);
           
           // If only one branch available and matches organization, select it
@@ -630,13 +644,12 @@ export default function ReportFoundItem() {
                   : c("selectBranch")
               }
             </option>
-            {branches
-              .filter((branch: Branch) => !watchedOrganization || branch.organization_id === watchedOrganization)
-              .map((branch: Branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || c("unnamedBranch")}
-                </option>
-              ))}
+            {/* branches state already contains only managed branches filtered by organization */}
+            {branches.map((branch: Branch) => (
+              <option key={branch.id} value={branch.id}>
+                {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || c("unnamedBranch")}
+              </option>
+            ))}
           </select>
           {errors.branch_id && (
             <p className="mt-2 text-sm text-red-500">{errors.branch_id.message}</p>
