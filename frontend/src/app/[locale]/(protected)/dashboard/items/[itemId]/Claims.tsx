@@ -19,6 +19,7 @@ interface Claim {
   user_email?: string;
   item_title?: string;
   item_description?: string;
+  item_status?: string;
   is_assigned?: boolean;
 }
 
@@ -223,7 +224,7 @@ export default function Claims({ postId }: { postId: string }) {
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">
                           {claim.title}
                         </h3>
-                        <div className="flex items-center gap-2 mb-3">
+                        <div className="flex items-center gap-2 mb-3 flex-wrap">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                             claim.approval 
                               ? 'bg-green-100 text-green-800' 
@@ -234,6 +235,21 @@ export default function Claims({ postId }: { postId: string }) {
                           {claim.is_assigned && (
                             <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                               {t('assigned') || 'Assigned'}
+                            </span>
+                          )}
+                          {claim.item_status && (
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              claim.item_status === 'approved' 
+                                ? 'bg-green-100 text-green-800' 
+                                : claim.item_status === 'cancelled'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-orange-100 text-orange-800'
+                            }`}>
+                              {t('itemStatus') || 'Item Status'}: {
+                                claim.item_status === 'approved' ? (t('approved') || 'Approved') :
+                                claim.item_status === 'cancelled' ? (t('cancelled') || 'Cancelled') :
+                                (t('pending') || 'Pending')
+                              }
                             </span>
                           )}
                         </div>

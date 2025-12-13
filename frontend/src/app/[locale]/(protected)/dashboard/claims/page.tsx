@@ -21,6 +21,7 @@ interface Claim {
   user_email?: string;
   item_title?: string;
   item_description?: string;
+  item_status?: string;
   images?: string[];
   is_assigned?: boolean;  // Whether this claim is assigned as the correct claim for the item
 }
@@ -382,6 +383,21 @@ export default function ClaimsPage() {
                     {claim.is_assigned && (
                       <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                         {t('assigned') || 'Assigned'}
+                      </span>
+                    )}
+                    {claim.item_status && (
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        claim.item_status === 'approved' 
+                          ? 'bg-green-100 text-green-800' 
+                          : claim.item_status === 'cancelled'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-orange-100 text-orange-800'
+                      }`}>
+                        {t('itemStatus') || 'Item'}: {
+                          claim.item_status === 'approved' ? (t('approved') || 'Approved') :
+                          claim.item_status === 'cancelled' ? (t('cancelled') || 'Cancelled') :
+                          (t('pending') || 'Pending')
+                        }
                       </span>
                     )}
                   </div>

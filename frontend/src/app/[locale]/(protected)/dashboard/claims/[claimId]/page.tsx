@@ -53,6 +53,7 @@ interface ClaimData {
   user_email?: string;
   item_title?: string;
   item_description?: string;
+  item_status?: string;
   item_branches?: Array<{
     id: string;
     name_ar?: string;
@@ -450,6 +451,22 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                     {claim.approval ? t('approved') : t('pending')}
                   </span>
                 </div>
+                {claim.item_status && (
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">{t('itemStatus') || 'Item Status'}</p>
+                    <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
+                      claim.item_status === 'approved' 
+                        ? 'bg-green-100 text-green-800' 
+                        : claim.item_status === 'cancelled'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {claim.item_status === 'approved' ? (t('approved') || 'Approved') :
+                       claim.item_status === 'cancelled' ? (t('cancelled') || 'Cancelled') :
+                       (t('pending') || 'Pending')}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
