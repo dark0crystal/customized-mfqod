@@ -136,34 +136,34 @@ class ItemService:
             query = query.filter(Item.created_at <= filters.date_to)
         
         # Apply branch-based access control if user_id is provided
-        # Skip branch-based filtering for super_admin users and branch managers (they have access to all items for viewing)
+        # When user_id is provided, it means we want to filter by branch access (managed items view)
+        # When user_id is None, it means show all items (all items view)
         if user_id:
-            # Check if user is super_admin - if so, skip branch-based filtering
-            if permissionServices.is_super_admin(self.db, user_id):
-                logger.info(f"Super admin user {user_id} - skipping branch-based access control")
-                # Super admin has access to all items, so don't filter
-            # Check if user is a branch manager - if so, skip branch-based filtering for viewing
-            elif is_branch_manager(user_id, self.db):
-                logger.info(f"Branch manager user {user_id} - skipping branch-based access control for viewing (can view all items)")
-                # Branch managers can view all items, so don't filter
-            else:
-                try:
-                    accessible_items = get_user_accessible_items(user_id, self.db)
+            # Always apply branch-based filtering when user_id is provided
+            # This ensures "My Managed Items" shows only items the user can access
+            try:
+                accessible_items = get_user_accessible_items(user_id, self.db)
+                logger.info(f"User {user_id} has {len(accessible_items) if accessible_items else 0} accessible items")
+                if accessible_items:
+                    # Filter out None values to avoid SQL errors
+                    accessible_items = [item_id for item_id in accessible_items if item_id is not None]
                     if accessible_items:
-                        # Filter out None values to avoid SQL errors
-                        accessible_items = [item_id for item_id in accessible_items if item_id is not None]
-                        if accessible_items:
-                            query = query.filter(Item.id.in_(accessible_items))
-                        else:
-                            # User has no accessible items, return empty result
-                            return [], 0
+                        logger.info(f"Filtering items to {len(accessible_items)} accessible items for user {user_id}")
+                        query = query.filter(Item.id.in_(accessible_items))
                     else:
                         # User has no accessible items, return empty result
+                        logger.info(f"User {user_id} has no accessible items (all None), returning empty")
                         return [], 0
-                except Exception as e:
-                    logger.error(f"Error getting accessible items for user {user_id}: {e}")
-                    # If we can't determine accessible items, return empty to be safe
+                else:
+                    # User has no accessible items, return empty result
+                    logger.info(f"User {user_id} has no accessible items, returning empty")
                     return [], 0
+            except Exception as e:
+                logger.error(f"Error getting accessible items for user {user_id}: {e}")
+                # If we can't determine accessible items, return empty to be safe
+                return [], 0
+        else:
+            logger.info("No user_id provided, showing all items (no branch filtering)")
         
         # Get total count before pagination
         try:
@@ -287,34 +287,28 @@ class ItemService:
             query = query.filter(Item.created_at <= filters.date_to)
         
         # Apply branch-based access control if user_id is provided
-        # Skip branch-based filtering for super_admin users and branch managers (they have access to all items for viewing)
+        # When user_id is provided, it means we want to filter by branch access (managed items view)
+        # When user_id is None, it means show all items (all items view)
         if user_id:
-            # Check if user is super_admin - if so, skip branch-based filtering
-            if permissionServices.is_super_admin(self.db, user_id):
-                logger.info(f"Super admin user {user_id} - skipping branch-based access control in search")
-                # Super admin has access to all items, so don't filter
-            # Check if user is a branch manager - if so, skip branch-based filtering for viewing
-            elif is_branch_manager(user_id, self.db):
-                logger.info(f"Branch manager user {user_id} - skipping branch-based access control in search (can view all items)")
-                # Branch managers can view all items, so don't filter
-            else:
-                try:
-                    accessible_items = get_user_accessible_items(user_id, self.db)
+            # Always apply branch-based filtering when user_id is provided
+            # This ensures "My Managed Items" shows only items the user can access
+            try:
+                accessible_items = get_user_accessible_items(user_id, self.db)
+                if accessible_items:
+                    # Filter out None values to avoid SQL errors
+                    accessible_items = [item_id for item_id in accessible_items if item_id is not None]
                     if accessible_items:
-                        # Filter out None values to avoid SQL errors
-                        accessible_items = [item_id for item_id in accessible_items if item_id is not None]
-                        if accessible_items:
-                            query = query.filter(Item.id.in_(accessible_items))
-                        else:
-                            # User has no accessible items, return empty result
-                            return [], 0
+                        query = query.filter(Item.id.in_(accessible_items))
                     else:
                         # User has no accessible items, return empty result
                         return [], 0
-                except Exception as e:
-                    logger.error(f"Error getting accessible items for user {user_id} in search: {e}")
-                    # If we can't determine accessible items, return empty to be safe
+                else:
+                    # User has no accessible items, return empty result
                     return [], 0
+            except Exception as e:
+                logger.error(f"Error getting accessible items for user {user_id} in search: {e}")
+                # If we can't determine accessible items, return empty to be safe
+                return [], 0
         
         total = query.count()
         items = query.offset(filters.skip).limit(filters.limit).all()
@@ -723,6 +717,276 @@ class ItemService:
             "cancelled_items": cancelled_items,
             "deleted_items": deleted_items
         }
+    
+    def get_pending_items_count(self, user_id: str) -> int:
+        """Get count of pending items accessible to the user based on branch assignments"""
+        import json
+        import os
+        from datetime import datetime
+        
+        # #region agent log
+        try:
+            log_data = {
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "A",
+                "location": "itemService.py:get_pending_items_count:entry",
+                "message": "Function entry",
+                "data": {"user_id": user_id},
+                "timestamp": int(datetime.now().timestamp() * 1000)
+            }
+            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                f.write(json.dumps(log_data) + "\n")
+        except: pass
+        # #endregion
+        
+        # Start with base query for pending items
+        query = self.db.query(Item).filter(
+            Item.status == ItemStatus.PENDING.value,
+            Item.temporary_deletion == False
+        )
+        
+        total_pending = query.count()
+        
+        # #region agent log
+        try:
+            log_data = {
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "E",
+                "location": "itemService.py:get_pending_items_count:base_query",
+                "message": "Base query count",
+                "data": {"total_pending": total_pending},
+                "timestamp": int(datetime.now().timestamp() * 1000)
+            }
+            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                f.write(json.dumps(log_data) + "\n")
+        except: pass
+        # #endregion
+        
+        # Check if user is super_admin - if so, return all pending items
+        is_admin = permissionServices.is_super_admin(self.db, user_id)
+        
+        # #region agent log
+        try:
+            log_data = {
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "A",
+                "location": "itemService.py:get_pending_items_count:admin_check",
+                "message": "Admin check result",
+                "data": {"is_admin": is_admin},
+                "timestamp": int(datetime.now().timestamp() * 1000)
+            }
+            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                f.write(json.dumps(log_data) + "\n")
+        except: pass
+        # #endregion
+        
+        if is_admin:
+            logger.info(f"Super admin user {user_id} - returning all pending items count")
+            count = query.count()
+            # #region agent log
+            try:
+                log_data = {
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "itemService.py:get_pending_items_count:admin_return",
+                    "message": "Admin returning count",
+                    "data": {"count": count},
+                    "timestamp": int(datetime.now().timestamp() * 1000)
+                }
+                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                    f.write(json.dumps(log_data) + "\n")
+            except: pass
+            # #endregion
+            return count
+        
+        # Check if user is a branch manager - branch managers see pending items in their managed branches
+        is_bm = is_branch_manager(user_id, self.db)
+        
+        # #region agent log
+        try:
+            log_data = {
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "A",
+                "location": "itemService.py:get_pending_items_count:branch_manager_check",
+                "message": "Branch manager check",
+                "data": {"is_branch_manager": is_bm},
+                "timestamp": int(datetime.now().timestamp() * 1000)
+            }
+            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                f.write(json.dumps(log_data) + "\n")
+        except: pass
+        # #endregion
+        
+        if is_bm:
+            # Get user's managed branches
+            from app.models import UserBranchManager, Address
+            managed_branch_ids = [
+                row[0] for row in self.db.query(UserBranchManager.branch_id).filter(
+                    UserBranchManager.user_id == user_id
+                ).all()
+            ]
+            
+            # #region agent log
+            try:
+                log_data = {
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "itemService.py:get_pending_items_count:managed_branches",
+                    "message": "Managed branches",
+                    "data": {"managed_branch_ids": managed_branch_ids, "count": len(managed_branch_ids)},
+                    "timestamp": int(datetime.now().timestamp() * 1000)
+                }
+                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                    f.write(json.dumps(log_data) + "\n")
+            except: pass
+            # #endregion
+            
+            if managed_branch_ids:
+                # Get items in managed branches
+                item_ids_in_branches = [
+                    row[0] for row in self.db.query(Address.item_id).filter(
+                        Address.branch_id.in_(managed_branch_ids),
+                        Address.is_current == True
+                    ).distinct().all()
+                ]
+                
+                # #region agent log
+                try:
+                    log_data = {
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "A",
+                        "location": "itemService.py:get_pending_items_count:items_in_branches",
+                        "message": "Items in managed branches",
+                        "data": {"item_ids_count": len(item_ids_in_branches)},
+                        "timestamp": int(datetime.now().timestamp() * 1000)
+                    }
+                    with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                        f.write(json.dumps(log_data) + "\n")
+                except: pass
+                # #endregion
+                
+                if item_ids_in_branches:
+                    # Filter out None values
+                    item_ids_in_branches = [item_id for item_id in item_ids_in_branches if item_id is not None]
+                    if item_ids_in_branches:
+                        count = query.filter(Item.id.in_(item_ids_in_branches)).count()
+                        # #region agent log
+                        try:
+                            log_data = {
+                                "sessionId": "debug-session",
+                                "runId": "run1",
+                                "hypothesisId": "A",
+                                "location": "itemService.py:get_pending_items_count:branch_manager_return",
+                                "message": "Branch manager returning count",
+                                "data": {"count": count, "filtered_item_ids_count": len(item_ids_in_branches)},
+                                "timestamp": int(datetime.now().timestamp() * 1000)
+                            }
+                            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                                f.write(json.dumps(log_data) + "\n")
+                        except: pass
+                        # #endregion
+                        return count
+            
+            # If no managed branches or no items in branches, return 0
+            # #region agent log
+            try:
+                log_data = {
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "itemService.py:get_pending_items_count:branch_manager_zero",
+                    "message": "Branch manager returning 0",
+                    "data": {},
+                    "timestamp": int(datetime.now().timestamp() * 1000)
+                }
+                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                    f.write(json.dumps(log_data) + "\n")
+            except: pass
+            # #endregion
+            return 0
+        
+        # For regular users, get accessible items (own items + items in managed branches)
+        try:
+            accessible_items = get_user_accessible_items(user_id, self.db)
+            
+            # #region agent log
+            try:
+                log_data = {
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "itemService.py:get_pending_items_count:accessible_items",
+                    "message": "Accessible items",
+                    "data": {"accessible_items_count": len(accessible_items) if accessible_items else 0},
+                    "timestamp": int(datetime.now().timestamp() * 1000)
+                }
+                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                    f.write(json.dumps(log_data) + "\n")
+            except: pass
+            # #endregion
+            
+            if accessible_items:
+                # Filter out None values
+                accessible_items = [item_id for item_id in accessible_items if item_id is not None]
+                if accessible_items:
+                    count = query.filter(Item.id.in_(accessible_items)).count()
+                    # #region agent log
+                    try:
+                        log_data = {
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "A",
+                            "location": "itemService.py:get_pending_items_count:regular_user_return",
+                            "message": "Regular user returning count",
+                            "data": {"count": count, "filtered_accessible_items_count": len(accessible_items)},
+                            "timestamp": int(datetime.now().timestamp() * 1000)
+                        }
+                        with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                            f.write(json.dumps(log_data) + "\n")
+                    except: pass
+                    # #endregion
+                    return count
+            # #region agent log
+            try:
+                log_data = {
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "itemService.py:get_pending_items_count:regular_user_zero",
+                    "message": "Regular user returning 0",
+                    "data": {},
+                    "timestamp": int(datetime.now().timestamp() * 1000)
+                }
+                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                    f.write(json.dumps(log_data) + "\n")
+            except: pass
+            # #endregion
+            return 0
+        except Exception as e:
+            logger.error(f"Error getting pending items count for user {user_id}: {e}")
+            # #region agent log
+            try:
+                log_data = {
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "A",
+                    "location": "itemService.py:get_pending_items_count:error",
+                    "message": "Exception occurred",
+                    "data": {"error": str(e)},
+                    "timestamp": int(datetime.now().timestamp() * 1000)
+                }
+                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
+                    f.write(json.dumps(log_data) + "\n")
+            except: pass
+            # #endregion
+            return 0
     
     # =========================== 
     # Helper Methods

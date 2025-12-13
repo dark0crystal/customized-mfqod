@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, or_, and_
 from app.schemas.user_schema import UserRegister, UserLogin, UserUpdate, UserResponse
-from app.models import User, Role, UserStatus
+from app.models import User, Role, UserStatus, UserSession, LoginAttempt
 from app.utils.security import hash_password, verify_password
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -317,25 +317,96 @@ async def update_user(user_id: str, user_update: UserUpdate, session: Session) -
     }
 
 async def delete_user(user_id: str, session: Session) -> Dict[str, Any]:
-    """Delete a user (soft delete by updating status) - unchanged"""
+    """Delete a user (soft delete by updating status)"""
+    logger.info(f"Attempting to soft delete user: {user_id}")
+    
+    try:
+        statement = select(User).where(User.id == user_id)
+        user = session.execute(statement).scalars().first()
+        
+        if not user:
+            logger.warning(f"User not found for soft delete: {user_id}")
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Soft delete (update status to "deleted")
+        deleted_status = session.execute(
+            select(UserStatus).where(UserStatus.name == "deleted")
+        ).scalars().first()
+        
+        if not deleted_status:
+            logger.info("Creating missing 'deleted' status")
+            # Create it if it doesn't exist
+            deleted_status = UserStatus(name="deleted", description="User account is deleted")
+            session.add(deleted_status)
+            session.commit()
+            session.refresh(deleted_status)
+        
+        user.status_id = deleted_status.id
+        user.updated_at = datetime.now(timezone.utc)
+        session.commit()
+        logger.info(f"User {user_id} soft deleted successfully")
+        return {"message": "User deleted successfully (soft delete)"}
+        
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Error soft deleting user {user_id}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
+
+async def permanently_delete_user(user_id: str, session: Session) -> Dict[str, Any]:
+    """
+    Permanently delete a user but preserve their contributions by anonymizing them.
+    """
     statement = select(User).where(User.id == user_id)
     user = session.execute(statement).scalars().first()
     
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Option 1: Soft delete (update status to "inactive" or "deleted")
-    deleted_status = session.execute(
-        select(UserStatus).where(UserStatus.name == "deleted")
-    ).scalars().first()
-    
-    if deleted_status:
-        user.status_id = deleted_status.id
-        user.updated_at = datetime.now(timezone.utc)
+        
+    try:
+        # 1. Anonymize Items (Posts)
+        # Set user_id to NULL for all items posted by this user
+        for item in user.items:
+            item.user_id = None
+            
+        # 2. Anonymize Missing Items
+        # Set user_id to NULL for all missing items posted by this user
+        for missing_item in user.missing_items:
+            missing_item.user_id = None
+            
+        # 3. Anonymize Claims
+        # Set user_id to NULL for all claims made by this user
+        for claim in user.claims:
+            claim.user_id = None
+            
+        # 4. Remove from Managed Branches
+        # This relationship is handled via secondary table, clearing the list removes associations
+        user.managed_branches = []
+        
+        # 5. Delete Login Attempts
+        # These are less critical to preserve anonymously, so we can delete them
+        # Alternatively, we could set user_id to NULL if we wanted to keep the IP logs
+        for attempt in user.login_attempts:
+            session.delete(attempt)
+            
+        # 6. Delete User Sessions
+        # Find and delete any active sessions
+        session_statement = select(UserSession).where(UserSession.user_id == user_id)
+        user_sessions = session.execute(session_statement).scalars().all()
+        for user_session in user_sessions:
+            session.delete(user_session)
+
+        # 7. Delete the User record
+        session.delete(user)
+        
         session.commit()
-        return {"message": "User deleted successfully (soft delete)"}
-    
-    raise HTTPException(status_code=500, detail="Could not delete user")
+        return {"message": "User permanently deleted and data anonymized"}
+        
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Error permanently deleting user {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to permanently delete user: {str(e)}")
 
 async def get_all_users(session: Session, page: int = 1, limit: int = 10) -> Dict[str, Any]:
     """Get all users with pagination - unchanged"""
@@ -372,7 +443,11 @@ async def activate_user(user_id: str, session: Session) -> Dict[str, Any]:
     ).scalars().first()
     
     if not active_status:
-        raise HTTPException(status_code=500, detail="Active status not found")
+        # Create it if it doesn't exist
+        active_status = UserStatus(name="active", description="User account is active")
+        session.add(active_status)
+        session.commit()
+        session.refresh(active_status)
     
     user.status_id = active_status.id
     user.updated_at = datetime.now(timezone.utc)
@@ -397,7 +472,11 @@ async def deactivate_user(user_id: str, session: Session) -> Dict[str, Any]:
     ).scalars().first()
     
     if not inactive_status:
-        raise HTTPException(status_code=500, detail="Inactive status not found")
+        # Create it if it doesn't exist
+        inactive_status = UserStatus(name="inactive", description="User account is inactive")
+        session.add(inactive_status)
+        session.commit()
+        session.refresh(inactive_status)
     
     user.status_id = inactive_status.id
     user.updated_at = datetime.now(timezone.utc)
