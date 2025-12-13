@@ -54,20 +54,22 @@ async def get_public_statistics(
 ):
     """
     Get public statistics for the index page (no authentication required)
-    Returns total items and returned items count
+    Returns pending items count and returned items count
     """
     try:
-        # Count total approved items (not deleted)
-        # Use the same pattern as ItemService.get_items() for consistency
-        approved_filter = Item.status == ItemStatus.APPROVED.value
+        # Count total pending items (not deleted)
+        # This shows the number of items awaiting approval/review
+        pending_filter = Item.status == ItemStatus.PENDING.value
         total_items_query = db.query(func.count(Item.id)).filter(
-            approved_filter,
+            pending_filter,
             Item.temporary_deletion == False
         )
         total_items = total_items_query.scalar() or 0
         
         # Count returned items (items with approved_claim_id)
         # An item is "returned" when it has an approved claim
+        # Returned items are based on approved items, not pending
+        approved_filter = Item.status == ItemStatus.APPROVED.value
         returned_items_query = db.query(func.count(Item.id)).filter(
             approved_filter,
             Item.temporary_deletion == False,
