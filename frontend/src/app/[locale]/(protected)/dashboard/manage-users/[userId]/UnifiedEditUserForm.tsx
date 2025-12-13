@@ -229,7 +229,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                 }
             }
 
-            setSuccessMessage("User profile updated successfully");
+            setSuccessMessage(t('userProfileUpdated'));
             setInitialRole(data.role);
             setInitialStatus(data.isActive);
 
@@ -254,14 +254,14 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             if (managedRes.ok) setUserManagedBranches(await managedRes.json());
 
             setSelectedBranchId("");
-            setSuccessMessage("Branch assigned successfully");
+            setSuccessMessage(t('branchAssignedSuccessfully'));
         } catch (err: any) {
             setErrorMessage(err.message);
         }
     };
 
     const handleRemoveBranch = async (branchId: string) => {
-        if (!confirm("Remove this branch assignment?")) return;
+        if (!confirm(t('removeBranchAssignment'))) return;
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/${branchId}/managers/${userId}`, {
                 method: "DELETE",
@@ -273,7 +273,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             const managedRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/users/${userId}/managed-branches/`, { headers: getAuthHeaders() });
             if (managedRes.ok) setUserManagedBranches(await managedRes.json());
 
-            setSuccessMessage("Branch assignment removed");
+            setSuccessMessage(t('branchAssignmentRemoved'));
         } catch (err: any) {
             setErrorMessage(err.message);
         }
@@ -281,8 +281,8 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
 
     const handleDeleteUser = async (permanent: boolean) => {
         const msg = permanent
-            ? "⚠️ WARNING: Permanently delete user? This CANNOT be undone."
-            : "Deactivate (Soft Delete) user?";
+            ? t('permanentDeleteWarning')
+            : t('deactivateUserConfirm');
 
         if (!confirm(msg)) return;
 
@@ -306,7 +306,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
 
 
     if (isLoading) return <LoadingSpinner />;
-    if (!hasPermission('can_manage_users')) return <div className="p-8 text-center text-red-500">Access Denied</div>;
+    if (!hasPermission('can_manage_users')) return <div className="p-8 text-center text-red-500">{t('accessDenied')}</div>;
 
     return (
         <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -319,38 +319,38 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
 
                 {/* --- Basic Information --- */}
                 <section>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">Basic Information</h2>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">{t('basicInformation')}</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                         {/* First Name */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('firstName')}</label>
                             <input {...register("first_name")} className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" />
                             {errors.first_name && <p className="text-red-500 text-xs mt-1">{errors.first_name.message}</p>}
                         </div>
 
                         {/* Last Name */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('lastName')}</label>
                             <input {...register("last_name")} className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" />
                             {errors.last_name && <p className="text-red-500 text-xs mt-1">{errors.last_name.message}</p>}
                         </div>
 
                         {/* Email */}
                         <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('emailAddress')}</label>
                             <div className="flex gap-2">
                                 <input {...register("email")} className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" />
                                 {/* Update Email button is implicit in the main save, but visually we can show it if needed. 
                                 For now, it's just part of the form. */}
                             </div>
                             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-                            <p className="text-xs text-gray-500 mt-1">Use the 'Save Changes' button to update this user's email address.</p>
+                            <p className="text-xs text-gray-500 mt-1">{t('emailUpdateNote')}</p>
                         </div>
 
                         {/* User Role */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">User Role</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('userRoleLabel')}</label>
                             <select {...register("role")} className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border bg-white">
                                 {roles.map(r => (
                                     <option key={r.id} value={r.name}>{r.name}</option>
@@ -361,7 +361,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
 
                         {/* Mobile Number */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('mobileNumber')}</label>
                             <input {...register("phone_number")} className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border" />
                         </div>
 
@@ -370,19 +370,19 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
 
                 {/* --- Business Information (Branch Management) --- */}
                 <section>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">Business Information</h2>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">{t('businessInformation')}</h2>
 
                     {/* List of Managed Branches */}
                     <div className="mb-6 space-y-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Assigned Branches</label>
-                        {userManagedBranches.length === 0 && <p className="text-sm text-gray-500 italic">No branches assigned.</p>}
+                        <label className="block text-sm font-medium text-gray-700 mb-2">{t('assignedBranches')}</label>
+                        {userManagedBranches.length === 0 && <p className="text-sm text-gray-500 italic">{t('noBranchesAssigned')}</p>}
                         {userManagedBranches.map(branch => (
                             <div key={branch.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-md border border-gray-200">
                                 <div>
                                     <span className="font-medium text-gray-900">{getLocalizedName(branch.branch_name_ar, branch.branch_name_en)}</span>
                                     <span className="text-xs text-gray-500 ml-2">({branch.organization?.name})</span>
                                 </div>
-                                <button type="button" onClick={() => handleRemoveBranch(branch.id)} className="text-red-600 hover:text-red-800 text-sm font-medium">Remove</button>
+                                <button type="button" onClick={() => handleRemoveBranch(branch.id)} className="text-red-600 hover:text-red-800 text-sm font-medium">{t('remove')}</button>
                             </div>
                         ))}
                     </div>
@@ -390,7 +390,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                     {/* Add New Assignment */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end bg-gray-50 p-4 rounded-lg border border-dashed border-gray-300">
                         <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Organization</label>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">{t('organization')}</label>
                             <select
                                 value={selectedOrgId}
                                 onChange={(e) => setSelectedOrgId(e.target.value)}
@@ -400,14 +400,14 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Branch</label>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">{t('branch')}</label>
                             <select
                                 value={selectedBranchId}
                                 onChange={(e) => setSelectedBranchId(e.target.value)}
                                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border bg-white"
                                 disabled={!selectedOrgId}
                             >
-                                <option value="">Select Branch</option>
+                                <option value="">{t('selectBranch')}</option>
                                 {branches.map(b => (
                                     <option key={b.id} value={b.id}>{getLocalizedName(b.branch_name_ar, b.branch_name_en)}</option>
                                 ))}
@@ -420,7 +420,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                                 disabled={!selectedBranchId}
                                 className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium disabled:opacity-50"
                             >
-                                Assign Branch
+                                {t('assignBranch')}
                             </button>
                         </div>
                     </div>
@@ -433,27 +433,27 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                         disabled={isSaving}
                         className="px-6 py-2.5 bg-[#3277AE] text-white rounded-lg font-medium hover:bg-[#2a6594] focus:ring-4 focus:ring-blue-100 transition-all disabled:opacity-70"
                     >
-                        {isSaving ? "Saving Changes..." : "Save Changes"}
+                        {isSaving ? t('savingChanges') : t('saveChanges')}
                     </button>
                 </div>
 
                 {/* --- Danger Zone --- */}
                 <section className="pt-10 mt-10 border-t border-gray-200">
-                    <h2 className="text-lg font-semibold text-red-600 mb-4">Danger Zone</h2>
+                    <h2 className="text-lg font-semibold text-red-600 mb-4">{t('dangerZone')}</h2>
                     <div className="bg-red-50 border border-red-100 rounded-lg p-4 space-y-4">
                         <div className="flex items-center justify-between">
                             <div>
-                                <h3 className="text-sm font-medium text-red-900">Deactivate User</h3>
-                                <p className="text-xs text-red-700 mt-1">Prevent this user from logging in.</p>
+                                <h3 className="text-sm font-medium text-red-900">{t('deactivateUser')}</h3>
+                                <p className="text-xs text-red-700 mt-1">{t('deactivateUserDescription')}</p>
                             </div>
-                            <button type="button" onClick={() => handleDeleteUser(false)} className="px-3 py-1.5 bg-white border border-red-200 text-red-600 text-sm rounded hover:bg-red-50">Deactivate</button>
+                            <button type="button" onClick={() => handleDeleteUser(false)} className="px-3 py-1.5 bg-white border border-red-200 text-red-600 text-sm rounded hover:bg-red-50">{t('deactivate')}</button>
                         </div>
                         <div className="border-t border-red-200 pt-4 flex items-center justify-between">
                             <div>
-                                <h3 className="text-sm font-medium text-red-900">Delete User Permanently</h3>
-                                <p className="text-xs text-red-700 mt-1">Permanently remove this account and anonymize data.</p>
+                                <h3 className="text-sm font-medium text-red-900">{t('deleteUserPermanently')}</h3>
+                                <p className="text-xs text-red-700 mt-1">{t('deleteUserPermanentlyDescription')}</p>
                             </div>
-                            <button type="button" onClick={() => handleDeleteUser(true)} className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700">Delete Permanently</button>
+                            <button type="button" onClick={() => handleDeleteUser(true)} className="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700">{t('deletePermanently')}</button>
                         </div>
                     </div>
                 </section>
