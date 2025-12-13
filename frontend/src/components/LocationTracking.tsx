@@ -46,7 +46,7 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
     // Current address first
     if (a.is_current && !b.is_current) return -1;
     if (!a.is_current && b.is_current) return 1;
-    
+
     // Then by creation date (newest first)
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
@@ -75,39 +75,36 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
         </svg>
         {t('title')}
       </h3>
-      
+
       <div className="space-y-4">
         {sortedAddresses.map((address, index) => {
           const isCurrent = address.is_current;
           const branch = address.branch;
           const organization = branch?.organization;
-          
+
           return (
             <div
               key={address.id}
-              className={`relative p-4 rounded-xl border-2 transition-all duration-200 ${
-                isCurrent
+              className={`relative p-4 rounded-xl border-2 transition-all duration-200 ${isCurrent
                   ? 'bg-green-50 border-green-200 shadow-md'
                   : 'bg-red-50 border-red-200 opacity-75'
-              }`}
+                }`}
             >
               {/* Status Indicator */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center">
                   <div
-                    className={`w-4 h-4 rounded-full mr-3 ${
-                      isCurrent ? 'bg-green-500' : 'bg-red-500'
-                    }`}
+                    className={`w-4 h-4 rounded-full mr-3 ${isCurrent ? 'bg-green-500' : 'bg-red-500'
+                      }`}
                   />
                   <span
-                    className={`font-semibold text-sm ${
-                      isCurrent ? 'text-green-700' : 'text-red-700'
-                    }`}
+                    className={`font-semibold text-sm ${isCurrent ? 'text-green-700' : 'text-red-700'
+                      }`}
                   >
                     {isCurrent ? t('currentLocation') : t('previousLocation')}
                   </span>
                 </div>
-                
+
                 {/* Date */}
                 <span className="text-xs text-gray-500">
                   {formatDateOnly(address.created_at)}
@@ -119,29 +116,26 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
                 {/* Organization and Branch combined: "organization name, branch name" */}
                 {(organization || branch) && (
                   <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      isCurrent ? 'bg-green-100' : 'bg-red-100'
-                    }`}>
-                      <svg className={`w-4 h-4 ${
-                        isCurrent ? 'text-green-600' : 'text-red-600'
-                      }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? 'bg-green-100' : 'bg-red-100'
+                      }`}>
+                      <svg className={`w-4 h-4 ${isCurrent ? 'text-green-600' : 'text-red-600'
+                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                     </div>
                     <div className="flex-1">
                       <p className="text-sm text-gray-500">{t('location')}</p>
-                      <p className={`font-medium ${
-                        isCurrent ? 'text-gray-900' : 'text-gray-600'
-                      }`}>
+                      <p className={`font-medium ${isCurrent ? 'text-gray-900' : 'text-gray-600'
+                        }`}>
                         {(() => {
-                          const orgName = organization 
+                          const orgName = organization
                             ? getLocalizedName(organization.name_ar, organization.name_en)
                             : '';
-                          const branchName = branch 
+                          const branchName = branch
                             ? getLocalizedName(branch.branch_name_ar, branch.branch_name_en)
                             : '';
-                          
+
                           // Format: "organization name, branch name"
                           if (orgName && branchName) {
                             return `${orgName}, ${branchName}`;
@@ -160,21 +154,18 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
                 {/* Full Location (if different from organization/branch) */}
                 {address.full_location && (
                   <div className="flex items-center space-x-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      isCurrent ? 'bg-green-100' : 'bg-red-100'
-                    }`}>
-                      <svg className={`w-4 h-4 ${
-                        isCurrent ? 'text-green-600' : 'text-red-600'
-                      }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isCurrent ? 'bg-green-100' : 'bg-red-100'
+                      }`}>
+                      <svg className={`w-4 h-4 ${isCurrent ? 'text-green-600' : 'text-red-600'
+                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">{t('address')}</p>
-                      <p className={`font-medium ${
-                        isCurrent ? 'text-gray-900' : 'text-gray-600'
-                      }`}>
+                      <p className={`font-medium ${isCurrent ? 'text-gray-900' : 'text-gray-600'
+                        }`}>
                         {address.full_location}
                       </p>
                     </div>
