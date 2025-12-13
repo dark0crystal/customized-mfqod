@@ -20,7 +20,6 @@ const missingItemFormSchema = z.object({
   country: z.string().min(1, "Please select a country"),
   orgnization: z.string().min(1, "Please select an organization"),
   item_type_id: z.string().min(1, "Please select an item type"),
-  branch_id: z.string().min(1, "Please select a branch"),
 });
 
 type MissingItemFormFields = z.infer<typeof missingItemFormSchema>;
@@ -32,19 +31,6 @@ interface ItemType {
   name_en?: string;
   description_ar?: string;
   description_en?: string;
-}
-
-interface Branch {
-  id: string;
-  branch_name_ar?: string;
-  branch_name_en?: string;
-  description_ar?: string;
-  description_en?: string;
-  longitude?: number;
-  latitude?: number;
-  organization_id: string;
-  created_at?: string;
-  updated_at?: string;
 }
 
 interface Organization {
@@ -94,7 +80,6 @@ export default function ReportMissingItem() {
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
 
   // Helper function to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -120,8 +105,7 @@ export default function ReportMissingItem() {
     handleSubmit, 
     formState: { errors, isSubmitting }, 
     reset, 
-    setValue,
-    watch
+    setValue
   } = useForm<MissingItemFormFields>({
     // resolver: zodResolver(missingItemFormSchema),
     defaultValues: {
@@ -129,13 +113,10 @@ export default function ReportMissingItem() {
       type: "",
       place: "",
       orgnization: "",
-      item_type_id: "",
-      branch_id: ""
+      item_type_id: ""
     }
   });
 
-  // Watch for organization changes
-  const watchedOrganization = watch("orgnization");
 
   // Helper function to upload images using new service
   const uploadImages = async (missingItemId: string, files: File[]): Promise<string[]> => {
@@ -241,7 +222,7 @@ export default function ReportMissingItem() {
     } else {
       setIsLoading(false);
     }
-  }, [authError, API_BASE_URL, setValue]);
+  }, [authError, API_BASE_URL, setValue, c]);
 
   // If organizations change (e.g. after fetch), set default if not set
   useEffect(() => {
@@ -254,43 +235,6 @@ export default function ReportMissingItem() {
     }
     setOrgSelectDisabled(organizations.length === 1);
   }, [organizations, setValue]);
-
-  // Fetch branches when organization changes
-  useEffect(() => {
-    const fetchBranches = async () => {
-      if (!watchedOrganization) {
-        setBranches([]);
-        setValue("branch_id", "");
-        return;
-      }
-
-      try {
-        const branchesResponse = await fetch(`${API_BASE_URL}/api/organizations/${watchedOrganization}/branches`, {
-          method: 'GET',
-          headers: getAuthHeaders(),
-        });
-        
-        if (branchesResponse.ok) {
-          const branchesData = await branchesResponse.json();
-          setBranches(branchesData);
-          // Reset branch selection when organization changes
-          setValue("branch_id", "");
-        } else if (branchesResponse.status === 401) {
-          setAuthError(c("authenticationFailed"));
-        } else {
-          console.error('Failed to fetch branches for organization');
-          setBranches([]);
-        }
-      } catch (error) {
-        console.error('Error fetching branches:', error);
-        setBranches([]);
-      }
-    };
-
-    if (watchedOrganization && !authError) {
-      fetchBranches();
-    }
-  }, [watchedOrganization, API_BASE_URL, authError, setValue]);
 
   const onSubmit = async (data: MissingItemFormFields) => {
     if (authError) {
@@ -352,7 +296,6 @@ export default function ReportMissingItem() {
       // STEP 3: Create the address
       const addressPayload = {
         missing_item_id: missingItemId,
-        branch_id: data.branch_id,
         is_current: true
       };
 
@@ -377,7 +320,6 @@ export default function ReportMissingItem() {
       setConfetti(true);
       reset();
       setCompressedFiles([]);
-      setBranches([]);
       setUploadProgress(null);
       setUploadErrors([]);
       hasSetDefaultOrg.current = false; // Reset so default org is set again after reset
@@ -546,6 +488,11 @@ export default function ReportMissingItem() {
             translationNamespace="report-missing"
           />
           
+          {/* Helper text */}
+          <p className="mt-2 text-sm text-gray-500">
+            {c("uploadImagesHelper")}
+          </p>
+          
           {/* Upload Progress */}
           {uploadProgress && (
             <div className="mt-2 p-3 border rounded-lg" style={{ backgroundColor: '#f0f7ff', borderColor: '#3277AE' }}>
@@ -615,45 +562,6 @@ export default function ReportMissingItem() {
           </select>
           {errors.orgnization && (
             <p className="mt-2 text-sm text-red-500">{errors.orgnization.message}</p>
-          )}
-        </div>
-
-        {/* Select Branch */}
-        <div>
-          <label htmlFor="branch_id" className="block text-lg font-semibold text-gray-700 mb-2">
-            {c("branch")}
-          </label>
-          <select
-            id="branch_id"
-            {...register("branch_id")}
-            disabled={!watchedOrganization || branches.length === 0}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-            style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
-            onFocus={(e) => {
-              if (!e.currentTarget.disabled) {
-                e.currentTarget.style.borderColor = '#3277AE';
-              }
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = '#d1d5db';
-            }}
-          >
-            <option value="">
-              {!watchedOrganization 
-                ? c("selectUniversityFirst")
-                : branches.length === 0 
-                  ? c("noBranchesAvailable")
-                  : c("selectBranch")
-              }
-            </option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || c("unnamedBranch")}
-              </option>
-            ))}
-          </select>
-          {errors.branch_id && (
-            <p className="mt-2 text-sm text-red-500">{errors.branch_id.message}</p>
           )}
         </div>
 
