@@ -71,6 +71,7 @@ interface ItemData {
   location?: LocationData;
   status?: string;
   approval?: boolean; // DEPRECATED: kept for backward compatibility
+  approved_claim_id?: string | null; // ID of the approved claim
   temporary_deletion?: boolean;
   uploadedPostPhotos?: { postUrl: string }[];
   addresses?: Array<{
@@ -91,6 +92,7 @@ interface ItemData {
     updated_at: string;
   }>;
 }
+
 
 interface EditPostProps {
   params: { itemId: string };
@@ -116,8 +118,6 @@ export default function EditPost({ params }: EditPostProps) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
-  const [status, setStatus] = useState<string>('on_hold');
-  const [deletionStatus, setDeletionStatus] = useState<string>('false');
   const [newImages, setNewImages] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
@@ -187,9 +187,6 @@ export default function EditPost({ params }: EditPostProps) {
           setValue('location', data.location?.full_location || '');
           setValue('approval', data.approval ?? true); // Keep for form compatibility
           setValue('temporary_deletion', data.temporary_deletion ?? false);
-          // Set status from data.status or fallback to approved/on_hold based on approval
-          setStatus(data.status || (data.approval ? 'approved' : 'on_hold'));
-          setDeletionStatus(data.temporary_deletion ? 'true' : 'false');
 
           // Set organization and branch IDs if available from addresses
           if (data.addresses && data.addresses.length > 0) {
@@ -232,6 +229,7 @@ export default function EditPost({ params }: EditPostProps) {
     }
   }, [watchedOrganization, fetchBranches, setValue]);
 
+
   const onSubmit: SubmitHandler<ItemFormFields> = async (data) => {
     setSubmitting(true);
     setUploadErrors([]);
@@ -239,7 +237,7 @@ export default function EditPost({ params }: EditPostProps) {
     try {
       const locationChanged = data.location !== originalLocation;
 
-      const updateData = {
+      const updateData: any = {
         title: data.title,
         description: data.description,
         locationChanged,
@@ -247,8 +245,6 @@ export default function EditPost({ params }: EditPostProps) {
         organization_id: data.organization_id,
         branch_id: data.branch_id,
         location: data.location,
-        status: status,
-        temporary_deletion: deletionStatus === 'true',
       };
 
       // Update item details
@@ -388,45 +384,6 @@ export default function EditPost({ params }: EditPostProps) {
               {errors.description && (
                 <p className="mt-1 text-xs text-red-500">{errors.description.message}</p>
               )}
-            </div>
-          </div>
-        </section>
-
-        {/* --- Status & Classification --- */}
-        <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">{t('statusLabel') || 'Status & Classification'}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Item Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('statusLabel') || t('approvalStatus')}
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border bg-white"
-              >
-                <option value="cancelled">{t('status.cancelled') || t('cancelled')}</option>
-                <option value="approved">{t('status.approved') || t('approved')}</option>
-                <option value="on_hold">{t('status.on_hold') || 'On Hold'}</option>
-                <option value="received">{t('status.received') || 'Received'}</option>
-              </select>
-            </div>
-
-            {/* Temporary Deletion */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('deletionStatus')}
-              </label>
-              <select
-                value={deletionStatus}
-                onChange={(e) => setDeletionStatus(e.target.value)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border bg-white"
-              >
-                <option value="false">{t('active')}</option>
-                <option value="true">{t('markedForDeletion')}</option>
-              </select>
             </div>
           </div>
         </section>
