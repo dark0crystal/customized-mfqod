@@ -54,17 +54,17 @@ const getImageUrl = (imageUrl: string): string => {
 enum ItemStatus {
   CANCELLED = "cancelled",
   APPROVED = "approved",
-  ON_HOLD = "on_hold",
-  RECEIVED = "received"
+  PENDING = "pending"
 }
 
 interface ItemData {
   id: string;
   title: string;
   description: string;
-  status?: string;  // Item status: cancelled, approved, on_hold, received
+  status?: string;  // Item status: cancelled, approved, pending
   approval: boolean;  // DEPRECATED: kept for backward compatibility
   temporary_deletion: boolean;
+  approved_claim_id?: string | null;  // ID of the approved claim
   created_at: string;
   updated_at: string;
   claims_count?: number;
@@ -113,6 +113,19 @@ interface ItemData {
   };
 }
 
+interface Claim {
+  id: string;
+  title: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  approval: boolean;
+  user_id?: string;
+  item_id?: string;
+  user_name?: string;
+  user_email?: string;
+}
+
 export default function PostDetails({ params }: { params: Promise<{ itemId: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
@@ -121,7 +134,8 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const [item, setItem] = useState<ItemData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<string>('on_hold');
+  const [status, setStatus] = useState<string>('pending');
+  const [previousStatus, setPreviousStatus] = useState<string>('pending');
   const [showEditForm, setShowEditForm] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -131,6 +145,11 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showClaimModal, setShowClaimModal] = useState(false);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [loadingClaims, setLoadingClaims] = useState(false);
+  const [selectedClaimId, setSelectedClaimId] = useState<string>('');
+  const [pendingStatusChange, setPendingStatusChange] = useState<string | null>(null);
 
   // Helper to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -151,8 +170,8 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
         }
         const data = await response.json();
         setItem(data);
-        // Set status from data.status or fallback to approved/on_hold based on approval
-        setStatus(data.status || (data.approval ? 'approved' : 'on_hold'));
+        // Set status from data.status or fallback to approved/pending based on approval
+        setStatus(data.status || (data.approval ? 'approved' : 'pending'));
       } catch (err) {
         console.error(err);
         setError("Error fetching item details.");
@@ -218,22 +237,100 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     fetchTransferBranches();
   }, [showTransferModal, item]);
 
+  const fetchClaims = async (): Promise<Claim[]> => {
+    setLoadingClaims(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/claims/item/${resolvedParams.itemId}`, {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setClaims(data);
+        return data;
+      } else {
+        console.error('Failed to fetch claims');
+        return [];
+      }
+    } catch (error) {
+      console.error('Error fetching claims:', error);
+      return [];
+    } finally {
+      setLoadingClaims(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    // If changing from pending to approved, check if claim is needed
+    if (previousStatus === 'pending' && newStatus === 'approved') {
+      // Check if item already has an approved claim
+      if (!item?.approved_claim_id) {
+        // Fetch claims first to check if any exist
+        const claimsList = await fetchClaims();
+        
+        // If no claims exist, prevent the status change
+        if (claimsList.length === 0) {
+          alert(t('noClaimsToApprove') || 'Cannot approve this post. There are no claims for this post. Please create a claim first before approving.');
+          return; // Don't update status - it stays as 'pending'
+        }
+        
+        // If claims exist, show modal to select a claim
+        setPendingStatusChange(newStatus);
+        setShowClaimModal(true);
+        return; // Don't update status yet - it stays as 'pending'
+      }
+    }
+    // For other status changes, proceed normally
+    setPreviousStatus(status);
+    setStatus(newStatus);
+  };
+
   const handleStatusUpdate = async () => {
     if (!item) return;
+    
+    // If trying to change from pending to approved without a claim, handle it
+    if (previousStatus === 'pending' && status === 'approved' && !item.approved_claim_id) {
+      // This should have been handled by handleStatusChange, but as a safety check
+      if (!selectedClaimId && !showClaimModal) {
+        await handleStatusChange(status);
+        return;
+      }
+    }
+    
     setIsUpdating(true);
     try {
-      // Use the status endpoint to update status
-      // FastAPI expects new_status as a query parameter for this endpoint
-      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}/status?new_status=${status}`, {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-      });
+      // If we have a selected claim and changing to approved, use PATCH endpoint with approved_claim_id
+      if (status === 'approved' && selectedClaimId) {
+        const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            status: 'approved',
+            approved_claim_id: selectedClaimId
+          }),
+        });
 
-      if (response.ok) {
-        const updatedData = await response.json();
-        setItem(updatedData);
-        // Update local status state to match the response
-        setStatus(updatedData.status || status);
+        if (response.ok) {
+          const updatedData = await response.json();
+          setItem(updatedData);
+          setStatus(updatedData.status || status);
+          setPreviousStatus(updatedData.status || status);
+          setShowClaimModal(false);
+          setSelectedClaimId('');
+          setPendingStatusChange(null);
+        }
+      } else {
+        // Use the status endpoint to update status
+        const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}/status?new_status=${status}`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+        });
+
+        if (response.ok) {
+          const updatedData = await response.json();
+          setItem(updatedData);
+          setStatus(updatedData.status || status);
+          setPreviousStatus(updatedData.status || status);
+        }
       }
     } catch (err) {
       console.error('Error updating status:', err);
@@ -241,6 +338,54 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
       setIsUpdating(false);
     }
   };
+
+  const handleClaimSelection = async () => {
+    if (!selectedClaimId) {
+      alert(t('pleaseSelectClaim') || 'Please select a claim');
+      return;
+    }
+    // Close modal and proceed with status update
+    setShowClaimModal(false);
+    setPendingStatusChange(null);
+    
+    // Update status and proceed with update
+    setIsUpdating(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          status: 'approved',
+          approved_claim_id: selectedClaimId
+        }),
+      });
+
+      if (response.ok) {
+        const updatedData = await response.json();
+        setItem(updatedData);
+        setStatus('approved');
+        setPreviousStatus('approved');
+        setSelectedClaimId('');
+      } else {
+        const errorData = await response.json();
+        alert(errorData.detail || t('updateStatusError') || 'Failed to update status');
+      }
+    } catch (err) {
+      console.error('Error updating status:', err);
+      alert(t('updateStatusError') || 'Failed to update status');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleCancelClaimSelection = () => {
+    // Revert status to previous (status was never actually changed)
+    setStatus(previousStatus);
+    setShowClaimModal(false);
+    setPendingStatusChange(null);
+    setSelectedClaimId('');
+  };
+
 
   const handleTransferRequest = async () => {
     if (!item || !selectedTransferBranch) return;
@@ -344,13 +489,32 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           </div>
           <div className="flex items-center justify-between">
             <span className="text-gray-600">{t('created')} {formatDate(item.created_at)}</span>
-            <button
-              onClick={() => setShowEditForm(!showEditForm)}
-              className="px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90"
-              style={{ backgroundColor: '#3277AE' }}
-            >
-              {showEditForm ? t('cancelEdit') : t('editItem')}
-            </button>
+            {showEditForm ? (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowEditForm(false)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium transition-colors hover:bg-gray-50"
+                >
+                  {t('cancel')}
+                </button>
+                <button
+                  id="save-changes-button"
+                  type="button"
+                  className="px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: '#3277AE' }}
+                >
+                  {t('save') || 'Save Changes'}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowEditForm(!showEditForm)}
+                className="px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90"
+                style={{ backgroundColor: '#3277AE' }}
+              >
+                {t('editItem')}
+              </button>
+            )}
           </div>
         </div>
 
@@ -360,7 +524,14 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           <div className="lg:col-span-2 space-y-6">
             {/* Edit Form Section - Wider and on top */}
             {showEditForm ? (
-              <EditPost params={{ itemId: resolvedParams.itemId }} />
+              <EditPost 
+                params={{ itemId: resolvedParams.itemId }}
+                onSave={() => {
+                  // This will be called after successful save
+                  setShowEditForm(false);
+                }}
+                onCancel={() => setShowEditForm(false)}
+              />
             ) : (
               /* Read-only Item Information Section */
               <div className="bg-white rounded-lg shadow-sm p-6">
@@ -382,16 +553,14 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">{t('approvalStatus')}</label>
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
-                      item.status === ItemStatus.RECEIVED ? 'bg-blue-100 text-blue-800' :
-                        item.status === ItemStatus.ON_HOLD ? 'bg-yellow-100 text-yellow-800' :
                           item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
-                            item.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                            item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
+                              item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
                       }`}>
                       {item.status === ItemStatus.APPROVED ? t('approved') :
-                        item.status === ItemStatus.RECEIVED ? (t('received') || 'Received') :
-                          item.status === ItemStatus.ON_HOLD ? (t('on_hold') || 'On Hold') :
                             item.status === ItemStatus.CANCELLED ? t('cancelled') :
-                              item.approval ? t('approved') : t('cancelled')}
+                              item.status === ItemStatus.PENDING ? (t('pending') || 'Pending') :
+                                item.approval ? t('approved') : (t('pending') || 'Pending')}
                     </span>
                   </div>
 
@@ -514,16 +683,14 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-gray-900">{t('itemStatus')}</h3>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
-                  item.status === ItemStatus.RECEIVED ? 'bg-blue-100 text-blue-800' :
-                    item.status === ItemStatus.ON_HOLD ? 'bg-yellow-100 text-yellow-800' :
-                      item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
-                        item.approval ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
+                    item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
+                      item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
+                        item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
                   }`}>
                   {item.status === ItemStatus.APPROVED ? t('approved') :
-                    item.status === ItemStatus.RECEIVED ? (t('received') || 'Received') :
-                      item.status === ItemStatus.ON_HOLD ? (t('on_hold') || 'On Hold') :
                         item.status === ItemStatus.CANCELLED ? t('cancelled') :
-                          item.approval ? t('approved') : t('pending')}
+                          item.status === ItemStatus.PENDING ? (t('pending') || 'Pending') :
+                            item.approval ? t('approved') : t('pending')}
                 </span>
               </div>
 
@@ -536,11 +703,10 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                     options={[
                       { value: 'cancelled', label: t('status.cancelled') || t('cancelled') },
                       { value: 'approved', label: t('status.approved') || t('approved') },
-                      { value: 'on_hold', label: t('status.on_hold') || 'On Hold' },
-                      { value: 'received', label: t('status.received') || 'Received' }
+                      { value: 'pending', label: t('status.pending') || 'Pending' }
                     ]}
-                    value={status}
-                    onChange={setStatus}
+                    value={pendingStatusChange && !selectedClaimId ? previousStatus : status}
+                    onChange={handleStatusChange}
                     placeholder={t('selectStatus')}
                     className="w-full"
                   />
@@ -549,7 +715,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
 
               <button
                 onClick={handleStatusUpdate}
-                disabled={isUpdating || status === (item.status || (item.approval ? 'approved' : 'on_hold'))}
+                disabled={isUpdating || status === (item.status || (item.approval ? 'approved' : 'pending'))}
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
               >
                 {isUpdating ? t('updating') : t('update')}
@@ -724,6 +890,81 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                         {isSubmittingTransfer ? t('submitting') : t('submitRequest')}
                       </button>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Claim Selection Modal */}
+            {showClaimModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    {t('selectClaim') || 'Select a Claim'}
+                  </h3>
+                  <p className="text-gray-700 mb-4 text-sm">
+                    {t('selectClaimMessage') || 'To approve this post, please select a claim from the list below. Only one claim can be selected.'}
+                  </p>
+
+                  {loadingClaims ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <span className="ml-3 text-gray-600">{t('loadingClaims') || 'Loading claims...'}</span>
+                    </div>
+                  ) : claims.length === 0 ? (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                      <p className="text-gray-600 font-medium mb-2">{t('noClaimsAvailable') || 'No claims available'}</p>
+                      <p className="text-gray-500 text-sm">{t('noClaimsMessage') || 'There are no claims for this post. Please create a claim first before approving.'}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 mb-6 max-h-96 overflow-y-auto">
+                      {claims.map((claim) => (
+                        <label
+                          key={claim.id}
+                          className={`block p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                            selectedClaimId === claim.id
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-start">
+                            <input
+                              type="radio"
+                              name="claim"
+                              value={claim.id}
+                              checked={selectedClaimId === claim.id}
+                              onChange={(e) => setSelectedClaimId(e.target.value)}
+                              className="mt-1 mr-3"
+                            />
+                            <div className="flex-1">
+                              <div className="font-semibold text-gray-900 mb-1">{claim.title}</div>
+                              <div className="text-sm text-gray-600 mb-2 line-clamp-2">{claim.description}</div>
+                              {claim.user_name && (
+                                <div className="text-xs text-gray-500">
+                                  {t('claimer') || 'Claimer:'} {claim.user_name}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      onClick={handleCancelClaimSelection}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      {t('cancel') || 'Cancel'}
+                    </button>
+                    <button
+                      onClick={handleClaimSelection}
+                      disabled={!selectedClaimId || claims.length === 0}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                      {t('confirm') || 'Confirm'}
+                    </button>
                   </div>
                 </div>
               </div>

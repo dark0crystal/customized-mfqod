@@ -15,6 +15,7 @@ import imageUploadService, { UploadProgress } from '@/services/imageUploadServic
 import { useTranslations, useLocale } from 'next-intl';
 import { apiRequest } from '@/utils/api';
 import { formatDateOnly } from '@/utils/dateFormatter';
+import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
 
 const claimSchema = z.object({
   title: z.string().min(1, { message: "Title is required!" }),
@@ -462,33 +463,19 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
             <div className='order-1 lg:order-2'>
               <div className="sticky top-8">
                 {item.images && item.images.length > 0 ? (
-                  <div className="space-y-6">
-                    {item.images.map((image, index) => {
-                      const imageUrl = getImageUrl(image.url);
-                      return (
-                        <div key={image.id} className='relative group'>
-                          <div className='relative w-full h-96 rounded-2xl overflow-hidden shadow-xl'>
-                            <Image
-                              fill
-                              style={{ objectFit: 'cover' }}
-                              src={imageUrl}
-                              alt={image.description || `Item image ${index + 1}`}
-                              className="absolute transition-transform duration-300 group-hover:scale-105"
-                              sizes="(max-width: 768px) 100vw, 50vw"
-                              onError={() => {
-                                console.error('Image failed to load:', imageUrl);
-                              }}
-                            />
-                            {image.description && (
-                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent text-white p-4">
-                                <p className="text-sm font-medium">{image.description}</p>
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="w-full rounded-2xl overflow-hidden shadow-xl" style={{ minHeight: '400px' }}>
+                    <ImageCarousel
+                      images={item.images.map((img): CarouselImage => ({
+                        id: img.id,
+                        url: getImageUrl(img.url),
+                        alt: img.description || `Item image`,
+                        description: img.description,
+                      }))}
+                      isModal={false}
+                      showCounter={true}
+                      showDots={true}
+                      className="rounded-2xl"
+                    />
                   </div>
                 ) : (
                   <div className="w-full h-96 bg-gray-100 rounded-lg flex items-center justify-center">
