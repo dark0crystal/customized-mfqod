@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import DisplayMissingItems from './DisplayMissingItems';
 
 // Define the MissingItem type
@@ -68,6 +68,11 @@ function getTokenFromCookies(): string | null {
 
 export default function MissingItemsPage() {
   const locale = useLocale();
+  const t = useTranslations("dashboard.missingItems");
+  const tFilters = useTranslations("dashboard.missingItems.filters");
+  const tStatus = useTranslations("dashboard.missingItems.status");
+  const tDetail = useTranslations("dashboard.missingItems.detail");
+  const tCommon = useTranslations("dashboard.common");
   const [missingItems, setMissingItems] = useState<MissingItem[]>([]);
   const [missingItemImages, setMissingItemImages] = useState<Record<string, MissingItemImage[]>>({});
   const [currentItemTypeId, setCurrentItemTypeId] = useState<string>("");
@@ -151,7 +156,7 @@ export default function MissingItemsPage() {
   const handleAssignSubmit = async () => {
     if (!selectedMissingItem) return;
     if (!selectedAssignBranchId || selectedFoundItemIds.length === 0 || !assignNote.trim()) {
-      setAssignError("Branch, at least one found item, and a note are required to set visit.");
+      setAssignError(tDetail("validationRequired"));
       return;
     }
 
@@ -180,7 +185,7 @@ export default function MissingItemsPage() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to assign found items");
+        throw new Error(err.detail || tDetail("failedToAssign"));
       }
 
       // Refresh list with current filters
@@ -196,7 +201,7 @@ export default function MissingItemsPage() {
 
       closeAssignModal();
     } catch (err) {
-      setAssignError(err instanceof Error ? err.message : "Failed to assign found items");
+      setAssignError(err instanceof Error ? err.message : tDetail("failedToAssign"));
     } finally {
       setAssignLoading(false);
     }
@@ -222,7 +227,7 @@ export default function MissingItemsPage() {
       const itemsArray = Array.isArray(data) ? data : data.items || data.results || [];
       const simplified = itemsArray.map((item: any) => ({
         id: item.id,
-        title: item.title || "Untitled",
+        title: item.title || t("unnamed"),
       }));
       setAvailableFoundItems(simplified);
     } catch {
@@ -282,7 +287,7 @@ export default function MissingItemsPage() {
         credentials: "include",
       });
       
-      if (!res.ok) throw new Error("Failed to fetch missing items");
+      if (!res.ok) throw new Error(t("error"));
       const data = await res.json();
 
       // Defensive: handle if data is not an array, e.g. { missing_items: [...] }
@@ -306,7 +311,7 @@ export default function MissingItemsPage() {
         setMissingItemImages({});
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error fetching missing items");
+      setError(err instanceof Error ? err.message : t("error"));
       setMissingItems([]);
       setMissingItemImages({});
     } finally {
@@ -441,14 +446,14 @@ export default function MissingItemsPage() {
       <div className="w-full p-4 bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-            <h1 className="text-2xl font-bold" style={{ color: '#3277AE' }}>Missing Items Reports</h1>
+            <h1 className="text-2xl font-bold" style={{ color: '#3277AE' }}>{t("pageTitle")}</h1>
             
             {/* Clear Filters Button */}
             <button
               onClick={clearAllFilters}
               className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 self-start lg:self-auto"
             >
-              Clear All Filters
+              {tFilters("clearAllFilters")}
             </button>
           </div>
 
@@ -457,12 +462,12 @@ export default function MissingItemsPage() {
             {/* Search Input */}
             <div className="lg:col-span-1">
               <label htmlFor="search-input" className="block text-sm font-medium text-gray-700 mb-2">
-                Search Missing Items
+                {tFilters("searchMissingItems")}
               </label>
               <input
                 id="search-input"
                 type="text"
-                placeholder="Search by title or description..."
+                placeholder={tFilters("searchPlaceholder")}
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
@@ -473,7 +478,7 @@ export default function MissingItemsPage() {
             {/* Item Type Filter */}
             <div>
               <label htmlFor="item-type-filter" className="block text-sm font-medium text-gray-700 mb-2">
-                Item Type
+                {tFilters("itemType")}
               </label>
               <select
                 id="item-type-filter"
@@ -489,10 +494,10 @@ export default function MissingItemsPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               >
-                <option value="">All Types</option>
+                <option value="">{tFilters("allTypes")}</option>
                 {itemTypes.map((itemType) => (
                   <option key={itemType.id} value={itemType.id}>
-                    {getLocalizedName(itemType.name_ar, itemType.name_en) || 'Unnamed'}
+                    {getLocalizedName(itemType.name_ar, itemType.name_en) || t("unnamed")}
                   </option>
                 ))}
               </select>
@@ -501,7 +506,7 @@ export default function MissingItemsPage() {
             {/* Branch Filter */}
             <div>
               <label htmlFor="branch-filter" className="block text-sm font-medium text-gray-700 mb-2">
-                Branch
+                {tFilters("branch")}
               </label>
               <select
                 id="branch-filter"
@@ -510,10 +515,10 @@ export default function MissingItemsPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               >
-                <option value="">All Branches</option>
+                <option value="">{tFilters("allBranches")}</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
-                    {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch'}
+                    {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || t("unnamedBranch")}
                     {branch.organization && ` - ${branch.organization.name}`}
                   </option>
                 ))}
@@ -523,7 +528,7 @@ export default function MissingItemsPage() {
             {/* Status Filter */}
             <div>
               <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-2">
-                Status
+                {tFilters("status")}
               </label>
               <select
                 id="status-filter"
@@ -532,18 +537,18 @@ export default function MissingItemsPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               >
-                <option value="">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="visit">Visit</option>
+                <option value="">{tFilters("allStatus")}</option>
+                <option value="pending">{tStatus("pending")}</option>
+                <option value="approved">{tStatus("approved")}</option>
+                <option value="cancelled">{tStatus("cancelled")}</option>
+                <option value="visit">{tStatus("visit")}</option>
               </select>
             </div>
 
             {/* Approval Filter */}
             <div>
               <label htmlFor="approval-filter" className="block text-sm font-medium text-gray-700 mb-2">
-                Approval Status
+                {tFilters("approvalStatus")}
               </label>
               <select
                 id="approval-filter"
@@ -552,9 +557,9 @@ export default function MissingItemsPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               >
-                <option value="">All</option>
-                <option value="approved">Approved</option>
-                <option value="pending">Pending</option>
+                <option value="">{tFilters("all")}</option>
+                <option value="approved">{tFilters("approved")}</option>
+                <option value="pending">{tFilters("pending")}</option>
               </select>
             </div>
           </div>
@@ -563,19 +568,19 @@ export default function MissingItemsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date Range
+                {tFilters("dateRange")}
               </label>
               <div className="flex gap-2">
                 <input
                   type="date"
-                  placeholder="From Date"
+                  placeholder={tFilters("fromDate")}
                   value={dateFrom}
                   onChange={(e) => handleDateFromChange(e.target.value)}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
                 />
                 <input
                   type="date"
-                  placeholder="To Date"
+                  placeholder={tFilters("toDate")}
                   value={dateTo}
                   onChange={(e) => handleDateToChange(e.target.value)}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
@@ -586,7 +591,7 @@ export default function MissingItemsPage() {
 
           {error && (
             <div className="w-full mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-              Error: {error}
+              {t("errorPrefix")} {error}
             </div>
           )}
         </div>
@@ -599,11 +604,11 @@ export default function MissingItemsPage() {
             {loading ? (
               <div className="text-center text-gray-500 py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                <p className="mt-2">Loading missing items...</p>
+                <p className="mt-2">{t("loading")}</p>
               </div>
             ) : missingItems.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
-                <p>No missing items found. Try adjusting your filters.</p>
+                <p>{t("noMissingItemsFound")}</p>
               </div>
             ) : (
               <DisplayMissingItems
@@ -619,7 +624,7 @@ export default function MissingItemsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center px-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Assign found items</h3>
+              <h3 className="text-lg font-semibold">{tDetail("assignFoundItems")}</h3>
               <button onClick={closeAssignModal} className="text-gray-500 hover:text-gray-700">&times;</button>
             </div>
 
@@ -629,26 +634,26 @@ export default function MissingItemsPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{tDetail("branch")}</label>
                 <select
                   className="w-full border rounded px-3 py-2"
                   value={selectedAssignBranchId}
                   onChange={(e) => setSelectedAssignBranchId(e.target.value)}
                 >
-                  <option value="">Select branch</option>
+                  <option value="">{tDetail("selectBranch")}</option>
                   {branches.map((branch) => (
                     <option key={branch.id} value={branch.id}>
-                      {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || "Unnamed Branch"}
+                      {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || t("unnamedBranch")}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Found items</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{tDetail("foundItems")}</label>
                 <div className="max-h-40 overflow-y-auto border rounded p-2 space-y-2">
                   {availableFoundItems.length === 0 && (
-                    <p className="text-sm text-gray-500">No found items available.</p>
+                    <p className="text-sm text-gray-500">{tDetail("noFoundItemsAvailable")}</p>
                   )}
                   {availableFoundItems.map((item) => (
                     <label key={item.id} className="flex items-center gap-2 text-sm">
@@ -670,13 +675,13 @@ export default function MissingItemsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Note to reporter</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{tDetail("noteToReporter")}</label>
                 <textarea
                   className="w-full border rounded px-3 py-2"
                   rows={3}
                   value={assignNote}
                   onChange={(e) => setAssignNote(e.target.value)}
-                  placeholder="Include visit instructions"
+                  placeholder={tDetail("includeVisitInstructions")}
                 />
               </div>
 
@@ -686,14 +691,14 @@ export default function MissingItemsPage() {
                   className="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
                   disabled={assignLoading}
                 >
-                  Cancel
+                  {tCommon("cancel")}
                 </button>
                 <button
                   onClick={handleAssignSubmit}
                   className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
                   disabled={assignLoading}
                 >
-                  {assignLoading ? "Assigning..." : "Assign & set visit"}
+                  {assignLoading ? tDetail("assigning") : tDetail("assignAndSetVisit")}
                 </button>
               </div>
             </div>

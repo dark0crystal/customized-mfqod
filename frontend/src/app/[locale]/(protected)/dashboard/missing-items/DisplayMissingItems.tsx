@@ -42,6 +42,8 @@ interface DisplayMissingItemsProps {
 
 export default function DisplayMissingItems({ missingItems, images }: DisplayMissingItemsProps) {
   const t = useTranslations("card");
+  const tMissing = useTranslations("dashboard.missingItems");
+  const tStatus = useTranslations("dashboard.missingItems.status");
   const locale = useLocale();
   const router = useRouter();
 
@@ -197,18 +199,18 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
                     {/* Status and Approval badges */}
                     <div className="flex justify-between items-center mt-3">
                       <span className={`text-xs px-2 py-1 rounded ${getStatusBadge(missingItem.status)}`}>
-                        {missingItem.status.charAt(0).toUpperCase() + missingItem.status.slice(1)}
+                        {tStatus(missingItem.status.toLowerCase() as any) || missingItem.status.charAt(0).toUpperCase() + missingItem.status.slice(1)}
                       </span>
                       <span className={`text-xs px-2 py-1 rounded ${missingItem.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {missingItem.approval ? 'Approved' : 'Pending'}
+                        {missingItem.approval ? tStatus("approved") : tStatus("pending")}
                       </span>
                     </div>
 
                     {/* Date information */}
                     <div className="mt-2 text-xs text-gray-500">
-                      <p>Reported: {formatDate(missingItem.created_at)}</p>
+                      <p>{tMissing("reported")} {formatDate(missingItem.created_at)}</p>
                       {missingItem.updated_at !== missingItem.created_at && (
-                        <p>Updated: {formatDate(missingItem.updated_at)}</p>
+                        <p>{tMissing("updated")} {formatDate(missingItem.updated_at)}</p>
                       )}
                     </div>
 
@@ -218,7 +220,7 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
                   <div className="relative h-[250px] m-3">
                     {/* Go to details */}
                     <button
-                      title="Go to details"
+                      title={tMissing("goToDetails")}
                       onClick={() => handlePostClick(missingItem.id)}
                       className="absolute bottom-2 right-2 p-3 bg-white z-20 text-black text-xl rounded-full transition-colors shadow-md"
                       style={{ 
@@ -240,7 +242,7 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
                     {/* Expand image */}
                     {imageUrl && (
                       <button
-                        title="Expand Image"
+                        title={tMissing("expandImage")}
                         onClick={() => handleImageSize(missingItem.id)}
                         className="absolute top-2 left-2 p-3 bg-white z-20 text-black text-xl rounded-full transition-colors shadow-md"
                         style={{ 
@@ -289,7 +291,7 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
                     <div className="relative max-w-[90vw] max-h-[90vh] w-full h-full flex justify-center items-center">
                       {/* Close button */}
                       <button
-                        title="Close"
+                        title={tMissing("close")}
                         onClick={() => setExpandedItemId(null)}
                         className="absolute top-4 right-4 p-3 bg-white z-30 text-black text-xl rounded-full hover:bg-gray-200 transition-colors shadow-md"
                       >
@@ -298,7 +300,7 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
 
                       {/* Go to details */}
                       <button
-                        title="Go to details"
+                        title={tMissing("goToDetails")}
                         onClick={(e) => {
                           e.stopPropagation();
                           handlePostClick(missingItem.id);
@@ -350,7 +352,7 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
             );
           })
         ) : (
-          <p className="text-gray-500">No missing items found.</p>
+          <p className="text-gray-500">{tMissing("noMissingItems")}</p>
         )}
       </div>
 
