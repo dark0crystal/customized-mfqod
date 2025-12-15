@@ -4,8 +4,8 @@ import { hasLocale } from "next-intl";
 import "./globals.css"
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
-import SideNavbar from "./SideNavbar";
 import { PermissionsProvider } from "@/PermissionsContext";
+import DashboardShell from "./DashboardShell";
 
 export const metadata: Metadata = {
   title: "Admin Dashboard",
@@ -20,6 +20,7 @@ export default async function AdminLayout({
   params: Promise<{ locale: string }>;
 }>) {
   const { locale } = await params;
+  const initialDirection = locale === 'ar' ? 'rtl' : 'ltr';
 
   if (!hasLocale(routing.locales, locale)) {
     notFound();
@@ -27,19 +28,9 @@ export default async function AdminLayout({
 
   return (
     <PermissionsProvider>
-      <div className="flex h-screen overflow-hidden bg-gray-50">
-        {/* Sidebar */}
-        <SideNavbar/>
-
-        {/* Content Area */}
-        <div className="flex flex-col flex-1 overflow-y-auto">
-          {/* Topbar */}
-          {/* <AdminTopbar /> */}
-
-          {/* Page Content */}
-          <main className="p-6">{children}</main>
-        </div>
-      </div>
+      <DashboardShell initialDirection={initialDirection}>
+        {children}
+      </DashboardShell>
     </PermissionsProvider>
   );
 }

@@ -62,7 +62,13 @@ interface NavItem {
   showBadge?: boolean; // Whether to show pending items badge
 }
 
-export default function SideNavbar() {
+interface SideNavbarProps {
+  className?: string;
+  onClose?: () => void;
+  showCollapseToggle?: boolean;
+}
+
+export default function SideNavbar({ className = '', onClose, showCollapseToggle = true }: SideNavbarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [loadingLinks, setLoadingLinks] = useState<Set<string>>(new Set());
@@ -100,7 +106,10 @@ export default function SideNavbar() {
 
   // Handle navigation with loading state
   const handleNavigation = (href: string, itemId: string) => {
-    if (pathname === href) return; // Don't navigate if already on the page
+    if (pathname === href) {
+      onClose?.();
+      return; // Don't navigate if already on the page
+    }
 
     setLoadingLinks(prev => new Set(prev).add(itemId));
 
@@ -128,6 +137,8 @@ export default function SideNavbar() {
         return newSet;
       });
     }, 2000);
+
+    onClose?.();
   };
 
   // Navigation configuration
@@ -408,6 +419,7 @@ export default function SideNavbar() {
     <div className={`
       bg-white shadow-lg border-r border-gray-200 min-h-[88vh] max-h-[100vh] flex flex-col transition-all duration-300
       ${isCollapsed ? 'w-16' : 'w-72'}
+      ${className}
     `}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
@@ -418,12 +430,14 @@ export default function SideNavbar() {
             </div>
           )}
 
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            {isCollapsed ? <Menu size={20} /> : <X size={20} />}
-          </button>
+          {showCollapseToggle && (
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              {isCollapsed ? <Menu size={20} /> : <X size={20} />}
+            </button>
+          )}
         </div>
       </div>
 

@@ -125,6 +125,8 @@ export default function Search() {
       params.append("skip", "0");
       params.append("limit", "100");
       params.append("status", "pending");
+      // Set show_all=true so all authenticated users can see all pending items regardless of branch
+      params.append("show_all", "true");
 
       if (params.toString()) {
         url += `?${params.toString()}`;
