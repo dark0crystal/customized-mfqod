@@ -7,9 +7,10 @@ import { useRouter } from '@/i18n/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { tokenManager } from '@/utils/tokenManager';
 import { formatDate, formatDateOnly } from '@/utils/dateFormatter';
-import { ArrowLeft, Edit2, Save, X, Upload, Trash2, Mail, MapPin } from 'lucide-react';
+import { ArrowLeft, Edit2, Save, X, Upload, Trash2, Mail, MapPin, Send } from 'lucide-react';
 import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
 import imageUploadService from '@/services/imageUploadService';
+import { usePermissions } from '@/PermissionsContext';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -66,11 +67,23 @@ interface ClaimData {
   can_edit?: boolean;
 }
 
+interface Branch {
+  id: string;
+  branch_name_ar?: string;
+  branch_name_en?: string;
+  organization?: {
+    id: string;
+    name_ar?: string;
+    name_en?: string;
+  };
+}
+
 export default function ClaimDetails({ params }: { params: Promise<{ claimId: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
   const t = useTranslations('dashboard.claims');
   const locale = useLocale();
+  const { hasPermission } = usePermissions();
   const [claim, setClaim] = useState<ClaimData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +93,18 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingImages, setUploadingImages] = useState<string[]>([]);
   const [deletingImages, setDeletingImages] = useState<string[]>([]);
+  
+  // Email notification state
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  const [emailNote, setEmailNote] = useState<string>('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  
+  // Check if user has permission to send emails
+  const canSendEmail = hasPermission('can_process_claims');
 
   // Helper to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -90,7 +115,10 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
 
   useEffect(() => {
     fetchClaimDetails();
-  }, [resolvedParams.claimId]);
+    if (canSendEmail) {
+      fetchBranches();
+    }
+  }, [resolvedParams.claimId, canSendEmail]);
 
   const fetchClaimDetails = async () => {
     setLoading(true);
@@ -201,6 +229,67 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
       alert(t('errorDeletingImage') || 'Failed to delete image');
     } finally {
       setDeletingImages(prev => prev.filter(id => id !== imageId));
+    }
+  };
+
+  const fetchBranches = async () => {
+    setLoadingBranches(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/branches/public/?skip=0&limit=1000`, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch branches');
+      }
+
+      const data = await response.json();
+      setBranches(data);
+    } catch (err) {
+      console.error('Error fetching branches:', err);
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!claim) return;
+
+    setSendingEmail(true);
+    setEmailError(null);
+    setEmailSent(false);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/claims/${resolvedParams.claimId}/send-visit-notification`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          branch_id: selectedBranchId || null,
+          note: emailNote || null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || t('emailSendError') || 'Failed to send email');
+      }
+
+      const result = await response.json();
+      setEmailSent(true);
+      setEmailNote('');
+      setSelectedBranchId('');
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setEmailSent(false);
+      }, 5000);
+    } catch (err) {
+      console.error('Error sending email:', err);
+      setEmailError(err instanceof Error ? err.message : t('emailSendError') || 'Failed to send email');
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -522,6 +611,108 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                       </span>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Send Visit Notification Section */}
+            {canSendEmail && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  {t('sendVisitNotification') || 'Send Visit Notification'}
+                </h3>
+                
+                <div className="space-y-4">
+                  {/* Branch Selector */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('selectBranch') || 'Select Branch/Office'}
+                    </label>
+                    <select
+                      value={selectedBranchId}
+                      onChange={(e) => setSelectedBranchId(e.target.value)}
+                      disabled={loadingBranches || sendingEmail}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">{t('generalOffice') || 'General Office'}</option>
+                      {branches.map((branch) => (
+                        <option key={branch.id} value={branch.id}>
+                          {getLocalizedName(branch.branch_name_ar, branch.branch_name_en)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Note Textarea */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('addNote') || 'Add Note (Optional)'}
+                    </label>
+                    <textarea
+                      value={emailNote}
+                      onChange={(e) => setEmailNote(e.target.value)}
+                      disabled={sendingEmail}
+                      rows={4}
+                      maxLength={1000}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
+                      placeholder={t('addNotePlaceholder') || 'Enter additional notes for the user...'}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {emailNote.length}/1000 {t('characters') || 'characters'}
+                    </p>
+                  </div>
+
+                  {/* Send Button */}
+                  <button
+                    onClick={handleSendEmail}
+                    disabled={sendingEmail || !claim.user_email}
+                    className="w-full px-4 py-2 text-white rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    style={{ backgroundColor: '#3277AE' }}
+                    onMouseEnter={(e) => { 
+                      if (!sendingEmail && claim.user_email) {
+                        e.currentTarget.style.opacity = '0.9';
+                      }
+                    }}
+                    onMouseLeave={(e) => { 
+                      if (!sendingEmail && claim.user_email) {
+                        e.currentTarget.style.opacity = '1';
+                      }
+                    }}
+                  >
+                    {sendingEmail ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>{t('sendingEmail') || 'Sending...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>{t('sendEmail') || 'Send Email'}</span>
+                      </>
+                    )}
+                  </button>
+
+                  {!claim.user_email && (
+                    <p className="text-xs text-red-600">
+                      {t('noUserEmail') || 'User email not available'}
+                    </p>
+                  )}
+
+                  {/* Success Message */}
+                  {emailSent && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-800">
+                        {t('emailSentSuccess') || 'Email sent successfully'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Error Message */}
+                  {emailError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-800">{emailError}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
