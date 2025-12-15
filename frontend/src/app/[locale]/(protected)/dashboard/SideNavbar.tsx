@@ -78,14 +78,9 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations('dashboard.sideNavbar');
-  const { count: pendingItemsCount, loading: pendingLoading, error: pendingError } = usePendingItemsCount();
+  const { count: pendingItemsCount } = usePendingItemsCount();
   const { count: pendingTransferRequestsCount } = usePendingTransferRequestsCount();
   
-  // #region agent log
-  React.useEffect(() => {
-    fetch('http://127.0.0.1:7242/ingest/69e531fd-3951-4df8-bc69-ee7e2dc1cf2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SideNavbar.tsx:useEffect:badge_state',message:'Badge state in SideNavbar',data:{pendingItemsCount,loading:pendingLoading,error:pendingError},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  }, [pendingItemsCount, pendingLoading, pendingError]);
-  // #endregion
 
   // Clear loading states when pathname changes
   useEffect(() => {
@@ -287,10 +282,6 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
 
   // Badge component - styled as pink circle with red number
   const Badge = ({ count }: { count: number }) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/69e531fd-3951-4df8-bc69-ee7e2dc1cf2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SideNavbar.tsx:Badge:render',message:'Badge render check',data:{count,will_render:count > 0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-    
     if (count === 0) return null;
     
     return (
@@ -325,12 +316,6 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
     const isLoading = loadingLinks.has(item.id);
     const shouldShowBadge = item.showBadge && pendingItemsCount > 0 && item.id !== 'transfer-requests';
     const shouldShowTransferBadge = item.showBadge && pendingTransferRequestsCount > 0 && item.id === 'transfer-requests';
-    
-    // #region agent log
-    if (item.showBadge) {
-      fetch('http://127.0.0.1:7242/ingest/69e531fd-3951-4df8-bc69-ee7e2dc1cf2a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SideNavbar.tsx:renderNavItem:badge_check',message:'Badge visibility check',data:{itemId:item.id,showBadge:item.showBadge,pendingItemsCount,shouldShowBadge},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    }
-    // #endregion
 
     return (
       <div key={item.id} className="mb-1">

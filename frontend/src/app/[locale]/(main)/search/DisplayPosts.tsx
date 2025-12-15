@@ -138,7 +138,6 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
 
   return (
     <div className="w-full p-2 md:p-6 mt-6 flex items-center flex-col">
-      <h3 className="text-xl font-semibold mb-6 text-blue-600">{t("missing-items")}</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 [@media(min-width:1150px)]:grid-cols-3 gap-6 justify-items-center">
         {items.length > 0 ? (
           items.map((item, index) => {
