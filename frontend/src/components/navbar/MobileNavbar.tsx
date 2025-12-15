@@ -176,7 +176,14 @@ export default function MobileNavbar() {
                   router.push("/auth/login");
                   toggleNavbar();
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white text-base sm:text-lg font-semibold hover:bg-blue-700 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white text-base sm:text-lg font-semibold transition-colors"
+                style={{ backgroundColor: '#3277AE' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#2563eb';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#3277AE';
+                }}
               >
                 <LogOut size={20} className="text-white rotate-180" />
                 <span>{t("login")}</span>

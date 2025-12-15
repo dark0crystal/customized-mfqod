@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect } from "react";
 import { Mail, MapPin, ArrowRight } from "lucide-react";
 import Claims from "./Claims";
 import EditPost from "./EditPost";
@@ -145,8 +145,7 @@ interface Claim {
   user_email?: string;
 }
 
-export default function PostDetails({ params }: { params: Promise<{ itemId: string }> }) {
-  const resolvedParams = use(params);
+export default function PostDetails({ params }: { params: { itemId: string } }) {
   const router = useRouter();
   const t = useTranslations('dashboard.items.detail');
   const locale = useLocale();
@@ -183,7 +182,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
           headers: getAuthHeaders()
         });
         if (!response.ok) {
@@ -206,13 +205,14 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
       }
     };
 
-    if (resolvedParams?.itemId) {
+    if (params?.itemId) {
       fetchData();
     } else {
       setError("Invalid item ID");
       setLoading(false);
     }
-  }, [resolvedParams.itemId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.itemId]);
 
   // Fetch branches for transfer when modal opens
   useEffect(() => {
@@ -269,7 +269,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const fetchClaims = async (): Promise<Claim[]> => {
     setLoadingClaims(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/claims/item/${resolvedParams.itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/claims/item/${params.itemId}`, {
         headers: getAuthHeaders()
       });
       if (response.ok) {
@@ -298,6 +298,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
         setShowPendingDisclaimer(true);
         return; // Don't update status yet - wait for user confirmation
       }
+    }
     // If changing from pending to approved, check if claim is needed
     if (
       previousStatus === ("pending" as string) &&
@@ -352,7 +353,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     try {
       // If we have a selected claim and changing to approved, use PATCH endpoint with approved_claim_id
       if (status === 'approved' && selectedClaimId) {
-        const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
           method: 'PATCH',
           headers: getAuthHeaders(),
           body: JSON.stringify({
@@ -372,7 +373,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
         }
       } else {
         // Use the status endpoint to update status
-        const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}/status?new_status=${status}`, {
+        const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}/status?new_status=${status}`, {
           method: 'PATCH',
           headers: getAuthHeaders(),
         });
@@ -403,7 +404,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     // Update status and proceed with update
     setIsUpdating(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -443,7 +444,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     setShowPendingDisclaimer(false);
     setIsUpdating(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -526,7 +527,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}?permanent=true`, {
+      const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}?permanent=true`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
@@ -570,7 +571,27 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           </div>
           <p className="text-red-500 text-lg font-semibold mb-2">{error || t('itemNotFound')}</p>
           <p className="text-gray-600 text-sm mb-4">
-            {resolvedParams?.itemId ? `Item ID: ${resolvedParams.itemId}` : 'No item ID provided'}
+            {params?.itemId ? `Item ID: ${params.itemId}` : 'No item ID provided'}
+          </p>
+          <button
+            onClick={() => router.push('/dashboard/items')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            {t('backToItems') || 'Back to Items'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Safety check - if item is still null after loading, show error
+  if (!item) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <p className="text-red-500 text-lg font-semibold mb-2">{t('itemNotFound')}</p>
+          <p className="text-gray-600 text-sm mb-4">
+            {params?.itemId ? `Item ID: ${params.itemId}` : 'No item ID provided'}
           </p>
           <button
             onClick={() => router.push('/dashboard/items')}
@@ -643,7 +664,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
             {/* Edit Form Section - Wider and on top */}
             {showEditForm ? (
               <EditPost 
-                params={{ itemId: resolvedParams.itemId }}
+                params={{ itemId: params.itemId }}
                 onSave={() => {
                   // This will be called after successful save
                   setShowEditForm(false);
@@ -790,7 +811,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
             {/* Claims Section */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('claims')}</h2>
-              <Claims postId={resolvedParams.itemId} />
+              <Claims postId={params.itemId} />
             </div>
           </div>
 
