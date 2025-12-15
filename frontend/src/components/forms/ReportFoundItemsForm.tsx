@@ -471,7 +471,7 @@ export default function ReportFoundItem() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
+    <div className="max-w-4xl mx-auto p-4 sm:p-5 bg-white shadow-md rounded-lg mt-10">
       {confetti && (
         <ReactConfetti
           width={window.innerWidth}
@@ -481,14 +481,14 @@ export default function ReportFoundItem() {
         />
       )}
       
-      <h2 className="text-2xl font-bold text-center mb-6" style={{ color: '#3277AE' }}>
+      <h2 className="text-lg md:text-2xl font-bold text-center mb-5" style={{ color: '#3277AE' }}>
         {c("title")}
       </h2>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Title Input */}
         <div>
-          <label htmlFor="title" className="block text-lg font-semibold text-gray-700 mb-2">
+          <label htmlFor="title" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("whatDidYouFind")}
           </label>
           <input
@@ -496,7 +496,7 @@ export default function ReportFoundItem() {
             id="title"
             {...register("title")}
             placeholder={c("placeholderTitle")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
+            className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           />
           {errors.title && (
@@ -506,7 +506,7 @@ export default function ReportFoundItem() {
 
         {/* Content Input */}
         <div>
-          <label htmlFor="content" className="block text-lg font-semibold text-gray-700 mb-2">
+          <label htmlFor="content" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("Details")}
           </label>
           <textarea
@@ -514,7 +514,7 @@ export default function ReportFoundItem() {
             {...register("content")}
             placeholder={c("placeholderDetails")}
             rows={4}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
+            className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           />
           {errors.content && (
@@ -524,13 +524,13 @@ export default function ReportFoundItem() {
 
         {/* Item Type Selection */}
         <div>
-          <label htmlFor="item_type_id" className="block text-lg font-semibold text-gray-700 mb-2">
+          <label htmlFor="item_type_id" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("itemType")}
           </label>
           <select
             id="item_type_id"
             {...register("item_type_id")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
+            className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           >
             <option value="">{c("selectItemType")}</option>
@@ -547,7 +547,7 @@ export default function ReportFoundItem() {
 
         {/* File Upload Component */}
         <div>
-          <label className="block text-lg font-semibold text-gray-700 mb-2">
+          <label className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("uploadImagesOptional")}
           </label>
           <CompressorFileInput 
@@ -600,13 +600,13 @@ export default function ReportFoundItem() {
 
         {/* Select Organization */}
         <div>
-          <label htmlFor="orgnization" className="block text-lg font-semibold text-gray-700 mb-2">
+          <label htmlFor="orgnization" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("organization")}
           </label>
           <select
             id="orgnization"
             {...register("orgnization")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
+            className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
             disabled={orgSelectDisabled}
           >
@@ -626,14 +626,14 @@ export default function ReportFoundItem() {
 
         {/* Select Branch */}
         <div>
-          <label htmlFor="branch_id" className="block text-lg font-semibold text-gray-700 mb-2">
+          <label htmlFor="branch_id" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("branch")}
           </label>
           <select
             id="branch_id"
             {...register("branch_id")}
             disabled={!watchedOrganization || branches.length === 0}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           >
             <option value="">
@@ -658,13 +658,13 @@ export default function ReportFoundItem() {
 
         {/* Select Country */}
         <div>
-          <label htmlFor="country" className="block text-lg font-semibold text-gray-700 mb-2">
+          <label htmlFor="country" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("country")}
           </label>
           <select
             id="country"
             {...register("country")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
+            className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           >
             <option value="Oman">Oman</option>

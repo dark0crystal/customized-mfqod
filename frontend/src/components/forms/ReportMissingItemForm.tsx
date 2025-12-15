@@ -257,7 +257,7 @@ export default function ReportMissingItem() {
         description: data.content,
         user_id: "48d1fe78-ddaa-4c1d-bd28-6f5395774bb5", // Consider making this dynamic
         item_type_id: data.item_type_id,
-        status: "lost", // Default status for missing items
+        status: "pending", // Default status for missing items
         approval: true,
         temporary_deletion: false
       };
@@ -383,7 +383,7 @@ export default function ReportMissingItem() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
+    <div className="max-w-4xl mx-auto p-4 sm:p-5 bg-white shadow-md rounded-lg mt-10">
       {confetti && (
         <ReactConfetti
           width={window.innerWidth}
@@ -393,14 +393,14 @@ export default function ReportMissingItem() {
         />
       )}
       
-      <h2 className="text-2xl font-bold text-center mb-6" style={{ color: '#3277AE' }}>
+      <h2 className="text-lg md:text-2xl font-bold text-center mb-5" style={{ color: '#3277AE' }}>
         {c("title")}
       </h2>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Title Input */}
         <div>
-          <label htmlFor="title" className="block text-lg font-semibold text-gray-700 mb-2">
+          <label htmlFor="title" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("whatDidYouLose")}
           </label>
           <input
@@ -408,7 +408,7 @@ export default function ReportMissingItem() {
             id="title"
             {...register("title")}
             placeholder={c("placeholderTitle")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+            className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
             style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
             onFocus={(e) => {
               e.currentTarget.style.borderColor = '#3277AE';
@@ -424,7 +424,7 @@ export default function ReportMissingItem() {
 
         {/* Content Input */}
         <div>
-          <label htmlFor="content" className="block text-lg font-semibold text-gray-700 mb-2">
+          <label htmlFor="content" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("Details")}
           </label>
           <textarea
@@ -432,7 +432,7 @@ export default function ReportMissingItem() {
             {...register("content")}
             placeholder={c("placeholderDetails")}
             rows={4}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+            className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
             style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
             onFocus={(e) => {
               e.currentTarget.style.borderColor = '#3277AE';
@@ -448,13 +448,13 @@ export default function ReportMissingItem() {
 
         {/* Item Type Selection */}
         <div>
-          <label htmlFor="item_type_id" className="block text-lg font-semibold text-gray-700 mb-2">
+          <label htmlFor="item_type_id" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("itemType")}
           </label>
           <select
             id="item_type_id"
             {...register("item_type_id")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+            className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
             style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
             onFocus={(e) => {
               e.currentTarget.style.borderColor = '#3277AE';
@@ -533,13 +533,13 @@ export default function ReportMissingItem() {
 
         {/* Select Organization */}
         <div>
-          <label htmlFor="orgnization" className="block text-lg font-semibold text-gray-700 mb-2">
+          <label htmlFor="orgnization" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("organization")}
           </label>
           <select
             id="orgnization"
             {...register("orgnization")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
+            className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
             disabled={orgSelectDisabled}
             style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
             onFocus={(e) => {
@@ -567,7 +567,7 @@ export default function ReportMissingItem() {
 
         {/* Select Country */}
         <div>
-          <label htmlFor="country" className="block text-lg font-semibold text-gray-700 mb-2">
+          <label htmlFor="country" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("country")}
           </label>
           <select
@@ -575,7 +575,7 @@ export default function ReportMissingItem() {
             {...register("country")}
             disabled
             defaultValue="Oman"
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-600"
+            className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-600"
             style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
           >
             <option value="Oman">Oman</option>
