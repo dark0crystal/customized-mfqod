@@ -1,6 +1,5 @@
 "use client";
 
-import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useState, useEffect } from "react";
 import Brand from "./Brand";
@@ -139,7 +138,7 @@ export default function MobileNavbar() {
                 <UserCircle2 size={26} className="text-blue-700" />
                 <div className="flex flex-col items-start">
                   <span className="text-base sm:text-lg font-semibold text-gray-800">
-                    {isAuthenticated ? (user?.first_name || user?.name || t("user")) : t("login")}
+                    {isAuthenticated ? (user?.first_name || t("user")) : t("login")}
                   </span>
                   {isAuthenticated && (
                     <span className="text-sm text-gray-500 truncate max-w-[180px]">
