@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, use } from "react";
-import Image from "next/image";
 import { Mail, MapPin, ArrowRight } from "lucide-react";
 import Claims from "./Claims";
 import EditPost from "./EditPost";
@@ -39,16 +38,36 @@ const getInitials = (name?: string): string => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
-// Helper to get image URL
+// Helper to get image URL with validation
 const getImageUrl = (imageUrl: string): string => {
   if (!imageUrl) return '';
-  if (/^https?:\/\//.test(imageUrl)) return imageUrl;
+  
+  // If the url is already absolute, validate and return as is
+  if (/^https?:\/\//.test(imageUrl)) {
+    try {
+      new URL(imageUrl);
+      return imageUrl;
+    } catch {
+      return '';
+    }
+  }
+  
+  // Process relative URLs
   let processedUrl = imageUrl.replace('/uploads/images/', '/static/images/');
   if (!processedUrl.startsWith('/')) {
     processedUrl = '/' + processedUrl;
   }
+  
   const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
-  return `${baseUrl}${processedUrl}`;
+  const fullUrl = `${baseUrl}${processedUrl}`;
+  
+  // Validate the constructed URL
+  try {
+    new URL(fullUrl);
+    return fullUrl;
+  } catch {
+    return '';
+  }
 };
 
 enum ItemStatus {
@@ -151,7 +170,6 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const [selectedClaimId, setSelectedClaimId] = useState<string>('');
   const [pendingStatusChange, setPendingStatusChange] = useState<string | null>(null);
   const [showPendingDisclaimer, setShowPendingDisclaimer] = useState(false);
-  const [pendingStatusChangeToPending, setPendingStatusChangeToPending] = useState<string | null>(null);
 
   // Helper to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -265,14 +283,15 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
       // Check if item has an approved claim connected
       if (item?.approved_claim_id) {
         // Show disclaimer modal
-        setPendingStatusChangeToPending(newStatus);
+        setPendingStatusChange(newStatus);
         setShowPendingDisclaimer(true);
         return; // Don't update status yet - wait for user confirmation
       }
-    }
-    
     // If changing from pending to approved, check if claim is needed
-    if (previousStatus === 'pending' && newStatus === 'approved') {
+    if (
+      previousStatus === ("pending" as string) &&
+      newStatus === ("approved" as string)
+    ) {
       // Check if item already has an approved claim
       if (!item?.approved_claim_id) {
         // Fetch claims first to check if any exist
@@ -427,7 +446,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
         setItem(updatedData);
         setStatus('pending');
         setPreviousStatus('pending');
-        setPendingStatusChangeToPending(null);
+        setPendingStatusChange(null);
       } else {
         const errorData = await response.json();
         alert(errorData.detail || t('updateStatusError') || 'Failed to update status');
@@ -448,7 +467,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     // Revert status to previous (status was never actually changed)
     setStatus(previousStatus);
     setShowPendingDisclaimer(false);
-    setPendingStatusChangeToPending(null);
+    setPendingStatusChange(null);
   };
 
 

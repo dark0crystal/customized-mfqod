@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, AlertCircle, CheckCircle } from 'lucide-react';
 import { usePermissions } from "@/PermissionsContext"
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { formatDateOnly } from '@/utils/dateFormatter';
 
 const ItemTypesManager = () => {
   const locale = useLocale();
+  const t = useTranslations("dashboard.itemTypes");
   const [itemTypes, setItemTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -83,7 +84,7 @@ const ItemTypesManager = () => {
       const data = await response.json();
       setItemTypes(data);
     } catch (err) {
-      setError(`Failed to fetch item types: ${err.message}`);
+      setError(t("errors.failedToFetch", { error: err.message }));
     } finally {
       setLoading(false);
     }
@@ -107,10 +108,10 @@ const ItemTypesManager = () => {
       
       const newItemType = await response.json();
       setItemTypes([...itemTypes, newItemType]);
-      setSuccess('Item type created successfully!');
+      setSuccess(t("success.created"));
       resetForm();
     } catch (err) {
-      setError(`Failed to create item type: ${err.message}`);
+      setError(t("errors.failedToCreate", { error: err.message }));
     } finally {
       setLoading(false);
     }
@@ -136,10 +137,10 @@ const ItemTypesManager = () => {
       setItemTypes(itemTypes.map(item => 
         item.id === id ? updatedItemType : item
       ));
-      setSuccess('Item type updated successfully!');
+      setSuccess(t("success.updated"));
       resetForm();
     } catch (err) {
-      setError(`Failed to update item type: ${err.message}`);
+      setError(t("errors.failedToUpdate", { error: err.message }));
     } finally {
       setLoading(false);
     }
@@ -147,7 +148,7 @@ const ItemTypesManager = () => {
 
   // Delete item type
   const deleteItemType = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this item type?')) {
+    if (!window.confirm(t("confirmDelete"))) {
       return;
     }
 
@@ -165,9 +166,9 @@ const ItemTypesManager = () => {
       }
       
       setItemTypes(itemTypes.filter(item => item.id !== id));
-      setSuccess('Item type deleted successfully!');
+      setSuccess(t("success.deleted"));
     } catch (err) {
-      setError(`Failed to delete item type: ${err.message}`);
+      setError(t("errors.failedToDelete", { error: err.message }));
     } finally {
       setLoading(false);
     }
@@ -192,7 +193,7 @@ const ItemTypesManager = () => {
   // Handle form submission
   const handleSubmit = async () => {
     if (!formData.name_ar.trim() && !formData.name_en.trim()) {
-      setError('At least one name (Arabic or English) is required');
+      setError(t("validation.nameRequired"));
       return;
     }
 
@@ -250,7 +251,7 @@ const ItemTypesManager = () => {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="text-center py-8">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading permissions...</p>
+            <p className="mt-2 text-gray-600">{t("loadingPermissions")}</p>
           </div>
         </div>
       </div>
@@ -263,8 +264,8 @@ const ItemTypesManager = () => {
         <div className="bg-white rounded-xl shadow-lg">
         {/* Header */}
         <div className="mb-8 p-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Item Types Manager</h1>
-          <p className="text-gray-600">Manage your item types and categories</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t("title")}</h1>
+          <p className="text-gray-600">{t("subtitle")}</p>
         </div>
 
         {/* Messages */}
@@ -289,7 +290,7 @@ const ItemTypesManager = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-blue-600" />
               <input
                 type="text"
-                placeholder="Search item types..."
+                placeholder={t("searchPlaceholder")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -312,7 +313,7 @@ const ItemTypesManager = () => {
                 }}
               >
                 <Plus className="h-4 w-4 inline mr-2" />
-                Add Item Type
+                {t("addItemType")}
               </button>
             )}
           </div>
@@ -322,72 +323,72 @@ const ItemTypesManager = () => {
         {showCreateForm && (
           <div className="p-6 bg-gray-50 border-b border-gray-200">
             <h2 className="text-xl font-semibold mb-4">
-              {editingItem ? 'Edit Item Type' : 'Create New Item Type'}
+              {editingItem ? t("editItemType") : t("createItemType")}
             </h2>
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Name (Arabic)
+                    {t("form.nameArabic")}
                   </label>
                   <input
                     type="text"
                     value={formData.name_ar}
                     onChange={(e) => setFormData({...formData, name_ar: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter name in Arabic"
+                    placeholder={t("form.nameArabicPlaceholder")}
                     dir="rtl"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Name (English)
+                    {t("form.nameEnglish")}
                   </label>
                   <input
                     type="text"
                     value={formData.name_en}
                     onChange={(e) => setFormData({...formData, name_en: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter name in English"
+                    placeholder={t("form.nameEnglishPlaceholder")}
                   />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
+                  {t("form.description")}
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter description"
+                  placeholder={t("form.descriptionPlaceholder")}
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description (Arabic)
+                    {t("form.descriptionArabic")}
                   </label>
                   <textarea
                     value={formData.description_ar}
                     onChange={(e) => setFormData({...formData, description_ar: e.target.value})}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter description in Arabic"
+                    placeholder={t("form.descriptionArabicPlaceholder")}
                     dir="rtl"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description (English)
+                    {t("form.descriptionEnglish")}
                   </label>
                   <textarea
                     value={formData.description_en}
                     onChange={(e) => setFormData({...formData, description_en: e.target.value})}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter description in English"
+                    placeholder={t("form.descriptionEnglishPlaceholder")}
                   />
                 </div>
               </div>
@@ -412,7 +413,7 @@ const ItemTypesManager = () => {
                     }
                   }}
                 >
-                  {loading ? 'Processing...' : editingItem ? 'Update' : 'Create'}
+                  {loading ? t("processing") : editingItem ? t("update") : t("create")}
                 </button>
                 <button
                   type="button"
@@ -429,7 +430,7 @@ const ItemTypesManager = () => {
                     e.currentTarget.style.backgroundColor = '#6B7280';
                   }}
                 >
-                  Cancel
+                  {t("cancel")}
                 </button>
               </div>
             </div>
@@ -441,15 +442,15 @@ const ItemTypesManager = () => {
           {loading && !showCreateForm && (
             <div className="text-center py-8">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-gray-600">Loading item types...</p>
+              <p className="mt-2 text-gray-600">{t("loading")}</p>
             </div>
           )}
 
           {!loading && filteredItems.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              <p>No item types found.</p>
+              <p>{t("noItemTypesFound")}</p>
               {searchTerm && (
-                <p className="mt-2">Try adjusting your search term.</p>
+                <p className="mt-2">{t("tryAdjustingSearch")}</p>
               )}
             </div>
           )}
@@ -460,7 +461,7 @@ const ItemTypesManager = () => {
                 <div key={item.id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] border-l-4 border-gray-200 p-4">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900">{getLocalizedName(item.name_ar, item.name_en) || 'Unnamed'}</h3>
+                      <h3 className="font-semibold text-gray-900">{getLocalizedName(item.name_ar, item.name_en) || t("unnamed")}</h3>
                     </div>
                     <div className="flex gap-2">
                       {/* ✅ Added permission checks for edit and delete buttons */}
@@ -468,7 +469,7 @@ const ItemTypesManager = () => {
                         <button
                           onClick={() => startEdit(item)}
                           className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                          title="Edit"
+                          title={t("edit")}
                         >
                           <Edit className="h-4 w-4" />
                         </button>
@@ -477,7 +478,7 @@ const ItemTypesManager = () => {
                         <button
                           onClick={() => deleteItemType(item.id)}
                           className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          title="Delete"
+                          title={t("delete")}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -491,10 +492,10 @@ const ItemTypesManager = () => {
                   
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-gray-500">
-                      Created: {formatDateOnly(item.created_at)}
+                      {t("created")}: {formatDateOnly(item.created_at)}
                     </span>
                     <span className="text-xs text-gray-500">
-                      ID: {item.id}
+                      {t("id")}: {item.id}
                     </span>
                   </div>
                 </div>
