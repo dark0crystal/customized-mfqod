@@ -181,26 +181,37 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
       try {
         const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
           headers: getAuthHeaders()
         });
         if (!response.ok) {
-          throw new Error("Failed to fetch item details");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `Failed to fetch item details: ${response.status}`);
         }
         const data = await response.json();
+        if (!data || !data.id) {
+          throw new Error("Invalid item data received");
+        }
         setItem(data);
         // Set status from data.status or fallback to approved/pending based on approval
         setStatus(data.status || (data.approval ? 'approved' : 'pending'));
       } catch (err) {
-        console.error(err);
-        setError("Error fetching item details.");
+        console.error('Error fetching item:', err);
+        setError(err instanceof Error ? err.message : "Error fetching item details.");
+        setItem(null);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    if (resolvedParams?.itemId) {
+      fetchData();
+    } else {
+      setError("Invalid item ID");
+      setLoading(false);
+    }
   }, [resolvedParams.itemId]);
 
   // Fetch branches for transfer when modal opens
@@ -548,10 +559,26 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     );
   }
 
-  if (error || !item) {
+  if (error || (!loading && !item)) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-red-500 text-lg">{error || t('itemNotFound')}</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="mb-4">
+            <svg className="w-16 h-16 text-red-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p className="text-red-500 text-lg font-semibold mb-2">{error || t('itemNotFound')}</p>
+          <p className="text-gray-600 text-sm mb-4">
+            {resolvedParams?.itemId ? `Item ID: ${resolvedParams.itemId}` : 'No item ID provided'}
+          </p>
+          <button
+            onClick={() => router.push('/dashboard/items')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            {t('backToItems') || 'Back to Items'}
+          </button>
+        </div>
       </div>
     );
   }
