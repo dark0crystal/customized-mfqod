@@ -81,6 +81,14 @@ export default function MissingItemsPage() {
   const [error, setError] = useState<string | null>(null);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedMissingItem, setSelectedMissingItem] = useState<MissingItem | null>(null);
+  const [availableFoundItems, setAvailableFoundItems] = useState<Array<{ id: string; title: string }>>([]);
+  const [selectedFoundItemIds, setSelectedFoundItemIds] = useState<string[]>([]);
+  const [selectedAssignBranchId, setSelectedAssignBranchId] = useState<string>("");
+  const [assignNote, setAssignNote] = useState<string>("");
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
 
   // Helper function to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -121,6 +129,105 @@ export default function MissingItemsPage() {
       })
     );
     setMissingItemImages(newImages);
+  };
+
+  const openAssignModal = async (missingItem: MissingItem) => {
+    setSelectedMissingItem(missingItem);
+    setAssignNote("");
+    setSelectedFoundItemIds([]);
+    setSelectedAssignBranchId("");
+    setAssignError(null);
+    setAssignModalOpen(true);
+    await loadFoundItems();
+  };
+
+  const closeAssignModal = () => {
+    setAssignModalOpen(false);
+    setSelectedMissingItem(null);
+    setAssignError(null);
+    setAssignLoading(false);
+  };
+
+  const handleAssignSubmit = async () => {
+    if (!selectedMissingItem) return;
+    if (!selectedAssignBranchId || selectedFoundItemIds.length === 0 || !assignNote.trim()) {
+      setAssignError("Branch, at least one found item, and a note are required to set visit.");
+      return;
+    }
+
+    try {
+      setAssignLoading(true);
+      setAssignError(null);
+      const token = getTokenFromCookies();
+
+      const res = await fetch(`${API_BASE_URL}/api/missing-items/${selectedMissingItem.id}/assign-found-items`, {
+        method: "POST",
+        headers: token
+          ? {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            }
+          : { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          branch_id: selectedAssignBranchId,
+          found_item_ids: selectedFoundItemIds,
+          note: assignNote,
+          notify: true,
+          set_status_to_visit: true,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to assign found items");
+      }
+
+      // Refresh list with current filters
+      await fetchMissingItems({
+        itemTypeId: currentItemTypeId || undefined,
+        searchQuery: searchQuery || undefined,
+        branchId: selectedBranchId || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        status: statusFilter || undefined,
+        approval: approvalFilter || undefined,
+      });
+
+      closeAssignModal();
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : "Failed to assign found items");
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const loadFoundItems = async () => {
+    try {
+      const token = getTokenFromCookies();
+      const res = await fetch(`${API_BASE_URL}/api/items?status=approved&limit=50`, {
+        headers: token
+          ? {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            }
+          : { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (!res.ok) {
+        setAvailableFoundItems([]);
+        return;
+      }
+      const data = await res.json();
+      const itemsArray = Array.isArray(data) ? data : data.items || data.results || [];
+      const simplified = itemsArray.map((item: any) => ({
+        id: item.id,
+        title: item.title || "Untitled",
+      }));
+      setAvailableFoundItems(simplified);
+    } catch {
+      setAvailableFoundItems([]);
+    }
   };
 
   const fetchMissingItems = async (filters?: {
@@ -426,9 +533,10 @@ export default function MissingItemsPage() {
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               >
                 <option value="">All Status</option>
-                <option value="lost">Lost</option>
-                <option value="found">Found</option>
-                <option value="returned">Returned</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="visit">Visit</option>
               </select>
             </div>
 
@@ -498,11 +606,100 @@ export default function MissingItemsPage() {
                 <p>No missing items found. Try adjusting your filters.</p>
               </div>
             ) : (
-              <DisplayMissingItems missingItems={missingItems} images={missingItemImages} />
+              <DisplayMissingItems
+                missingItems={missingItems}
+                images={missingItemImages}
+              />
             )}
           </div>
         </div>
       </div>
+
+      {assignModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center px-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Assign found items</h3>
+              <button onClick={closeAssignModal} className="text-gray-500 hover:text-gray-700">&times;</button>
+            </div>
+
+            {assignError && (
+              <div className="mb-3 p-3 bg-red-100 text-red-700 rounded">{assignError}</div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                <select
+                  className="w-full border rounded px-3 py-2"
+                  value={selectedAssignBranchId}
+                  onChange={(e) => setSelectedAssignBranchId(e.target.value)}
+                >
+                  <option value="">Select branch</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || "Unnamed Branch"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Found items</label>
+                <div className="max-h-40 overflow-y-auto border rounded p-2 space-y-2">
+                  {availableFoundItems.length === 0 && (
+                    <p className="text-sm text-gray-500">No found items available.</p>
+                  )}
+                  {availableFoundItems.map((item) => (
+                    <label key={item.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedFoundItemIds.includes(item.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedFoundItemIds((prev) => [...prev, item.id]);
+                          } else {
+                            setSelectedFoundItemIds((prev) => prev.filter((id) => id !== item.id));
+                          }
+                        }}
+                      />
+                      <span>{item.title}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Note to reporter</label>
+                <textarea
+                  className="w-full border rounded px-3 py-2"
+                  rows={3}
+                  value={assignNote}
+                  onChange={(e) => setAssignNote(e.target.value)}
+                  placeholder="Include visit instructions"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={closeAssignModal}
+                  className="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  disabled={assignLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAssignSubmit}
+                  className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                  disabled={assignLoading}
+                >
+                  {assignLoading ? "Assigning..." : "Assign & set visit"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
