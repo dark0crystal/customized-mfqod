@@ -208,7 +208,7 @@ const CompressorFileInput: React.FC<CompressorFileInputProps> = ({
     <div>
       <label
         htmlFor="compressed-file-input"
-        className="block text-lg font-semibold text-gray-700"
+        className="block text-base md:text-lg font-semibold text-gray-700"
       >
         {t("uploadImages")}
       </label>
