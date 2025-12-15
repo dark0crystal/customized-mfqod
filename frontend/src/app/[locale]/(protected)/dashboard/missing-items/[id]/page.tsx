@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import Image from "next/image";
 import { tokenManager } from "@/utils/tokenManager";
 import EditMissingItemForm from "./EditMissingItemForm";
 import ItemDropdown from "@/components/ui/ItemDropdown";
@@ -36,8 +37,52 @@ type Branch = {
   branch_name_en?: string;
 };
 
-type FoundItem = { id: string; title: string };
-type PendingItem = { id: string; title: string };
+type FoundItem = { 
+  id: string; 
+  title: string;
+  description?: string;
+  status?: string;
+  item_type?: {
+    id: string;
+    name_ar?: string;
+    name_en?: string;
+  };
+  images?: Array<{
+    id: string;
+    url: string;
+  }>;
+};
+type PendingItem = { 
+  id: string; 
+  title: string;
+  description?: string;
+  status?: string;
+  item_type?: {
+    id: string;
+    name_ar?: string;
+    name_en?: string;
+  };
+  images?: Array<{
+    id: string;
+    url: string;
+  }>;
+};
+
+type ConnectedItemDetail = {
+  id: string;
+  title: string;
+  description: string;
+  item_type?: {
+    id: string;
+    name_ar?: string;
+    name_en?: string;
+  };
+  images?: Array<{
+    id: string;
+    url: string;
+  }>;
+  status?: string;
+};
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -76,6 +121,8 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
   const [approveNote, setApproveNote] = useState("");
   const [approveError, setApproveError] = useState<string | null>(null);
   const [approveLoading, setApproveLoading] = useState(false);
+  const [connectedItems, setConnectedItems] = useState<Record<string, ConnectedItemDetail>>({});
+  const [loadingConnectedItems, setLoadingConnectedItems] = useState(false);
 
   useEffect(() => {
       const authenticated = tokenManager.isAuthenticated();
@@ -99,7 +146,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
         const [detailRes, branchRes, foundRes, pendingRes] = await Promise.all([
           fetch(`${API_BASE_URL}/api/missing-items/${resolvedParams.id}`, { headers, credentials: "include" }),
           fetch(`${API_BASE_URL}/api/branches`, { headers, credentials: "include" }),
-          fetch(`${API_BASE_URL}/api/items?status=approved&limit=100`, { headers, credentials: "include" }),
+          fetch(`${API_BASE_URL}/api/items?status=pending&limit=100`, { headers, credentials: "include" }),
           fetch(`${API_BASE_URL}/api/items?status=pending&limit=100`, { headers, credentials: "include" }),
         ]);
 
@@ -116,13 +163,35 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
         if (foundRes.ok) {
           const foundData = await foundRes.json();
           const list = Array.isArray(foundData) ? foundData : foundData.items || foundData.results || [];
-          setFoundItems(list.map((itm: { id: string; title?: string }) => ({ id: itm.id, title: itm.title || "Untitled" })));
+          // Filter to only include items with status "pending"
+          const filteredList = list.filter((itm: FoundItem & { status?: string }) => 
+            itm.status === "pending"
+          );
+          setFoundItems(filteredList.map((itm: FoundItem & { description?: string; status?: string; item_type?: { id: string; name_ar?: string; name_en?: string }; images?: Array<{ id: string; url: string }> }) => ({ 
+            id: itm.id, 
+            title: itm.title || "Untitled",
+            description: itm.description,
+            status: itm.status,
+            item_type: itm.item_type,
+            images: itm.images || []
+          })));
         }
 
         if (pendingRes.ok) {
           const pendingData = await pendingRes.json();
           const list = Array.isArray(pendingData) ? pendingData : pendingData.items || pendingData.results || [];
-          setPendingItems(list.map((itm: { id: string; title?: string }) => ({ id: itm.id, title: itm.title || "Untitled" })));
+          // Filter to only include items with status "pending"
+          const filteredList = list.filter((itm: PendingItem & { status?: string }) => 
+            itm.status === "pending"
+          );
+          setPendingItems(filteredList.map((itm: PendingItem & { description?: string; item_type?: { id: string; name_ar?: string; name_en?: string }; images?: Array<{ id: string; url: string }>; status?: string }) => ({ 
+            id: itm.id, 
+            title: itm.title || "Untitled",
+            description: itm.description,
+            status: itm.status,
+            item_type: itm.item_type,
+            images: itm.images || []
+          })));
         }
       } catch {
         // ignore
@@ -133,6 +202,66 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
 
     fetchData();
   }, [isAuthenticated, resolvedParams.id]);
+
+  const fetchConnectedItemsDetails = async (assignedItems: Array<{ item_id: string }>) => {
+    if (assignedItems.length === 0) return;
+    
+    setLoadingConnectedItems(true);
+    try {
+      const token = getTokenFromCookies();
+      const headers: HeadersInit = token
+        ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+        : { "Content-Type": "application/json" };
+
+      // Fetch all item details in parallel
+      const itemPromises = assignedItems.map(async (link) => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/items/${link.item_id}`, {
+            headers,
+            credentials: "include",
+          });
+          if (res.ok) {
+            const itemData = await res.json();
+            return { itemId: link.item_id, data: itemData };
+          }
+        } catch (error) {
+          console.error(`Failed to fetch item ${link.item_id}:`, error);
+        }
+        return null;
+      });
+
+      const results = await Promise.all(itemPromises);
+      const itemsMap: Record<string, ConnectedItemDetail> = {};
+      
+      results.forEach((result) => {
+        if (result && result.data) {
+          itemsMap[result.itemId] = {
+            id: result.data.id,
+            title: result.data.title || "Untitled",
+            description: result.data.description || "",
+            item_type: result.data.item_type,
+            images: result.data.images || [],
+            status: result.data.status,
+          };
+        }
+      });
+
+      setConnectedItems(itemsMap);
+    } catch (error) {
+      console.error("Error fetching connected items:", error);
+    } finally {
+      setLoadingConnectedItems(false);
+    }
+  };
+
+  // Fetch connected items when missingItem changes
+  useEffect(() => {
+    if (missingItem?.assigned_found_items && missingItem.assigned_found_items.length > 0) {
+      fetchConnectedItemsDetails(missingItem.assigned_found_items);
+    } else {
+      setConnectedItems({});
+    }
+  }, [missingItem?.assigned_found_items]);
 
   const refreshDetail = async () => {
     try {
@@ -277,6 +406,38 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
     return nameAr || nameEn || '';
   };
 
+  // Helper to process and validate image URL
+  const getImageUrl = (imageUrl: string | null | undefined): string | null => {
+    if (!imageUrl) return null;
+    
+    // If the url is already absolute, validate and return as is
+    if (/^https?:\/\//.test(imageUrl)) {
+      try {
+        new URL(imageUrl);
+        return imageUrl;
+      } catch {
+        return null;
+      }
+    }
+    
+    // Process relative URLs
+    let processedUrl = imageUrl.replace('/uploads/images/', '/static/images/');
+    if (!processedUrl.startsWith('/')) {
+      processedUrl = '/' + processedUrl;
+    }
+    
+    const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
+    const fullUrl = `${baseUrl}${processedUrl}`;
+    
+    // Validate the constructed URL
+    try {
+      new URL(fullUrl);
+      return fullUrl;
+    } catch {
+      return null;
+    }
+  };
+
   if (isLoading || loadingDetail) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -333,18 +494,87 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
           </div>
 
           {missingItem.assigned_found_items && missingItem.assigned_found_items.length > 0 && (
-            <div className="mt-3">
-              <h4 className="text-sm font-semibold text-gray-800">{t("assignedFoundItems")}</h4>
-              <ul className="mt-2 space-y-1 text-sm text-gray-700">
-                {missingItem.assigned_found_items.map((link) => (
-                  <li key={link.id} className="flex items-center justify-between">
-                    <span>{link.item_title || link.item_id}</span>
-                    <span className="text-gray-500 text-xs">
-                      {link.branch_name ? `${t("branch")}: ${link.branch_name}` : ""}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+            <div className="mt-6 border-t border-gray-200 pt-4">
+              <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">{t("assignedFoundItems")}</h4>
+              {loadingConnectedItems ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {missingItem.assigned_found_items.map((link) => {
+                    const itemDetail = connectedItems[link.item_id];
+                    const rawImageUrl = itemDetail?.images && itemDetail.images.length > 0 
+                      ? itemDetail.images[0].url 
+                      : null;
+                    const itemImage = getImageUrl(rawImageUrl);
+                    const itemTypeName = itemDetail?.item_type 
+                      ? getLocalizedName(itemDetail.item_type.name_ar, itemDetail.item_type.name_en)
+                      : null;
+
+                    return (
+                      <div
+                        key={link.id}
+                        className="flex items-start gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                      >
+                        {/* Image - Small square on the left */}
+                        <div className="flex-shrink-0 relative w-16 h-16 sm:w-20 sm:h-20">
+                          {itemImage ? (
+                            <Image
+                              src={itemImage}
+                              alt={itemDetail?.title || "Item"}
+                              fill
+                              className="object-cover rounded-md border border-gray-300"
+                              sizes="(max-width: 640px) 64px, 80px"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-300 rounded-md flex items-center justify-center border border-gray-300">
+                              <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Content - Title, description, and type on the right */}
+                        <div className="flex-1 min-w-0">
+                          <h5 className="text-sm sm:text-base font-semibold text-gray-900 mb-1 line-clamp-1">
+                            {itemDetail?.title || link.item_title || link.item_id}
+                          </h5>
+                          {itemDetail?.description && (
+                            <p className="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2">
+                              {itemDetail.description}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                            {itemTypeName && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                                {itemTypeName}
+                              </span>
+                            )}
+                            {itemDetail?.status && (
+                              <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${
+                                itemDetail.status === 'approved' 
+                                  ? 'bg-green-100 text-green-800'
+                                  : itemDetail.status === 'visit'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {itemDetail.status.charAt(0).toUpperCase() + itemDetail.status.slice(1)}
+                              </span>
+                            )}
+                            {link.branch_name && (
+                              <span className="text-xs text-gray-500">
+                                {t("branch")}: {link.branch_name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -440,7 +670,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
             <div className="space-y-4">
               <div>
                 <ItemDropdown
-                  items={pendingItems}
+                  items={pendingItems.filter(item => item.status === "pending")}
                   value={approvePendingItemId}
                   onChange={setApprovePendingItemId}
                   placeholder={t("selectPendingItemPlaceholder")}

@@ -115,7 +115,6 @@ interface EditMissingItemFormProps {
 }
 
 export default function EditMissingItemForm({ missingItemId }: EditMissingItemFormProps) {
-  const t = useTranslations("forms");
   const locale = useLocale();
   const router = useRouter();
 
