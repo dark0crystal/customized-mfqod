@@ -151,19 +151,19 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
     },
     {
       id: 'Items',
+      label: t('items'),
+      icon: <Package size={20} />,
+      href: '/dashboard/items',
+      requiredPermissions: ['create_post', 'edit_post'],
+      showBadge: true
+    },
+    {
+      id: 'items-management',
       label: t('itemsManagement'),
       icon: <Package size={20} />,
       href: '/dashboard/items',
       requiredPermissions: ['create_post', 'edit_post'],
       children: [
-        {
-          id: 'Items',
-          label: t('items'),
-          icon: <Package size={16} />,
-          href: '/dashboard/items',
-          requiredPermissions: ['create_post', 'edit_post'],
-          showBadge: true
-        },
         {
           id: 'report-found-item',
           label: t('reportFoundItem'),
@@ -185,25 +185,9 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
           href: '/dashboard/missing-items',
           requiredPermissions: ['create_post', 'edit_post'],
           showBadge: true
-        },
-        {
-          id: 'transfer-requests',
-          label: t('transferRequests'),
-          icon: <ArrowRightLeft size={16} />,
-          href: '/dashboard/transfer-requests',
-          requiredPermissions: ['can_view_items'],
-          showBadge: true
         }
 
       ]
-    },
-
-    {
-      id: 'analytics',
-      label: t('analytics'),
-      icon: <TrendingUp size={20} />,
-      href: '/dashboard/analytics',
-      requiredPermissions: ['view_analytics']
     },
 
     {
@@ -242,6 +226,21 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
           requiredPermissions: ['super_admin', 'admin']
         }
       ]
+    },
+    {
+      id: 'transfer-requests',
+      label: t('transferRequests'),
+      icon: <ArrowRightLeft size={20} />,
+      href: '/dashboard/transfer-requests',
+      requiredPermissions: ['can_view_items'],
+      showBadge: true
+    },
+    {
+      id: 'analytics',
+      label: t('analytics'),
+      icon: <TrendingUp size={20} />,
+      href: '/dashboard/analytics',
+      requiredPermissions: ['view_analytics']
     }
   ];
 
