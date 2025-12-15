@@ -1,6 +1,8 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRouter } from '@/i18n/navigation';
+import { ExternalLink } from 'lucide-react';
 import { tokenManager } from '@/utils/tokenManager';
 import { formatDateOnly } from '@/utils/dateFormatter';
 
@@ -40,6 +42,7 @@ const getAuthHeaders = (): HeadersInit => {
 // Claims Component
 export default function Claims({ postId }: { postId: string }) {
   const t = useTranslations('claims');
+  const router = useRouter();
   const [claims, setClaims] = useState<Claim[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -221,9 +224,19 @@ export default function Claims({ postId }: { postId: string }) {
                     {/* Header Section */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          {claim.title}
-                        </h3>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {claim.title}
+                          </h3>
+                          <button
+                            onClick={() => router.push(`/dashboard/claims/${claim.id}`)}
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                            title={t('viewClaimDetails') || 'View Claim Details'}
+                            aria-label={t('viewClaimDetails') || 'View Claim Details'}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+                        </div>
                         <div className="flex items-center gap-2 mb-3 flex-wrap">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                             claim.approval 
