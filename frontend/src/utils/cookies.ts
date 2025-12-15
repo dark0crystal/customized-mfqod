@@ -7,7 +7,21 @@ export const cookieUtils = {
     
     const expires = new Date()
     expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000)
-    document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; secure; samesite=strict`
+    
+    // URL encode the value to handle special characters
+    const encodedValue = encodeURIComponent(value)
+    
+    // Only use secure flag in production (HTTPS), not in development (localhost)
+    const isProduction = typeof window !== 'undefined' && 
+                        window.location.protocol === 'https:' && 
+                        !window.location.hostname.includes('localhost') &&
+                        !window.location.hostname.includes('127.0.0.1')
+    
+    // Use SameSite=Lax for better compatibility, or Strict for production
+    const sameSite = isProduction ? 'strict' : 'lax'
+    const secureFlag = isProduction ? '; secure' : ''
+    
+    document.cookie = `${name}=${encodedValue}; expires=${expires.toUTCString()}; path=/; samesite=${sameSite}${secureFlag}`
   },
 
   // Get a cookie - hydration safe
@@ -20,7 +34,11 @@ export const cookieUtils = {
     for (let i = 0; i < ca.length; i++) {
       let c = ca[i]
       while (c.charAt(0) === ' ') c = c.substring(1, c.length)
-      if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length)
+      if (c.indexOf(nameEQ) === 0) {
+        const value = c.substring(nameEQ.length, c.length)
+        // URL decode the value since we encode it when setting
+        return decodeURIComponent(value)
+      }
     }
     return null
   },
