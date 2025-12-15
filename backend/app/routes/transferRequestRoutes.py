@@ -88,10 +88,15 @@ async def get_incoming_transfer_requests(
         logger.info(f"Found {len(all_requests)} total transfer requests with status={status}")
         
         # Return all requests, but set can_approve based on whether user manages the destination branch
+        # and does NOT manage the source branch
         result = []
         for req in all_requests:
-            # User can approve/reject only if they manage the destination branch (to_branch_id)
-            can_approve = managed_branch_ids and req.to_branch_id in managed_branch_ids
+            # User can approve/reject only if:
+            # 1. They manage the destination branch (to_branch_id)
+            # 2. They do NOT manage the source branch (from_branch_id)
+            manages_destination = managed_branch_ids and req.to_branch_id in managed_branch_ids
+            manages_source = managed_branch_ids and req.from_branch_id in managed_branch_ids
+            can_approve = manages_destination and not manages_source
             result.append(transfer_service.to_response(req, can_approve=can_approve))
         
         logger.info(f"Returning {len(result)} transfer requests for user {current_user.id}")
