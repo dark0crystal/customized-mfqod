@@ -160,7 +160,8 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
     handleSubmit,
     formState: { errors, isSubmitting, isDirty },
     reset,
-    setValue
+    setValue,
+    watch
   } = useForm<MissingItemFormFields>({
     defaultValues: {
       country: "Oman",
@@ -170,6 +171,8 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
       item_type_id: ""
     }
   });
+
+  const watchedOrg = watch("orgnization");
 
 
   // Fetch missing item data
@@ -190,17 +193,18 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           setValue('content', data.description);
           setValue('item_type_id', data.item_type_id || '');
 
-          // Set organization if available
+          // Set organization if available - but wait for organizations to load
           if (data.addresses && data.addresses.length > 0) {
             console.log('Addresses found:', data.addresses);
-            const currentAddress = data.addresses.find((addr: any) => addr.is_current) || data.addresses[0];
+            const currentAddress = data.addresses.find((addr: { is_current?: boolean }) => addr.is_current) || data.addresses[0];
             console.log('Current address:', currentAddress);
             if (currentAddress?.branch) {
               console.log('Branch found:', currentAddress.branch);
               const orgId = currentAddress.branch.organization?.id || currentAddress.branch.organization_id;
               if (orgId) {
-                console.log('Organization ID:', orgId);
-                setValue('orgnization', orgId);
+                console.log('Organization ID from address:', orgId);
+                // Store orgId in missingItem state, will be set when organizations load
+                setMissingItem(prev => prev ? { ...prev, _orgId: orgId } as MissingItem & { _orgId?: string } : null);
               }
             }
           }
@@ -223,15 +227,33 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
       console.log('Setting organization values after organizations loaded');
       console.log('Missing item:', missingItem);
       console.log('Organizations:', organizations);
-      if (missingItem.addresses && missingItem.addresses.length > 0) {
-        const currentAddress = missingItem.addresses.find((addr: any) => addr.is_current) || missingItem.addresses[0];
+      
+      let orgId: string | null = null;
+      
+      // Try to get orgId from stored _orgId first
+      const missingItemWithOrgId = missingItem as MissingItem & { _orgId?: string };
+      if (missingItemWithOrgId._orgId) {
+        orgId = missingItemWithOrgId._orgId;
+        console.log('Using stored orgId:', orgId);
+      } else if (missingItem.addresses && missingItem.addresses.length > 0) {
+        const currentAddress = missingItem.addresses.find((addr: { is_current?: boolean }) => addr.is_current) || missingItem.addresses[0];
         if (currentAddress?.branch) {
-          const orgId = currentAddress.branch.organization?.id || currentAddress.branch.organization_id;
-          if (orgId) {
-            console.log('Setting organization:', orgId);
-            setValue('orgnization', orgId);
-          }
+          orgId = currentAddress.branch.organization?.id || currentAddress.branch.organization_id || null;
+          console.log('Getting orgId from address:', orgId);
         }
+      }
+      
+      if (orgId) {
+        // Verify the organization exists in the organizations list
+        const orgExists = organizations.some(org => org.id === orgId);
+        if (orgExists) {
+          console.log('Setting organization to:', orgId);
+          setValue('orgnization', orgId, { shouldValidate: false, shouldDirty: false });
+        } else {
+          console.warn('Organization ID not found in organizations list:', orgId);
+        }
+      } else {
+        console.log('No organization ID found for this missing item');
       }
     }
   }, [missingItem, organizations, setValue]);
@@ -515,6 +537,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
               <select
                 id="orgnization"
                 {...register("orgnization")}
+                value={watchedOrg || ""}
                 disabled={orgSelectDisabled}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#3277AE] focus:ring-[#3277AE] sm:text-sm p-2.5 border bg-white disabled:bg-gray-100"
               >
@@ -532,6 +555,9 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
                 )}
               </select>
               {errors.orgnization && <p className="mt-1 text-sm text-red-500">{errors.orgnization.message}</p>}
+              {watchedOrg && !organizations.find(org => org.id === watchedOrg) && (
+                <p className="mt-1 text-sm text-yellow-600">Selected organization not found in list</p>
+              )}
             </div>
           </div>
         </section>
