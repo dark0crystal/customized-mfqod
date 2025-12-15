@@ -29,6 +29,7 @@ from app.schemas.missing_item_schema import (
     BulkUpdateMissingItemRequest,
     BulkApprovalMissingItemRequest,
     AssignFoundItemsRequest,
+    AssignPendingItemRequest,
     LocationResponse,
     MissingItemResponse,
     MissingItemDetailResponse,
@@ -448,6 +449,81 @@ class MissingItemService:
 
         return self._missing_item_to_detail_response(missing_item)
 
+    def assign_pending_item(self, missing_item_id: str, request: AssignPendingItemRequest, current_user: User) -> MissingItemDetailResponse:
+        """Assign a missing item to a pending item, optionally moving status to approved and notifying the reporter."""
+        missing_item = self.get_missing_item_by_id(missing_item_id)
+        if not missing_item:
+            raise ValueError("Missing item not found")
+
+        # Validate pending item exists and has pending status
+        pending_item = self.db.query(Item).filter(
+            Item.id == request.pending_item_id,
+            Item.status == "pending",
+            Item.temporary_deletion == False
+        ).first()
+        
+        if not pending_item:
+            raise ValueError("Pending item not found or does not have pending status")
+
+        now = datetime.now(timezone.utc)
+
+        # Check if link already exists
+        existing_link = self.db.query(MissingItemFoundItem).filter(
+            MissingItemFoundItem.missing_item_id == missing_item.id,
+            MissingItemFoundItem.item_id == request.pending_item_id
+        ).first()
+
+        if existing_link:
+            # Update existing link
+            existing_link.note = request.note
+            existing_link.created_by = current_user.id
+            existing_link.updated_at = now
+        else:
+            # Create new link
+            link = MissingItemFoundItem(
+                id=str(uuid.uuid4()),
+                missing_item_id=missing_item.id,
+                item_id=request.pending_item_id,
+                branch_id=None,  # No branch required for approved status
+                note=request.note,
+                created_by=current_user.id,
+                created_at=now,
+                updated_at=now
+            )
+            self.db.add(link)
+            missing_item.assigned_found_items.append(link)
+
+        # Optionally move to approved status
+        if request.set_status_to_approved:
+            missing_item.status = "approved"
+            missing_item.updated_at = now
+
+        if request.notify:
+            # Mark as notified
+            for link in missing_item.assigned_found_items:
+                if link.item_id == request.pending_item_id:
+                    link.notified_at = now
+
+        self.db.commit()
+        self.db.refresh(missing_item)
+
+        # Send approval notification email
+        if request.notify and missing_item.user and missing_item.user.email:
+            try:
+                asyncio.create_task(
+                    self._send_approval_notification(
+                        missing_item,
+                        pending_item,
+                        request.note,
+                        current_user
+                    )
+                )
+            except Exception:
+                # Don't block main flow on notification errors
+                pass
+
+        return self.get_missing_item_detail_by_id(missing_item_id)
+
     def toggle_approval(self, missing_item_id: str) -> MissingItemResponse:
         """Toggle the approval status of a missing item"""
         missing_item = self.get_missing_item_by_id(missing_item_id)
@@ -474,6 +550,11 @@ class MissingItemService:
 
         if status == "visit":
             self._validate_visit_requirements(missing_item, note=missing_item.assigned_found_items[0].note if missing_item.assigned_found_items else None)
+        
+        if status == "approved":
+            # Check if missing item is linked to a pending item
+            if not missing_item.assigned_found_items:
+                raise ValueError("Cannot set status to approved. Please assign this missing item to a pending item first.")
 
         missing_item.status = status
         missing_item.updated_at = datetime.now(timezone.utc)
@@ -643,6 +724,45 @@ class MissingItemService:
             "This is an automated message."
         )
         html_body = text_body.replace("\n", "<br/>")
+
+        await email_service.send_email(
+            to_email=missing_item.user.email,
+            subject=subject,
+            html_content=html_body,
+            text_content=text_body
+        )
+
+    async def _send_approval_notification(self, missing_item: MissingItem, pending_item: Item, note: Optional[str], current_user: User):
+        """Notify reporter that their missing item has been approved and they received their item back."""
+        if not missing_item.user or not missing_item.user.email:
+            return
+
+        email_service = EmailNotificationService()
+        user_name = f"{missing_item.user.first_name} {missing_item.user.last_name}".strip() or "User"
+
+        subject = f"Your missing item has been approved: {missing_item.title}"
+        text_body = (
+            f"Hello {missing_item.user.first_name},\n\n"
+            f"Great news! Your missing item report \"{missing_item.title}\" has been approved.\n\n"
+            f"Your item has been matched with the following item in our system:\n"
+            f"Item: {pending_item.title}\n"
+            f"{f'Note: {note}' if note else ''}\n\n"
+            f"Your item has been received back and the case is now closed.\n\n"
+            f"Thank you for using our lost and found system.\n\n"
+            "This is an automated message."
+        )
+        html_body = (
+            f"<p>Hello {missing_item.user.first_name},</p>"
+            f"<p>Great news! Your missing item report <strong>\"{missing_item.title}\"</strong> has been approved.</p>"
+            f"<p>Your item has been matched with the following item in our system:</p>"
+            f"<div style='background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin: 10px 0;'>"
+            f"<strong>Item:</strong> {pending_item.title}<br/>"
+            f"{f'<strong>Note:</strong> {note}<br/>' if note else ''}"
+            f"</div>"
+            f"<p>Your item has been received back and the case is now closed.</p>"
+            f"<p>Thank you for using our lost and found system.</p>"
+            f"<p><em>This is an automated message.</em></p>"
+        )
 
         await email_service.send_email(
             to_email=missing_item.user.email,

@@ -219,3 +219,9 @@ class AssignFoundItemsRequest(BaseModel):
     note: Optional[str] = Field(None, description="Note to include in notification")
     notify: bool = Field(default=True, description="Send notification email to reporter")
     set_status_to_visit: bool = Field(default=True, description="Automatically set status to visit after assignment")
+
+class AssignPendingItemRequest(BaseModel):
+    pending_item_id: str = Field(..., description="ID of the pending item to assign to this missing item")
+    note: Optional[str] = Field(None, description="Note to include in notification")
+    notify: bool = Field(default=True, description="Send notification email to reporter")
+    set_status_to_approved: bool = Field(default=True, description="Automatically set status to approved after assignment")

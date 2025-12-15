@@ -18,7 +18,8 @@ from app.schemas.missing_item_schema import (
     BulkDeleteMissingItemRequest,
     BulkUpdateMissingItemRequest,
     BulkApprovalMissingItemRequest,
-    AssignFoundItemsRequest
+    AssignFoundItemsRequest,
+    AssignPendingItemRequest
 )
 
 # Import permission decorators
@@ -389,6 +390,27 @@ async def assign_found_items_to_missing(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error assigning found items: {str(e)}")
+
+@router.post("/{missing_item_id}/assign-pending-item", response_model=MissingItemDetailResponse)
+@require_permission("can_manage_missing_items")
+async def assign_pending_item_to_missing(
+    missing_item_id: str,
+    request_body: AssignPendingItemRequest,
+    request: Request,
+    db: Session = Depends(get_session),
+    missing_item_service: MissingItemService = Depends(get_missing_item_service),
+    current_user = Depends(get_current_user_required)
+):
+    """
+    Assign a missing item to a pending item, optionally moving status to approved and notifying the reporter.
+    """
+    try:
+        missing_item = missing_item_service.assign_pending_item(missing_item_id, request_body, current_user)
+        return missing_item
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error assigning pending item: {str(e)}")
 
 # =========================== 
 # Delete Operations
