@@ -81,3 +81,26 @@ export async function getPendingItemsCount(): Promise<number> {
   }
 }
 
+/**
+ * Get pending missing items count for the current user
+ */
+export async function getPendingMissingItemsCount(): Promise<number> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/missing-items/pending-count`, {
+      method: "GET",
+      headers: getAuthHeaders(),
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch pending missing items count: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.count || 0;
+  } catch (error) {
+    console.error("Error fetching pending missing items count:", error);
+    return 0;
+  }
+}
+
