@@ -208,16 +208,14 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           // Get current branch ID from item location
           const currentBranchId = item.addresses?.find(addr => addr.is_current)?.branch?.id;
 
-          // Create a set of managed branch IDs for quick lookup
+          // Create a set of managed branch IDs for quick lookup (for display purposes only)
           const managedBranchIds = new Set(managedBranches.map((branch: { id: string }) => branch.id));
 
-          // Process all branches: filter out current branch and mark managed branches as disabled
-          // Note: Managed branches are still shown but in gray (disabled)
+          // Process all branches: filter out only the current branch (users can transfer to branches they manage)
           const availableBranches = allBranches
             .filter((branch: { id: string }) => branch.id !== currentBranchId)
             .map((branch: { id: string, branch_name_ar?: string, branch_name_en?: string }) => ({
               ...branch,
-              disabled: managedBranchIds.has(branch.id),
               isManaged: managedBranchIds.has(branch.id)
             }));
 
@@ -456,6 +454,13 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
 
   const handleTransferRequest = async () => {
     if (!item || !selectedTransferBranch) return;
+
+    // Validate that the selected branch is not the current branch
+    const currentBranchId = item.addresses?.find(addr => addr.is_current)?.branch?.id;
+    if (selectedTransferBranch === currentBranchId) {
+      alert(t('cannotTransferToCurrentBranch') || 'Cannot transfer item to the same branch it is currently in');
+      return;
+    }
 
     setIsSubmittingTransfer(true);
     try {
@@ -913,7 +918,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                             return {
                               value: branch.id,
                               label: branch.isManaged ? `${branchName} (${locale === 'ar' ? 'تديره' : 'You manage this'})` : branchName,
-                              disabled: branch.disabled || false
+                              disabled: false
                             };
                           })}
                           value={selectedTransferBranch}
