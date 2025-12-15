@@ -306,7 +306,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
         title: data.title,
         description: data.content,
         item_type_id: data.item_type_id,
-        status: "lost",
+        status: missingItem?.status || "pending",
         approval: true,
         temporary_deletion: false
       };
