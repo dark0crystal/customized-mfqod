@@ -54,3 +54,9 @@ class ClaimStatusUpdate(BaseModel):
     """Schema for updating claim status with custom message"""
     custom_title: Optional[str] = Field(None, max_length=255, description="Custom title for the status update email")
     custom_description: Optional[str] = Field(None, max_length=1000, description="Custom description for the status update email")
+
+
+class VisitNotificationRequest(BaseModel):
+    """Schema for sending visit notification to claim user"""
+    branch_id: Optional[str] = Field(None, description="ID of the branch/office to visit")
+    note: Optional[str] = Field(None, max_length=1000, description="Additional note to include in the email")

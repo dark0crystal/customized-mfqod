@@ -271,8 +271,16 @@ class ItemService:
         if filters.user_id:
             query = query.filter(Item.user_id == filters.user_id)
         
+        # Status filtering (new way) - must match get_items logic
+        if filters.status:
+            query = query.filter(Item.status == filters.status.value)
+        elif filters.statuses:
+            status_values = [s.value for s in filters.statuses]
+            query = query.filter(Item.status.in_(status_values))
+        
+        # Backward compatibility: approved_only filter
         if filters.approved_only:
-            query = query.filter(Item.approval == True)
+            query = query.filter(Item.status == ItemStatus.APPROVED.value)
         
         if filters.item_type_id:
             query = query.filter(Item.item_type_id == filters.item_type_id)
@@ -289,6 +297,7 @@ class ItemService:
         # Apply branch-based access control if user_id is provided
         # When user_id is provided, it means we want to filter by branch access (managed items view)
         # When user_id is None, it means show all items (all items view)
+        # IMPORTANT: This must be applied AFTER all other filters to ensure proper filtering
         if user_id:
             # Always apply branch-based filtering when user_id is provided
             # This ensures "My Managed Items" shows only items the user can access
