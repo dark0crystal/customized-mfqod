@@ -4,21 +4,38 @@ from typing import Optional, List, Tuple
 from datetime import datetime, timezone
 import uuid
 import asyncio
+import logging
 
 # Import Models
-from app.models import MissingItem, ItemType as ItemTypeModel, User, Address, Branch, Organization, Image
+from app.models import (
+    MissingItem,
+    ItemType as ItemTypeModel,
+    Item,
+    MissingItemFoundItem,
+    User,
+    Address,
+    Branch,
+    Organization,
+    Image,
+    UserBranchManager,
+)
+from app.middleware.branch_auth_middleware import is_branch_manager
+from app.services import permissionServices
 from app.schemas.missing_item_schema import (
-    CreateMissingItemRequest, 
-    UpdateMissingItemRequest, 
+    CreateMissingItemRequest,
+    UpdateMissingItemRequest,
     MissingItemFilterRequest,
     BulkDeleteMissingItemRequest,
     BulkUpdateMissingItemRequest,
     BulkApprovalMissingItemRequest,
+    AssignFoundItemsRequest,
     LocationResponse,
     MissingItemResponse,
-    MissingItemDetailResponse
+    MissingItemDetailResponse,
 )
-from app.services.notification_service import send_new_missing_item_alert
+from app.services.notification_service import send_new_missing_item_alert, EmailNotificationService
+
+logger = logging.getLogger(__name__)
 
 class MissingItemService:
     
@@ -76,7 +93,9 @@ class MissingItemService:
         query = self.db.query(MissingItem).options(
             joinedload(MissingItem.item_type),
             joinedload(MissingItem.user),
-            joinedload(MissingItem.addresses).joinedload(Address.branch).joinedload(Branch.organization)
+            joinedload(MissingItem.addresses).joinedload(Address.branch).joinedload(Branch.organization),
+            joinedload(MissingItem.assigned_found_items).joinedload(MissingItemFoundItem.item),
+            joinedload(MissingItem.assigned_found_items).joinedload(MissingItemFoundItem.branch),
         ).filter(MissingItem.id == missing_item_id)
         
         if not include_deleted:
@@ -193,20 +212,25 @@ class MissingItemService:
         # Total missing items
         total_missing_items = base_query.filter(MissingItem.temporary_deletion == False).count()
         
-        # Missing items by status
-        lost_count = base_query.filter(
+        # Missing items by status (new lifecycle)
+        pending_status_count = base_query.filter(
             MissingItem.temporary_deletion == False,
-            MissingItem.status == "lost"
+            MissingItem.status == "pending"
         ).count()
         
-        found_count = base_query.filter(
+        approved_status_count = base_query.filter(
             MissingItem.temporary_deletion == False,
-            MissingItem.status == "found"
+            MissingItem.status == "approved"
         ).count()
         
-        returned_count = base_query.filter(
+        cancelled_status_count = base_query.filter(
             MissingItem.temporary_deletion == False,
-            MissingItem.status == "returned"
+            MissingItem.status == "cancelled"
+        ).count()
+        
+        visit_status_count = base_query.filter(
+            MissingItem.temporary_deletion == False,
+            MissingItem.status == "visit"
         ).count()
         
         # Approved vs pending
@@ -222,13 +246,67 @@ class MissingItemService:
         
         return {
             "total_missing_items": total_missing_items,
-            "lost_items": lost_count,
-            "found_items": found_count,
-            "returned_items": returned_count,
+            "pending_items_status": pending_status_count,
+            "approved_items_status": approved_status_count,
+            "cancelled_items_status": cancelled_status_count,
+            "visit_items_status": visit_status_count,
             "approved_items": approved_count,
             "pending_items": pending_count,
-            "return_rate": (returned_count / lost_count * 100) if lost_count > 0 else 0.0
+            "return_rate": (approved_status_count / total_missing_items * 100) if total_missing_items > 0 else 0.0
         }
+    
+    def get_pending_missing_items_count(self, user_id: str) -> int:
+        """Get count of pending missing items (approval == False) accessible to the user based on branch assignments"""
+        # Start with base query for pending missing items
+        query = self.db.query(MissingItem).filter(
+            MissingItem.status == "pending",
+            MissingItem.temporary_deletion == False
+        )
+        
+        # Check if user is super_admin - if so, return all pending missing items
+        is_admin = permissionServices.is_super_admin(self.db, user_id)
+        
+        if is_admin:
+            logger.info(f"Super admin user {user_id} - returning all pending missing items count")
+            return query.count()
+        
+        # Check if user is a branch manager - branch managers see pending missing items in their managed branches
+        is_bm = is_branch_manager(user_id, self.db)
+        
+        if is_bm:
+            # Get user's managed branches
+            managed_branch_ids = [
+                row[0] for row in self.db.query(UserBranchManager.branch_id).filter(
+                    UserBranchManager.user_id == user_id
+                ).all()
+            ]
+            
+            if managed_branch_ids:
+                # Get missing items in managed branches
+                missing_item_ids_in_branches = [
+                    row[0] for row in self.db.query(Address.missing_item_id).filter(
+                        Address.branch_id.in_(managed_branch_ids),
+                        Address.is_current == True,
+                        Address.missing_item_id.isnot(None)
+                    ).distinct().all()
+                ]
+                
+                if missing_item_ids_in_branches:
+                    # Filter to only pending missing items in managed branches
+                    count = query.filter(MissingItem.id.in_(missing_item_ids_in_branches)).count()
+                    logger.info(f"Branch manager {user_id} - returning {count} pending missing items from managed branches")
+                    return count
+                else:
+                    logger.info(f"Branch manager {user_id} - no missing items in managed branches")
+                    return 0
+            else:
+                logger.info(f"Branch manager {user_id} - no managed branches")
+                return 0
+        
+        # Regular users see only their own pending missing items
+        count = query.filter(MissingItem.user_id == user_id).count()
+        logger.info(f"Regular user {user_id} - returning {count} own pending missing items")
+        return count
     
     # =========================== 
     # Update Operations
@@ -278,6 +356,98 @@ class MissingItemService:
         
         return self._missing_item_to_response(missing_item)
     
+    def assign_found_items(self, missing_item_id: str, request: AssignFoundItemsRequest, current_user: User) -> MissingItemDetailResponse:
+        """Link one or more found items to a missing item, optionally moving status to visit."""
+        missing_item = self.get_missing_item_by_id(missing_item_id)
+        if not missing_item:
+            raise ValueError("Missing item not found")
+
+        now = datetime.now(timezone.utc)
+
+        # Permission: super admin can assign anywhere; branch managers must own the branch
+        is_admin = permissionServices.is_super_admin(self.db, current_user.id)
+        managed_branch_ids: List[str] = []
+        if not is_admin:
+            if not is_branch_manager(current_user.id, self.db):
+                raise PermissionError("Only admins or branch managers can assign found items")
+            managed_branch_ids = [
+                row[0] for row in self.db.query(UserBranchManager.branch_id).filter(
+                    UserBranchManager.user_id == current_user.id
+                ).all()
+            ]
+            if request.branch_id not in managed_branch_ids:
+                raise PermissionError("Branch managers can only assign items for their managed branches")
+
+        branch = self.db.query(Branch).filter(Branch.id == request.branch_id).first()
+        if not branch:
+            raise ValueError("Branch not found")
+
+        # Validate found items
+        found_items = self.db.query(Item).filter(
+            Item.id.in_(request.found_item_ids),
+            Item.temporary_deletion == False
+        ).all()
+        found_ids_found = {item.id for item in found_items}
+        missing_ids = set(request.found_item_ids) - found_ids_found
+        if missing_ids:
+            raise ValueError(f"Found item(s) not found: {', '.join(missing_ids)}")
+
+        # Upsert links
+        existing_links = {link.item_id: link for link in missing_item.assigned_found_items}
+        for item in found_items:
+            if item.id in existing_links:
+                link = existing_links[item.id]
+                link.branch_id = request.branch_id
+                link.note = request.note
+                link.created_by = current_user.id
+                link.updated_at = now
+            else:
+                link = MissingItemFoundItem(
+                    id=str(uuid.uuid4()),
+                    missing_item_id=missing_item.id,
+                    item_id=item.id,
+                    branch_id=request.branch_id,
+                    note=request.note,
+                    created_by=current_user.id,
+                    created_at=now,
+                    updated_at=now
+                )
+                self.db.add(link)
+                missing_item.assigned_found_items.append(link)
+
+        missing_item.updated_at = now
+
+        if request.notify:
+            for link in missing_item.assigned_found_items:
+                if link.item_id in request.found_item_ids:
+                    link.notified_at = now
+
+        # Optionally move to visit status after validation
+        if request.set_status_to_visit:
+            self._validate_visit_requirements(missing_item, request.note)
+            missing_item.status = "visit"
+
+        self.db.commit()
+        self.db.refresh(missing_item)
+
+        # Notification to reporter
+        if request.notify and missing_item.user and missing_item.user.email:
+            try:
+                asyncio.create_task(
+                    self._send_visit_notification(
+                        missing_item,
+                        branch,
+                        found_items,
+                        request.note,
+                        current_user
+                    )
+                )
+            except Exception:
+                # Don't block main flow on notification errors
+                pass
+
+        return self._missing_item_to_detail_response(missing_item)
+
     def toggle_approval(self, missing_item_id: str) -> MissingItemResponse:
         """Toggle the approval status of a missing item"""
         missing_item = self.get_missing_item_by_id(missing_item_id)
@@ -297,16 +467,20 @@ class MissingItemService:
         missing_item = self.get_missing_item_by_id(missing_item_id)
         if not missing_item:
             raise ValueError("Missing item not found")
-        
-        if status not in ["lost", "found", "returned"]:
-            raise ValueError("Invalid status. Must be 'lost', 'found', or 'returned'")
-        
+
+        allowed_statuses = ["pending", "approved", "cancelled", "visit"]
+        if status not in allowed_statuses:
+            raise ValueError(f"Invalid status. Must be one of: {', '.join(allowed_statuses)}")
+
+        if status == "visit":
+            self._validate_visit_requirements(missing_item, note=missing_item.assigned_found_items[0].note if missing_item.assigned_found_items else None)
+
         missing_item.status = status
         missing_item.updated_at = datetime.now(timezone.utc)
-        
+
         self.db.commit()
         self.db.refresh(missing_item)
-        
+
         return self._missing_item_to_response(missing_item)
     
     # =========================== 
@@ -439,6 +613,44 @@ class MissingItemService:
     # Helper Methods
     # ===========================
     
+    def _validate_visit_requirements(self, missing_item: MissingItem, note: Optional[str]):
+        """Ensure visit status has the required data (branch, found items, note)."""
+        if not missing_item.assigned_found_items:
+            raise ValueError("Assign at least one found item before setting status to visit")
+
+        for link in missing_item.assigned_found_items:
+            if not link.branch_id:
+                raise ValueError("Branch is required on assigned found items before visit status")
+            if not note and not link.note:
+                raise ValueError("A note is required before setting status to visit")
+
+    async def _send_visit_notification(self, missing_item: MissingItem, branch: Branch, items: List[Item], note: Optional[str], current_user: User):
+        """Notify reporter that matching items are available at a branch."""
+        if not missing_item.user or not missing_item.user.email:
+            return
+
+        email_service = EmailNotificationService()
+        item_titles = ", ".join([itm.title for itm in items]) if items else "items"
+
+        subject = f"Update on your missing item: {missing_item.title}"
+        text_body = (
+            f"Hello {missing_item.user.first_name},\n\n"
+            f"We have identified possible matches for your reported missing item \"{missing_item.title}\".\n"
+            f"Branch to visit: {branch.branch_name_en or branch.branch_name_ar or 'branch'}\n"
+            f"Items: {item_titles}\n"
+            f"Note: {note or 'No additional note provided.'}\n\n"
+            "Please visit the branch with proof of ownership.\n"
+            "This is an automated message."
+        )
+        html_body = text_body.replace("\n", "<br/>")
+
+        await email_service.send_email(
+            to_email=missing_item.user.email,
+            subject=subject,
+            html_content=html_body,
+            text_content=text_body
+        )
+
     def _user_exists(self, user_id: str) -> bool:
         """Check if user exists"""
         return self.db.query(User).filter(User.id == user_id).first() is not None
@@ -537,12 +749,31 @@ class MissingItemService:
                 }
                 for addr in missing_item.addresses
             ]
+
+        assigned_found_items = []
+        if hasattr(missing_item, "assigned_found_items") and missing_item.assigned_found_items:
+            assigned_found_items = [
+                {
+                    "id": link.id,
+                    "item_id": link.item_id,
+                    "item_title": link.item.title if link.item else None,
+                    "branch_id": link.branch_id,
+                    "branch_name": link.branch.branch_name_en if link.branch else None,
+                    "note": link.note,
+                    "notified_at": link.notified_at,
+                    "created_by": link.created_by,
+                    "created_at": link.created_at,
+                    "updated_at": link.updated_at,
+                }
+                for link in missing_item.assigned_found_items
+            ]
         
         return MissingItemDetailResponse(
             **base_response.dict(),
             item_type=item_type,
             user=user,
-            addresses=addresses
+            addresses=addresses,
+            assigned_found_items=assigned_found_items
         )
     
     async def _send_new_missing_item_notification(self, missing_item: MissingItem):

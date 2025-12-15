@@ -17,7 +17,8 @@ from app.schemas.missing_item_schema import (
     BulkOperationResponse,
     BulkDeleteMissingItemRequest,
     BulkUpdateMissingItemRequest,
-    BulkApprovalMissingItemRequest
+    BulkApprovalMissingItemRequest,
+    AssignFoundItemsRequest
 )
 
 # Import permission decorators
@@ -26,6 +27,7 @@ from app.utils.permission_decorator import (
     require_any_permission,
     require_all_permissions
 )
+from app.middleware.auth_middleware import get_current_user_required
 
 router = APIRouter()
 
@@ -238,6 +240,24 @@ async def get_missing_item_statistics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving statistics: {str(e)}")
 
+@router.get("/pending-count", response_model=dict)
+@require_permission("can_view_missing_items")
+async def get_pending_missing_items_count(
+    request: Request,
+    db: Session = Depends(get_session),
+    missing_item_service: MissingItemService = Depends(get_missing_item_service),
+    current_user = Depends(get_current_user_required)
+):
+    """
+    Get count of pending missing items (approval == False) accessible to the current user based on branch assignments
+    Requires: can_view_missing_items permission
+    """
+    try:
+        count = missing_item_service.get_pending_missing_items_count(current_user.id)
+        return {"count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving pending missing items count: {str(e)}")
+
 @router.get("/{missing_item_id}", response_model=MissingItemDetailResponse)
 @require_permission("can_view_missing_items")
 async def get_missing_item(
@@ -330,7 +350,7 @@ async def toggle_missing_item_approval(
 async def update_missing_item_status(
     missing_item_id: str,
     request: Request,
-    status: str = Query(..., description="New status: lost, found, or returned"),
+    status: str = Query(..., description="New status: pending, approved, cancelled, or visit"),
     db: Session = Depends(get_session),
     missing_item_service: MissingItemService = Depends(get_missing_item_service)
 ):
@@ -345,6 +365,30 @@ async def update_missing_item_status(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating status: {str(e)}")
+
+
+@router.post("/{missing_item_id}/assign-found-items", response_model=MissingItemDetailResponse)
+@require_permission("can_manage_missing_items")
+async def assign_found_items_to_missing(
+    missing_item_id: str,
+    request_body: AssignFoundItemsRequest,
+    request: Request,
+    db: Session = Depends(get_session),
+    missing_item_service: MissingItemService = Depends(get_missing_item_service),
+    current_user = Depends(get_current_user_required)
+):
+    """
+    Assign one or more found item posts to a missing item, optionally moving status to visit and notifying the reporter.
+    """
+    try:
+        missing_item = missing_item_service.assign_found_items(missing_item_id, request_body, current_user)
+        return missing_item
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error assigning found items: {str(e)}")
 
 # =========================== 
 # Delete Operations

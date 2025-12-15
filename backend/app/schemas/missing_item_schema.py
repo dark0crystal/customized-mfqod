@@ -10,9 +10,10 @@ from typing import Optional, List
 # ===========================
 
 class MissingItemStatus(str, Enum):
-    lost = "lost"
-    found = "found"
-    returned = "returned"
+    pending = "pending"
+    approved = "approved"
+    cancelled = "cancelled"
+    visit = "visit"
 
 # =========================== 
 # Request Schemas
@@ -23,7 +24,7 @@ class CreateMissingItemRequest(BaseModel):
     description: str = Field(..., min_length=1, description="Missing item description/content")
     user_id: str = Field(..., description="ID of the user reporting the missing item")
     item_type_id: Optional[str] = Field(None, description="ID of the item type")
-    status: str = Field(default="lost", description="Status of the missing item")
+    status: str = Field(default=MissingItemStatus.pending.value, description="Status of the missing item")
     approval: bool = Field(default=True, description="Whether the missing item is approved")
     temporary_deletion: bool = Field(default=False, description="Whether the missing item is marked for deletion")
 
@@ -34,7 +35,7 @@ class CreateMissingItemRequest(BaseModel):
                 "description": "Black leather wallet with credit cards",
                 "user_id": "user-uuid-here",
                 "item_type_id": "itemtype-uuid-here",
-                "status": "lost",
+                "status": MissingItemStatus.pending.value,
                 "approval": True,
                 "temporary_deletion": False
             }
@@ -133,6 +134,23 @@ class LocationResponse(BaseModel):
     branch_name: Optional[str] = None
     full_location: Optional[str] = None
 
+
+class AssignedFoundItemResponse(BaseModel):
+    id: str
+    item_id: str
+    item_title: Optional[str] = None
+    branch_id: Optional[str] = None
+    branch_name: Optional[str] = None
+    note: Optional[str] = None
+    notified_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class MissingItemResponse(BaseModel):
     id: str
     title: str
@@ -154,6 +172,7 @@ class MissingItemDetailResponse(MissingItemResponse):
     item_type: Optional[ItemTypeResponse] = None
     user: Optional[UserBasicResponse] = None
     addresses: Optional[List[AddressResponse]] = None
+    assigned_found_items: Optional[List[AssignedFoundItemResponse]] = None
     
     class Config:
         from_attributes = True
@@ -192,3 +211,11 @@ class BulkUpdateMissingItemRequest(BaseModel):
 class BulkApprovalMissingItemRequest(BaseModel):
     missing_item_ids: List[str] = Field(..., min_items=1, max_items=100)
     approval_status: bool = Field(..., description="Approval status to set for all missing items")
+
+
+class AssignFoundItemsRequest(BaseModel):
+    branch_id: str = Field(..., description="Branch where the found items are held")
+    found_item_ids: List[str] = Field(..., min_items=1, description="IDs of found items to link")
+    note: Optional[str] = Field(None, description="Note to include in notification")
+    notify: bool = Field(default=True, description="Send notification email to reporter")
+    set_status_to_visit: bool = Field(default=True, description="Automatically set status to visit after assignment")
