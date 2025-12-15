@@ -5,12 +5,6 @@ import { useTranslations, useLocale } from 'next-intl';
 import DisplayItems from './DisplayItems';
 
 // Define the Item type
-enum ItemStatus {
-  CANCELLED = "cancelled",
-  APPROVED = "approved",
-  PENDING = "pending"
-}
-
 type Item = {
   id: string;
   title: string;
@@ -83,6 +77,7 @@ export default function ItemsPage() {
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [viewMode, setViewMode] = useState<'managed' | 'all'>('managed');
+  const [selectedStatus, setSelectedStatus] = useState<string>('pending'); // Default to pending
 
   // Helper function to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -138,6 +133,7 @@ export default function ItemsPage() {
     dateFrom?: string;
     dateTo?: string;
     showAll?: boolean;
+    status?: string;
   }) => {
     setLoading(true);
     setError(null);
@@ -163,11 +159,17 @@ export default function ItemsPage() {
       if (filters?.dateFrom) params.append("date_from", filters.dateFrom);
       if (filters?.dateTo) params.append("date_to", filters.dateTo);
       
+      // Add status filter - only fetch items with the selected status
+      if (filters?.status) {
+        params.append("status", filters.status);
+      }
+      
       // Add show_all parameter to bypass branch-based filtering
-      // Explicitly set to false when not showing all items to ensure backend applies filtering
+      // Explicitly set show_all based on the filter - when false, filter by user's managed branches
+      // FastAPI will parse "false" string as boolean False
       const showAllValue = filters?.showAll === true ? "true" : "false";
       params.append("show_all", showAllValue);
-      console.log('Fetching items with show_all:', showAllValue, 'filters:', filters);
+      console.log('Fetching items with status:', filters?.status, 'show_all:', showAllValue);
       
       params.append("skip", "0");
       params.append("limit", "100");
@@ -258,22 +260,22 @@ export default function ItemsPage() {
 
   const handleItemTypeClick = (itemTypeId: string) => {
     setCurrentItemTypeId(itemTypeId);
-    applyFilters({ itemTypeId });
+    applyFilters({ itemTypeId, status: selectedStatus });
   };
 
   const handleShowAll = () => {
     setCurrentItemTypeId("");
-    applyFilters({ itemTypeId: "" });
+    applyFilters({ itemTypeId: "", status: selectedStatus });
   };
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-    applyFilters({ searchQuery: query });
+    applyFilters({ searchQuery: query, status: selectedStatus });
   };
 
   const handleBranchChange = (branchId: string) => {
     setSelectedBranchId(branchId);
-    applyFilters({ branchId });
+    applyFilters({ branchId, status: selectedStatus });
   };
 
   const handleDateFromChange = (date: string) => {
@@ -291,7 +293,7 @@ export default function ItemsPage() {
     
     setDateFrom(date);
     setError(null);
-    applyFilters({ dateFrom: date });
+    applyFilters({ dateFrom: date, status: selectedStatus });
   };
 
   const handleDateToChange = (date: string) => {
@@ -309,7 +311,7 @@ export default function ItemsPage() {
     
     setDateTo(date);
     setError(null);
-    applyFilters({ dateTo: date });
+    applyFilters({ dateTo: date, status: selectedStatus });
   };
 
   const applyFilters = (newFilters?: {
@@ -319,16 +321,25 @@ export default function ItemsPage() {
     dateFrom?: string;
     dateTo?: string;
     showAll?: boolean;
+    status?: string;
   }) => {
+    // Always use viewMode to determine showAll if not explicitly provided
+    // This ensures "My Managed Items" always filters by managed branches
+    const showAllValue = newFilters?.showAll !== undefined 
+      ? newFilters.showAll 
+      : (viewMode === 'all');
+    
     const filters = {
       itemTypeId: newFilters?.itemTypeId !== undefined ? newFilters.itemTypeId : currentItemTypeId,
       searchQuery: newFilters?.searchQuery !== undefined ? newFilters.searchQuery : searchQuery,
       branchId: newFilters?.branchId !== undefined ? newFilters.branchId : selectedBranchId,
       dateFrom: newFilters?.dateFrom !== undefined ? newFilters.dateFrom : dateFrom,
       dateTo: newFilters?.dateTo !== undefined ? newFilters.dateTo : dateTo,
-      showAll: newFilters?.showAll !== undefined ? newFilters.showAll : viewMode === 'all',
+      status: newFilters?.status !== undefined ? newFilters.status : selectedStatus,
+      showAll: showAllValue,
     };
     
+    console.log('applyFilters called with:', { status: filters.status, showAllValue, viewMode, filters });
     fetchItems(filters);
   };
 
@@ -338,21 +349,22 @@ export default function ItemsPage() {
     setSelectedBranchId("");
     setDateFrom("");
     setDateTo("");
+    setSelectedStatus('pending'); // Reset to pending
     setViewMode('managed');
-    fetchItems({ showAll: false });
+    fetchItems({ showAll: false, status: 'pending' });
   };
 
-  const handleViewModeChange = (mode: 'managed' | 'all') => {
-    setViewMode(mode);
-    const showAll = mode === 'all';
-    console.log('View mode changed to:', mode, 'showAll:', showAll);
-    applyFilters({ showAll });
+
+  const handleStatusChange = (status: string) => {
+    setSelectedStatus(status);
+    applyFilters({ status });
   };
 
   useEffect(() => {
     fetchItemTypes();
     fetchBranches();
-    fetchItems({ showAll: viewMode === 'all' });
+    // Initial load: fetch only pending items by default to save resources
+    fetchItems({ showAll: false, status: 'pending' });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -372,31 +384,41 @@ export default function ItemsPage() {
             </button>
           </div>
 
-          {/* View Mode Toggle */}
+          {/* Status Filter Buttons */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t("filters.viewMode")}
+              {t("filters.itemStatus") || "Item Status"}
             </label>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => handleViewModeChange('managed')}
+                onClick={() => handleStatusChange('pending')}
                 className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-                  viewMode === 'managed'
+                  selectedStatus === 'pending'
                     ? 'bg-[#3277AE] text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {t("filters.myManagedItems")}
+                {t("status.pending") || "Pending"}
               </button>
               <button
-                onClick={() => handleViewModeChange('all')}
+                onClick={() => handleStatusChange('approved')}
                 className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-                  viewMode === 'all'
+                  selectedStatus === 'approved'
                     ? 'bg-[#3277AE] text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {t("filters.allItems")}
+                {t("status.approved") || "Approved"}
+              </button>
+              <button
+                onClick={() => handleStatusChange('cancelled')}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                  selectedStatus === 'cancelled'
+                    ? 'bg-[#3277AE] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {t("status.cancelled") || "Cancelled"}
               </button>
             </div>
           </div>
