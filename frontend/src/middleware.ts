@@ -30,18 +30,54 @@ function isAuthenticated(request: NextRequest): boolean {
   }
 }
 
+// Function to check if a route is protected
+function isProtectedRoute(pathname: string): boolean {
+  // Protected routes include:
+  // - /dashboard/** (all dashboard routes)
+  // - /search (search routes)
+  // - Any route that should require authentication
+  const protectedPatterns = [
+    /^\/[^\/]+\/dashboard/,  // Matches /en/dashboard, /ar/dashboard, etc.
+    /^\/[^\/]+\/search/,     // Matches /en/search, /ar/search, etc.
+  ];
+  
+  return protectedPatterns.some(pattern => pattern.test(pathname));
+}
+
+// Function to extract locale from pathname
+function getLocaleFromPathname(pathname: string): string {
+  const segments = pathname.split('/').filter(Boolean);
+  // Locales are 'en' or 'ar'
+  if (segments.length > 0 && (segments[0] === 'en' || segments[0] === 'ar')) {
+    return segments[0];
+  }
+  return 'ar'; // Default locale
+}
+
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // Check if the path is a search route that needs protection
-  const isSearchRoute = pathname.includes('/search');
-  
-  if (isSearchRoute) {
-    // Check authentication for search routes
+  // Check if this is a protected route
+  if (isProtectedRoute(pathname)) {
+    // Check authentication for protected routes
     if (!isAuthenticated(request)) {
-      // Redirect to login page
-      const loginUrl = new URL('/auth/login', request.url);
-      return NextResponse.redirect(loginUrl);
+      // Extract locale from pathname
+      const locale = getLocaleFromPathname(pathname);
+      
+      // Create login URL with locale preserved
+      const loginUrl = new URL(`/${locale}/auth/login`, request.url);
+      
+      // Create response with redirect
+      const response = NextResponse.redirect(loginUrl);
+      
+      // Clear expired or invalid tokens from cookies
+      response.cookies.delete('token');
+      response.cookies.delete('jwt');
+      response.cookies.delete('access_token');
+      response.cookies.delete('refresh_token');
+      response.cookies.delete('user');
+      
+      return response;
     }
   }
   
