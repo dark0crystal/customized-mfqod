@@ -171,7 +171,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
           label: t('reportMissingItem'),
           icon: <FileText size={16} />,
           href: '/dashboard/report-missing-item',
-          requiredPermissions: ['can_create_missing_items']
+          requiredPermissions: ['can_manage_missing_items']
         },
         {
           id: 'missing-items',
@@ -227,7 +227,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
       label: t('transferRequests'),
       icon: <ArrowRightLeft size={20} />,
       href: '/dashboard/transfer-requests',
-      requiredPermissions: ['can_view_items'],
+      requiredPermissions: ['can_manage_items'],
       showBadge: true
     },
     {
