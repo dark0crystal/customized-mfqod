@@ -11,7 +11,7 @@ from typing import List, Optional
 from app.db.database import get_session
 from app.schemas.claim_schema import (
     ClaimCreate, ClaimUpdate, ClaimResponse, 
-    ClaimWithDetails, ClaimWithImages, ClaimStatusUpdate
+    ClaimWithDetails, ClaimWithImages, ClaimStatusUpdate, VisitNotificationRequest
 )
 from app.services.claimService import ClaimService
 from app.middleware.auth_middleware import get_current_user_required
@@ -589,3 +589,143 @@ async def delete_claim_image(
         db.rollback()
         logger.error(f"Error deleting claim image {image_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error deleting image: {str(e)}")
+
+
+# =========================== 
+# Visit Notification Routes
+# ===========================
+
+@router.post("/{claim_id}/send-visit-notification")
+@require_permission("can_process_claims")
+async def send_visit_notification(
+    claim_id: str,
+    notification_request: VisitNotificationRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_session),
+    claim_service: ClaimService = Depends(get_claim_service)
+):
+    """Send email notification to claim user requesting them to visit a branch/office"""
+    try:
+        # Verify claim exists
+        claim = claim_service.get_claim_by_id(claim_id)
+        if not claim:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Claim not found"
+            )
+        
+        # Check access: users can send notifications if they can process claims
+        # (already checked by permission decorator, but verify claim access)
+        from app.middleware.branch_auth_middleware import can_user_manage_item
+        from app.services import permissionServices
+        
+        has_access = False
+        if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
+            has_access = True
+        elif permissionServices.is_super_admin(db, current_user.id):
+            has_access = True
+        
+        if not has_access:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: You do not have permission to send notifications for this claim"
+            )
+        
+        # Verify claim has a user with email
+        if not claim.user or not claim.user.email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Claim user does not have an email address"
+            )
+        
+        # Fetch branch details if branch_id is provided
+        branch_name = None
+        branch_name_ar = None
+        branch_name_en = None
+        if notification_request.branch_id:
+            from app.services.branchService import BranchService
+            branch_service = BranchService(db)
+            branch = branch_service.get_branch_by_id(notification_request.branch_id)
+            
+            if not branch:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Branch not found"
+                )
+            
+            branch_name_ar = branch.branch_name_ar
+            branch_name_en = branch.branch_name_en
+            branch_name = branch_name_en or branch_name_ar or "the office"
+        
+        # Get user name
+        user_name = None
+        if claim.user.first_name and claim.user.last_name:
+            user_name = f"{claim.user.first_name} {claim.user.last_name}".strip()
+        elif claim.user.first_name:
+            user_name = claim.user.first_name
+        elif claim.user.email:
+            user_name = claim.user.email.split('@')[0]
+        else:
+            user_name = "User"
+        
+        # Get item title
+        item_title = claim.item.title if claim.item else "the item"
+        
+        # Build reminder message
+        reminder_message_parts = [
+            f"Your claim for '{item_title}' requires your attention."
+        ]
+        
+        if branch_name:
+            reminder_message_parts.append(f"Please visit {branch_name} to complete the claim process.")
+        else:
+            reminder_message_parts.append("Please visit our office to complete the claim process.")
+        
+        if notification_request.note:
+            reminder_message_parts.append(f"\n\nNote: {notification_request.note}")
+        
+        reminder_message = "\n".join(reminder_message_parts)
+        
+        # Prepare template data for email
+        template_data = {
+            "user_name": user_name,
+            "reminder_type": "visit_office",
+            "reminder_title": "Visit Request - Claim Notification",
+            "reminder_message": reminder_message,
+            "branch_name": branch_name,
+            "branch_name_ar": branch_name_ar,
+            "branch_name_en": branch_name_en,
+            "item_title": item_title,
+            "claim_title": claim.title,
+            "note": notification_request.note,
+            "claim_url": f"/dashboard/claims/{claim_id}"
+        }
+        
+        # Send email using notification service
+        from app.services.notification_service import notification_service, NotificationType
+        
+        # Send email in background
+        background_tasks.add_task(
+            notification_service.send_templated_email,
+            to_email=claim.user.email,
+            notification_type=NotificationType.REMINDER,
+            template_data=template_data,
+            subject_override="Visit Request - Claim Notification"
+        )
+        
+        logger.info(f"Visit notification email queued for claim {claim_id} to {claim.user.email}")
+        
+        return {
+            "message": "Visit notification email queued for sending",
+            "recipient": claim.user.email,
+            "branch": branch_name,
+            "status": "queued"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending visit notification for claim {claim_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error sending visit notification: {str(e)}")
