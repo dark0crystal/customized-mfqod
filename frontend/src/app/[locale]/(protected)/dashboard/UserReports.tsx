@@ -166,16 +166,19 @@ export default function UserReports() {
           ? claimsData.filter((claim: Claim) => claim.id) // This will be filtered properly when we have user_id in claims
           : [];
 
+        const missingItemsList = missingItemsData.missing_items || [];
+        const foundItemsList = foundItemsData.items || [];
+        
         const reportsData: UserReportsData = {
-          missingItems: missingItemsData.missing_items || [],
-          foundItems: foundItemsData.items || [],
+          missingItems: missingItemsList,
+          foundItems: foundItemsList,
           claims: userClaims,
           stats: {
             totalMissingItems: missingItemsData.total || 0,
             totalFoundItems: foundItemsData.total || 0,
             totalClaims: userClaims.length,
-            approvedMissingItems: (missingItemsData.missing_items || []).filter((item: MissingItem) => item.approval).length,
-            approvedFoundItems: (foundItemsData.items || []).filter((item: FoundItem) => item.approval).length,
+            approvedMissingItems: missingItemsList.filter((item: MissingItem) => item.approval).length,
+            approvedFoundItems: foundItemsList.filter((item: FoundItem) => item.approval).length,
             approvedClaims: userClaims.filter((claim: Claim) => claim.approval).length,
           },
         };
@@ -307,7 +310,7 @@ export default function UserReports() {
             >
               <span className="hidden sm:inline">{t('missingItems')}</span>
               <span className="sm:hidden">{t('missingItems')}</span>
-              <span className="ml-1">({data.stats.totalMissingItems})</span>
+              <span className="ml-1">({data.missingItems.filter((item: MissingItem) => item.status === 'pending').length})</span>
             </button>
             <button
               onClick={() => setActiveTab('found')}
