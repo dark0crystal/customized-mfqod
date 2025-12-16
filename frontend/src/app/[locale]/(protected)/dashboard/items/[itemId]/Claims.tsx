@@ -3,10 +3,24 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { ExternalLink } from 'lucide-react';
-import { authenticatedFetch } from '@/utils/authenticatedFetch';
+import { tokenManager } from '@/utils/tokenManager';
 import { formatDateOnly } from '@/utils/dateFormatter';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
+
+// Helper function to create authenticated headers
+const getAuthHeaders = (): HeadersInit => {
+  const token = tokenManager.getAccessToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  return headers;
+};
 
 interface Claim {
   id: string;
@@ -45,17 +59,15 @@ export default function Claims({ postId }: { postId: string }) {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/api/claims/item/${postId}`);
+      const response = await fetch(`${API_BASE_URL}/api/claims/item/${postId}`, {
+        headers: getAuthHeaders()
+      });
       if (!response.ok) throw new Error('Failed to fetch claims');
       
       const data = await response.json();
       setClaims(data);
     } catch (err) {
       console.error('Error fetching claims:', err);
-      // Don't set error if it's a token expiration (redirect will happen)
-      if (err instanceof Error && err.message.includes('Token has expired')) {
-        return;
-      }
       setError(t('errorLoadingClaims'));
     } finally {
       setIsLoading(false);
@@ -69,7 +81,9 @@ export default function Claims({ postId }: { postId: string }) {
 
   async function checkExistingApprovedClaim(claimId: string): Promise<boolean> {
     try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/api/claims/${claimId}/check-existing-approved`);
+      const response = await fetch(`${API_BASE_URL}/api/claims/${claimId}/check-existing-approved`, {
+        headers: getAuthHeaders()
+      });
       
       if (!response.ok) {
         return false;
@@ -83,10 +97,6 @@ export default function Claims({ postId }: { postId: string }) {
       return false;
     } catch (error) {
       console.error('Error checking existing approved claim:', error);
-      // Token expiration will trigger redirect, so return false
-      if (error instanceof Error && error.message.includes('Token has expired')) {
-        throw error;
-      }
       return false;
     }
   }
@@ -114,8 +124,9 @@ export default function Claims({ postId }: { postId: string }) {
         ? `${API_BASE_URL}/api/claims/${claimId}/approve`
         : `${API_BASE_URL}/api/claims/${claimId}/reject`;
       
-      const response = await authenticatedFetch(endpoint, {
+      const response = await fetch(endpoint, {
         method: 'PATCH',
+        headers: getAuthHeaders(),
         body: JSON.stringify({}),
       });
 
@@ -130,10 +141,6 @@ export default function Claims({ postId }: { postId: string }) {
       }
     } catch (error) {
       console.error('Error updating claim approval:', error);
-      // Token expiration will trigger redirect, so don't show error
-      if (error instanceof Error && error.message.includes('Token has expired')) {
-        return;
-      }
     }
   }
 
