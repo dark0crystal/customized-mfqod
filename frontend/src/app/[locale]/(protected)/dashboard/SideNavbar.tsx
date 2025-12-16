@@ -26,6 +26,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
 import { usePendingItemsCount } from '@/hooks/usePendingItemsCount';
+import { usePendingMissingItemsCount } from '@/hooks/usePendingMissingItemsCount';
 import { usePendingTransferRequestsCount } from '@/hooks/usePendingTransferRequestsCount';
 
 // Helper to get user from cookies
@@ -79,6 +80,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
   const router = useRouter();
   const t = useTranslations('dashboard.sideNavbar');
   const { count: pendingItemsCount } = usePendingItemsCount();
+  const { count: pendingMissingItemsCount } = usePendingMissingItemsCount();
   const { count: pendingTransferRequestsCount } = usePendingTransferRequestsCount();
   
 
@@ -314,7 +316,9 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
     const isActive = pathname === item.href;
     const isChildActive = item.children?.some(child => pathname === child.href);
     const isLoading = loadingLinks.has(item.id);
-    const shouldShowBadge = item.showBadge && pendingItemsCount > 0 && item.id !== 'transfer-requests';
+    // Use pendingMissingItemsCount for missing-items, pendingItemsCount for Items
+    const badgeCount = item.id === 'missing-items' ? pendingMissingItemsCount : pendingItemsCount;
+    const shouldShowBadge = item.showBadge && badgeCount > 0 && item.id !== 'transfer-requests';
     const shouldShowTransferBadge = item.showBadge && pendingTransferRequestsCount > 0 && item.id === 'transfer-requests';
 
     return (
@@ -344,7 +348,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
                   <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600">
                     {item.label}
                   </span>
-                  {shouldShowBadge && <Badge count={pendingItemsCount} />}
+                  {shouldShowBadge && <Badge count={badgeCount} />}
                   {shouldShowTransferBadge && <TransferRequestBadge count={pendingTransferRequestsCount} />}
                 </div>
               )}
@@ -381,7 +385,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
                   <span className={`text-sm font-medium text-gray-700 group-hover:text-blue-600 ${isActive ? 'text-blue-600' : ''}`}>
                     {item.label}
                   </span>
-                  {shouldShowBadge && <Badge count={pendingItemsCount} />}
+                  {shouldShowBadge && <Badge count={badgeCount} />}
                   {shouldShowTransferBadge && <TransferRequestBadge count={pendingTransferRequestsCount} />}
                 </div>
               )}
