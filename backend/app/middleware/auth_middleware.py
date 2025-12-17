@@ -7,6 +7,7 @@ import logging
 
 from app.db.database import get_session
 from app.services.auth_service import AuthService
+from app.services import permissionServices
 from app.models import User, Role, Permission
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ class AuthMiddleware:
         """
         Dependency factory that requires specific roles
         Usage: @app.get("/admin", dependencies=[Depends(auth.require_roles(["admin"]))])
+        Note: This checks role names. For permission-based access, use require_permissions instead.
         """
         async def role_checker(
             current_user: User = Depends(self.require_authentication),
@@ -65,9 +67,9 @@ class AuthMiddleware:
                     detail="User has no assigned role"
                 )
             
-            # Super Admin bypass: If user has super_admin role, grant access to everything
-            if current_user.role.name.lower() in ["super_admin", "admin"]:
-                logger.info(f"Super admin user {current_user.email} granted access to roles: {required_roles}")
+            # Full access bypass: If user has all permissions, grant access
+            if permissionServices.has_full_access(db, current_user.id):
+                logger.info(f"User with full access {current_user.email} granted access to roles: {required_roles}")
                 return current_user
             
             if current_user.role.name not in required_roles:
@@ -90,9 +92,9 @@ class AuthMiddleware:
             current_user: User = Depends(self.require_authentication),
             db: Session = Depends(get_session)
         ) -> User:
-            # Super Admin bypass: If user has super_admin or admin role, grant access to everything
-            if current_user.role and current_user.role.name.lower() in ["super_admin", "admin"]:
-                logger.info(f"Super admin user {current_user.email} granted access to all permissions")
+            # Full access bypass: If user has all permissions, grant access to everything
+            if permissionServices.has_full_access(db, current_user.id):
+                logger.info(f"User with full access {current_user.email} granted access to all permissions")
                 return current_user
             
             user_permissions = self._get_user_permissions(current_user, db)
@@ -128,19 +130,31 @@ class AuthMiddleware:
     
     def require_admin(self):
         """
-        Convenience dependency for admin-only access (includes super_admin)
+        Convenience dependency for admin-only access
+        Note: This now checks for full access permissions rather than role names
         """
-        return self.require_roles(["super_admin", "admin"])
+        async def admin_checker(
+            current_user: User = Depends(self.require_authentication),
+            db: Session = Depends(get_session)
+        ) -> User:
+            if not permissionServices.has_full_access(db, current_user.id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Full system access required"
+                )
+            return current_user
+        return admin_checker
     
     def require_staff(self):
         """
-        Convenience dependency for staff-level access (includes super_admin)
+        Convenience dependency for staff-level access
+        Note: This checks for specific permissions. Update based on your permission structure.
         """
-        return self.require_roles(["super_admin", "admin", "staff"])
+        return self.require_permissions(["can_manage_items", "can_view_analytics"])
     
     def require_user_or_admin(self, user_id_param: str = "user_id"):
         """
-        Dependency that allows access if user is accessing their own resources or is admin
+        Dependency that allows access if user is accessing their own resources or has full access
         """
         async def user_or_admin_checker(
             request: Request,
@@ -155,13 +169,13 @@ class AuthMiddleware:
             if current_user.id == target_user_id:
                 return current_user
             
-            # Allow if admin
-            if current_user.role and current_user.role.name == "admin":
+            # Allow if user has full access (all permissions)
+            if permissionServices.has_full_access(db, current_user.id):
                 return current_user
             
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied: Can only access own resources or require admin privileges"
+                detail="Access denied: Can only access own resources or require full system access"
             )
         
         return user_or_admin_checker
@@ -171,8 +185,8 @@ class AuthMiddleware:
         if not user.role:
             return []
         
-        # Super Admin bypass: If user has super_admin or admin role, return all possible permissions
-        if user.role.name.lower() in ["super_admin", "admin"]:
+        # Full access bypass: If user has all permissions, return all possible permissions
+        if permissionServices.has_full_access(db, user.id):
             # Return a comprehensive list of all permissions that exist in the system
             all_permissions = db.query(Permission).all()
             return [permission.name for permission in all_permissions]
@@ -235,39 +249,48 @@ class PermissionChecker:
     """Helper class for checking permissions"""
     
     @staticmethod
-    def can_access_item(user: User, item_user_id: str) -> bool:
+    def can_access_item(user: User, item_user_id: str, db: Session) -> bool:
         """Check if user can access an item"""
         if not user:
             return False
         
-        # Admin can access everything
-        if user.role and user.role.name == "admin":
+        # User with full access can access everything
+        if permissionServices.has_full_access(db, user.id):
             return True
         
         # Owner can access their own items
         if user.id == item_user_id:
             return True
         
-        # Staff can access items in their managed branches (would need branch logic)
-        if user.role and user.role.name in ["staff", "manager"]:
-            return True  # Simplified - would check branch access
+        # Check if user has permission to manage items
+        if permissionServices.check_user_permission(db, user.id, "can_manage_items"):
+            return True
         
         return False
     
     @staticmethod
-    def can_manage_users(user: User) -> bool:
+    def can_manage_users(user: User, db: Session) -> bool:
         """Check if user can manage other users"""
-        return user.role and user.role.name in ["admin"]
+        if not user:
+            return False
+        return permissionServices.has_full_access(db, user.id) or \
+               permissionServices.check_user_permission(db, user.id, "can_manage_users")
     
     @staticmethod
-    def can_approve_items(user: User) -> bool:
+    def can_approve_items(user: User, db: Session) -> bool:
         """Check if user can approve/reject items"""
-        return user.role and user.role.name in ["admin", "staff", "manager"]
+        if not user:
+            return False
+        return permissionServices.has_full_access(db, user.id) or \
+               permissionServices.check_user_permission(db, user.id, "can_manage_items")
     
     @staticmethod
-    def can_manage_branches(user: User) -> bool:
+    def can_manage_branches(user: User, db: Session) -> bool:
         """Check if user can manage branches"""
-        return user.role and user.role.name in ["admin"]
+        if not user:
+            return False
+        return permissionServices.has_full_access(db, user.id) or \
+               permissionServices.check_user_permission(db, user.id, "can_manage_branches")
 
 # Rate limiting middleware
 class RateLimitMiddleware:

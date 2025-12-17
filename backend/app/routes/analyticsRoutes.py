@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from app.db.database import get_session
 from app.models import Item, ItemType, Claim, User, Address, ItemStatus
 from app.middleware.auth_middleware import get_current_user_required
+from app.utils.permission_decorator import require_permission
 import logging
 
 logger = logging.getLogger(__name__)
@@ -93,6 +94,7 @@ async def get_public_statistics(
         )
 
 @router.get("/analytics/summary", response_model=AnalyticsResponse, tags=["Analytics"])
+@require_permission("can_view_analytics")
 async def get_analytics_summary(
     start_date: Optional[date] = Query(None, description="Start date for analytics (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="End date for analytics (YYYY-MM-DD)"),
@@ -300,6 +302,7 @@ async def get_analytics_summary(
         raise HTTPException(status_code=500, detail=f"Error generating analytics: {str(e)}")
 
 @router.get("/analytics/export-data", tags=["Analytics"])
+@require_permission("can_view_analytics")
 async def get_analytics_export_data(
     start_date: Optional[date] = Query(None, description="Start date for export (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="End date for export (YYYY-MM-DD)"),
@@ -357,6 +360,7 @@ async def get_analytics_export_data(
         raise HTTPException(status_code=500, detail=f"Error exporting analytics data: {str(e)}")
 
 @router.get("/analytics/performance-metrics", tags=["Analytics"])
+@require_permission("can_view_analytics")
 async def get_performance_metrics(
     period: str = Query("30d", description="Time period: 7d, 30d, 90d, 1y"),
     db: Session = Depends(get_session),
