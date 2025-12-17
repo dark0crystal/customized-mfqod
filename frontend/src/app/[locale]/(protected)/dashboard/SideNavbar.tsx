@@ -58,6 +58,7 @@ interface NavItem {
   icon: React.ReactNode;
   href: string;
   requiredPermissions?: Permission[];
+  requireAllPermissions?: boolean; // If true, requires ALL permissions; if false, requires ANY permission
   requiredRole?: string;
   allowedRoles?: string[];
   children?: NavItem[];
@@ -74,7 +75,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [loadingLinks, setLoadingLinks] = useState<Set<string>>(new Set());
-  const { userRole, hasAnyPermission, isAuthenticated } = usePermissions();
+  const { userRole, hasAnyPermission, hasAllPermissions, isAuthenticated, permissions, isLoading: permissionsLoading } = usePermissions();
   const user = getUserFromCookies();
   const { logout, isLoading: logoutLoading } = useAuth();
   const pathname = usePathname();
@@ -200,6 +201,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
       icon: <Shield size={20} />,
       href: '/admin',
       requiredPermissions: ['can_manage_permissions', 'can_manage_users', 'can_manage_branches', 'can_manage_item_types'],
+      requireAllPermissions: true, // Admin panel requires ALL of these permissions
       children: [
         {
           id: 'manage-branches',
@@ -250,24 +252,73 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
 
   // Check if user can access a nav item
   const canAccessItem = (item: NavItem): boolean => {
+    // Log sidebar permission checks
+    console.log(`[SIDEBAR] Checking access for "${item.id}" (${item.label})`);
+    
+    if (permissionsLoading) {
+      console.log(`[SIDEBAR] Permissions still loading, denying access to ${item.id}`);
+      return false;
+    }
+
     if (!isAuthenticated && item.href !== '/auth/login') {
-      console.log('Access denied: not authenticated for', item.id);
+      console.log(`[SIDEBAR] Access denied: not authenticated for ${item.id}`);
       return false;
     }
 
     // Check permission requirements
     if (item.requiredPermissions && item.requiredPermissions.length > 0) {
-      const hasPermission = hasAnyPermission(item.requiredPermissions);
-      console.log('Permission check for', item.id, 'required:', item.requiredPermissions, 'hasPermission:', hasPermission);
+      // Use hasAllPermissions if requireAllPermissions is true, otherwise use hasAnyPermission
+      const hasPermission = item.requireAllPermissions 
+        ? hasAllPermissions(item.requiredPermissions)
+        : hasAnyPermission(item.requiredPermissions);
+      console.log(`[SIDEBAR] Permission check for "${item.id}":`, {
+        required: item.requiredPermissions,
+        requireAll: item.requireAllPermissions || false,
+        hasPermission,
+        userPermissions: permissions,
+        userPermissionCount: permissions.length
+      });
       if (!hasPermission) {
-        console.log('Access denied: missing permissions for', item.id);
+        const permissionType = item.requireAllPermissions ? 'ALL' : 'ANY';
+        console.log(`[SIDEBAR] Access denied: missing permissions for ${item.id}. Required (${permissionType}): ${item.requiredPermissions.join(', ')}`);
         return false;
       }
     }
 
-    console.log('Access granted for', item.id);
+    console.log(`[SIDEBAR] Access granted for "${item.id}"`);
     return true;
   };
+
+  // Log permission status when permissions or navigation items change
+  useEffect(() => {
+    if (!permissionsLoading && isAuthenticated) {
+      console.log('[SIDEBAR] Permission status:', {
+        userRole,
+        isAuthenticated,
+        permissionCount: permissions.length,
+        permissions: permissions,
+        navigationItemsCount: navigationItems.length
+      });
+      
+      // Log access status for all navigation items
+      console.log('[SIDEBAR] Navigation items access status:');
+      navigationItems.forEach(item => {
+        // Check access inline to avoid dependency issues
+        let hasAccess = true;
+        if (item.requiredPermissions && item.requiredPermissions.length > 0) {
+          // Use the same logic as canAccessItem
+          hasAccess = item.requireAllPermissions 
+            ? hasAllPermissions(item.requiredPermissions)
+            : hasAnyPermission(item.requiredPermissions);
+        }
+        console.log(`  - ${item.id}: ${hasAccess ? '✓ Accessible' : '✗ Denied'}`, {
+          requiredPermissions: item.requiredPermissions || 'none',
+          requireAll: item.requireAllPermissions || false,
+          hasAccess
+        });
+      });
+    }
+  }, [permissions, permissionsLoading, isAuthenticated, userRole, hasAnyPermission, navigationItems]);
 
   // Toggle expanded state for items with children
   const toggleExpanded = (itemId: string) => {

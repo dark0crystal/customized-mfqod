@@ -206,35 +206,57 @@ export function useApiRequest<T = any>({
 }
 
 // hooks/useProtectedRoute.ts
+import { usePermissions } from '@/PermissionsContext'
+
 interface UseProtectedRouteOptions {
   redirectTo?: string
+  requiredPermission?: string | string[]
+  // Deprecated: Use requiredPermission instead
   requiredRole?: string
 }
 
+/**
+ * Client-side hook for protecting routes
+ * Note: This is for UX only. Server-side protection is the primary security mechanism.
+ * For server components, use WithPermissions or requirePermission from lib/server/permissions
+ */
 export function useProtectedRoute(options: UseProtectedRouteOptions = {}) {
-  const { redirectTo = '/auth/login', requiredRole } = options
+  const { redirectTo = '/auth/login', requiredPermission, requiredRole } = options
   const { user, isAuthenticated, isLoading } = useAuth()
+  const { hasPermission, hasFullAccess, isLoading: permissionsLoading } = usePermissions()
   const router = useRouter()
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !permissionsLoading) {
       if (!isAuthenticated) {
         router.push(redirectTo)
         return
       }
 
-      // Super Admin bypass: Allow super_admin users to access any role-protected route
-      if (requiredRole && user?.role !== requiredRole && user?.role !== 'super_admin') {
-        router.push('/unauthorized')
-        return
+      // Check permissions if required
+      if (requiredPermission) {
+        const hasAccess = hasFullAccess || hasPermission(requiredPermission as string)
+        if (!hasAccess) {
+          router.push('/unauthorized')
+          return
+        }
+      }
+      
+      // Legacy role-based check (deprecated - use permissions instead)
+      if (requiredRole && !requiredPermission) {
+        console.warn('useProtectedRoute: requiredRole is deprecated. Use requiredPermission instead.')
+        // Note: Role-based checks are removed. Use permission-based checks instead.
+        // If you need role-based checks, assign appropriate permissions to roles.
       }
     }
-  }, [isAuthenticated, isLoading, user, requiredRole, router, redirectTo])
+  }, [isAuthenticated, isLoading, user, requiredPermission, requiredRole, router, redirectTo, hasPermission, hasFullAccess, permissionsLoading])
 
   return {
     isAuthenticated,
-    isLoading,
+    isLoading: isLoading || permissionsLoading,
     user,
-    hasRequiredRole: !requiredRole || user?.role === requiredRole || user?.role === 'super_admin',
+    hasAccess: !requiredPermission || hasFullAccess || hasPermission(requiredPermission as string),
+    // Deprecated
+    hasRequiredRole: !requiredRole,
   }
 }

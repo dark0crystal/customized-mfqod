@@ -143,6 +143,17 @@ interface Claim {
   item_id?: string;
   user_name?: string;
   user_email?: string;
+  images?: Array<{
+    id: string;
+    url: string;
+  }>;
+  item_type?: {
+    id: string;
+    name_ar?: string;
+    name_en?: string;
+    description_ar?: string;
+    description_en?: string;
+  };
 }
 
 export default function PostDetails({ params }: { params: { itemId: string } }) {
@@ -1056,33 +1067,80 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
                       <p className="text-gray-500 text-sm">{t('noClaimsMessage') || 'There are no claims for this post. Please create a claim first before approving.'}</p>
                     </div>
                   ) : (
-                    <div className="space-y-3 mb-6 max-h-96 overflow-y-auto">
+                    <div className="space-y-3 mb-6 max-h-[60vh] overflow-y-auto">
                       {claims.map((claim) => (
                         <label
                           key={claim.id}
-                          className={`block p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          className={`block border-2 rounded-lg cursor-pointer transition-all ${
                             selectedClaimId === claim.id
                               ? 'border-blue-500 bg-blue-50'
                               : 'border-gray-200 hover:border-gray-300 bg-white'
                           }`}
                         >
-                          <div className="flex items-start">
-                            <input
-                              type="radio"
-                              name="claim"
-                              value={claim.id}
-                              checked={selectedClaimId === claim.id}
-                              onChange={(e) => setSelectedClaimId(e.target.value)}
-                              className="mt-1 mr-3"
-                            />
-                            <div className="flex-1">
-                              <div className="font-semibold text-gray-900 mb-1">{claim.title}</div>
-                              <div className="text-sm text-gray-600 mb-2 line-clamp-2">{claim.description}</div>
-                              {claim.user_name && (
-                                <div className="text-xs text-gray-500">
-                                  {t('claimer') || 'Claimer:'} {claim.user_name}
+                          <div className="p-4">
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="radio"
+                                name="claim"
+                                value={claim.id}
+                                checked={selectedClaimId === claim.id}
+                                onChange={(e) => setSelectedClaimId(e.target.value)}
+                                className="mt-1 flex-shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              
+                              {/* Image Square */}
+                              {claim.images && claim.images.length > 0 && (
+                                <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
+                                  <img
+                                    src={getImageUrl(claim.images[0].url)}
+                                    alt={`Claim image`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
                                 </div>
                               )}
+                              
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-gray-900 mb-1">
+                                  {claim.title}
+                                </div>
+                                <div className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                  {claim.description}
+                                </div>
+                                <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                                  {claim.item_type && (
+                                    <span>
+                                      {t('type') || 'Type'}: <span className="text-gray-900">{getLocalizedName(claim.item_type.name_ar, claim.item_type.name_en)}</span>
+                                    </span>
+                                  )}
+                                  {claim.user_email && (
+                                    <span>
+                                      {t('email') || 'Email'}: <span className="text-gray-900">{claim.user_email}</span>
+                                    </span>
+                                  )}
+                                  {claim.user_name && (
+                                    <span>
+                                      {t('claimer') || 'Claimer'}: <span className="text-gray-900">{claim.user_name}</span>
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    router.push(`/dashboard/claims/${claim.id}`);
+                                  }}
+                                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                                >
+                                  <ArrowRight className="w-3 h-3" />
+                                  {t('viewDetails') || 'View Details'}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </label>
