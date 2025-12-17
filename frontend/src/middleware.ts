@@ -1,6 +1,7 @@
 import createMiddleware from 'next-intl/middleware';
 import { NextRequest, NextResponse } from 'next/server';
 import { routing } from './i18n/routing';
+import { requiresAuthentication, getRoutePermission } from './lib/server/routePermissions';
 
 // Create the internationalization middleware
 const intlMiddleware = createMiddleware(routing);
@@ -32,16 +33,19 @@ function isAuthenticated(request: NextRequest): boolean {
 
 // Function to check if a route is protected
 function isProtectedRoute(pathname: string): boolean {
+  // Remove locale prefix for checking
+  const pathWithoutLocale = pathname.replace(/^\/(en|ar)/, '') || '/';
+  
   // Protected routes include:
   // - /dashboard/** (all dashboard routes)
   // - /search (search routes)
   // - Any route that should require authentication
   const protectedPatterns = [
-    /^\/[^\/]+\/dashboard/,  // Matches /en/dashboard, /ar/dashboard, etc.
-    /^\/[^\/]+\/search/,     // Matches /en/search, /ar/search, etc.
+    /^\/dashboard/,  // Matches /dashboard, /en/dashboard, /ar/dashboard, etc.
+    /^\/search/,     // Matches /search, /en/search, /ar/search, etc.
   ];
   
-  return protectedPatterns.some(pattern => pattern.test(pathname));
+  return protectedPatterns.some(pattern => pattern.test(pathWithoutLocale));
 }
 
 // Function to extract locale from pathname
@@ -54,8 +58,20 @@ function getLocaleFromPathname(pathname: string): string {
   return 'ar'; // Default locale
 }
 
+// Function to remove locale from pathname
+function removeLocaleFromPathname(pathname: string): string {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length > 0 && (segments[0] === 'en' || segments[0] === 'ar')) {
+    return '/' + segments.slice(1).join('/');
+  }
+  return pathname;
+}
+
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  
+  // Remove locale to check route permissions
+  const pathWithoutLocale = removeLocaleFromPathname(pathname);
   
   // Check if this is a protected route
   if (isProtectedRoute(pathname)) {
@@ -79,6 +95,10 @@ export default function middleware(request: NextRequest) {
       
       return response;
     }
+    
+    // Note: Detailed permission checking is done in server components
+    // Middleware only handles authentication. Permission verification happens
+    // at the page level using server components for better security and performance.
   }
   
   // Apply internationalization middleware for all other routes

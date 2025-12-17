@@ -18,7 +18,8 @@ import {
   Key,
   Tags,
   Loader2,
-  ArrowRightLeft
+  ArrowRightLeft,
+  ClipboardList
 } from 'lucide-react';
 import Brand from '@/components/navbar/Brand';
 import { Link } from '@/i18n/navigation';
@@ -151,7 +152,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
       label: t('items'),
       icon: <Package size={20} />,
       href: '/dashboard/items',
-      requiredPermissions: ['create_post', 'edit_post'],
+      requiredPermissions: ['can_manage_items'],
       showBadge: true
     },
     {
@@ -159,14 +160,14 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
       label: t('itemsManagement'),
       icon: <Package size={20} />,
       href: '/dashboard/items',
-      requiredPermissions: ['create_post', 'edit_post'],
+      requiredPermissions: ['can_manage_items'],
       children: [
         {
           id: 'report-found-item',
           label: t('reportFoundItem'),
           icon: <PlusCircle size={16} />,
           href: '/dashboard/report-found-item',
-          requiredPermissions: ['create_post']
+          requiredPermissions: []
         },
         {
           id: 'report-missing-item',
@@ -180,47 +181,53 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
           label: t('missingItems'),
           icon: <FileText size={16} />,
           href: '/dashboard/missing-items',
-          requiredPermissions: ['create_post', 'edit_post'],
+          requiredPermissions: ['can_manage_missing_items'],
           showBadge: true
         }
 
       ]
     },
-
+    {
+      id: 'claims',
+      label: t('claims'),
+      icon: <ClipboardList size={20} />,
+      href: '/dashboard/claims',
+      requiredPermissions: ['can_manage_claims']
+    },
     {
       id: 'admin',
       label: t('adminPanel'),
       icon: <Shield size={20} />,
       href: '/admin',
-      allowedRoles: ['super_admin', 'admin'],
+      requiredPermissions: ['can_manage_permissions', 'can_manage_users', 'can_manage_branches', 'can_manage_item_types'],
       children: [
         {
           id: 'manage-branches',
           label: t('manageBranches'),
           icon: <Building2 size={16} />,
           href: '/dashboard/branch',
-          requiredPermissions: ['super_admin', 'admin']
+          requiredPermissions: ['can_manage_branches']
         },
         {
           id: 'item-types',
           label: t('itemTypes'),
           icon: <Tags size={16} />,
           href: '/dashboard/item-types',
-          requiredPermissions: ['can_create_item_types']
+          requiredPermissions: ['can_manage_item_types']
         },
         {
           id: 'manage-users',
           label: t('manageUsers'),
           icon: <UserCheck size={16} />,
           href: '/dashboard/manage-users',
-          requiredPermissions: ['super_admin', 'admin']
+          requiredPermissions: ['can_manage_users']
         },
         {
           id: 'manage-permissions',
           label: t('managePermissions'),
           icon: <Key size={16} />,
           href: '/dashboard/permissions',
-          requiredPermissions: ['super_admin', 'admin']
+          requiredPermissions: ['can_manage_permissions']
         }
       ]
     },
@@ -229,7 +236,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
       label: t('transferRequests'),
       icon: <ArrowRightLeft size={20} />,
       href: '/dashboard/transfer-requests',
-      requiredPermissions: ['can_manage_items'],
+      requiredPermissions: ['can_manage_transfer_requests'],
       showBadge: true
     },
     {
@@ -237,7 +244,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
       label: t('analytics'),
       icon: <TrendingUp size={20} />,
       href: '/dashboard/analytics',
-      requiredPermissions: ['view_analytics']
+      requiredPermissions: ['can_view_analytics']
     }
   ];
 
@@ -248,19 +255,8 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
       return false;
     }
 
-    // Check role requirements
-    if (item.requiredRole && userRole !== item.requiredRole) {
-      console.log('Access denied: role mismatch for', item.id, 'required:', item.requiredRole, 'user:', userRole);
-      return false;
-    }
-
-    if (item.allowedRoles && !item.allowedRoles.includes(userRole)) {
-      console.log('Access denied: not in allowed roles for', item.id, 'allowed:', item.allowedRoles, 'user:', userRole);
-      return false;
-    }
-
     // Check permission requirements
-    if (item.requiredPermissions) {
+    if (item.requiredPermissions && item.requiredPermissions.length > 0) {
       const hasPermission = hasAnyPermission(item.requiredPermissions);
       console.log('Permission check for', item.id, 'required:', item.requiredPermissions, 'hasPermission:', hasPermission);
       if (!hasPermission) {

@@ -214,33 +214,13 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
       // Set authenticated state
       setIsAuthenticated(true);
       
-      // Determine user role based on JWT payload FIRST (before API call)
+      // Determine user role based on JWT payload
       console.log('JWT payload role:', payload.role);
       console.log('JWT payload role_id:', payload.role_id);
       console.log('JWT payload email:', payload.email);
       console.log('JWT payload sub:', payload.sub);
       
-      // Super Admin bypass: If user has super_admin role, skip permission fetch and set all permissions
-      if (payload.role && payload.role.toLowerCase() === 'super_admin') {
-        setUserRole('super_admin');
-        setPermissions(['super_admin']); // Set a special permission for super_admin
-        console.log('Set user role to super_admin from JWT payload - skipping API call');
-        setIsAuthenticated(true);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Admin bypass: If user has admin role, skip permission fetch and set all permissions
-      if (payload.role && payload.role.toLowerCase() === 'admin') {
-        setUserRole('admin');
-        setPermissions(['admin']); // Set a special permission for admin
-        console.log('Set user role to admin from JWT payload - skipping API call');
-        setIsAuthenticated(true);
-        setIsLoading(false);
-        return;
-      }
-      
-      // For other roles, validate role_id exists in payload
+      // For all roles, validate role_id exists in payload
       if (!payload.role_id) {
         console.warn('No role_id found in JWT payload, setting as user');
         setUserRole('user');
@@ -253,19 +233,17 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
       
       setRoleId(payload.role_id);
 
-      // Fetch permissions from API
+      // Fetch permissions from API for all users (permission-based access)
       const fetchedPermissions = await fetchPermissions(payload.role_id, token);
       setPermissions(fetchedPermissions);
 
-      // Determine user role based on permissions
+      // Determine user role based on permissions fetched from API
       console.log('Fetched permissions:', fetchedPermissions);
       
-      if (fetchedPermissions.includes('admin')) {
-        setUserRole('admin');
-        console.log('Set user role to admin from permissions');
-      } else if (fetchedPermissions.includes('moderator')) {
-        setUserRole('moderator');
-        console.log('Set user role to moderator from permissions');
+      // Set role based on role name from JWT if available, otherwise default to 'user'
+      if (payload.role) {
+        setUserRole(payload.role.toLowerCase() as UserRole);
+        console.log(`Set user role to ${payload.role.toLowerCase()} from JWT payload`);
       } else {
         setUserRole('user');
         console.log('Set user role to user (default)');
@@ -305,15 +283,32 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
     }
   }, [isClient]);
 
+  // Helper function to check if user has full access (all permissions)
+  const hasFullAccess = (): boolean => {
+    // Check if user has a comprehensive set of all manage permissions
+    // This is a heuristic - ideally we'd fetch all permissions and compare
+    const criticalPermissions = [
+      'can_manage_items',
+      'can_manage_missing_items',
+      'can_manage_claims',
+      'can_manage_item_types',
+      'can_manage_branches',
+      'can_manage_addresses',
+      'can_manage_organizations',
+      'can_manage_transfer_requests',
+      'can_manage_users',
+      'can_manage_roles',
+      'can_manage_permissions'
+    ];
+    
+    // If user has all critical permissions, consider them as having full access
+    return criticalPermissions.every(perm => permissions.includes(perm));
+  };
+
   // Helper functions
   const hasPermission = (permission: Permission): boolean => {
-    // Super admin bypass: If user has super_admin or admin role, grant access to everything
-    if (userRole === 'super_admin' || userRole === 'admin') {
-      return true;
-    }
-    
-    // Special permission bypass: If user has 'super_admin' or 'admin' permission, grant access
-    if (permissions.includes('super_admin') || permissions.includes('admin')) {
+    // Full access bypass: If user has all critical permissions, grant access to everything
+    if (hasFullAccess()) {
       return true;
     }
     
@@ -321,14 +316,9 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
   };
 
   const hasAnyPermission = (requiredPermissions: Permission[]): boolean => {
-    // Super admin bypass: If user has super_admin or admin role, grant access to everything
-    if (userRole === 'super_admin' || userRole === 'admin') {
-      console.log('Super admin bypass: granting access to permissions:', requiredPermissions);
-      return true;
-    }
-    
-    // Special permission bypass: If user has 'super_admin' or 'admin' permission, grant access
-    if (permissions.includes('super_admin') || permissions.includes('admin')) {
+    // Full access bypass: If user has all critical permissions, grant access to everything
+    if (hasFullAccess()) {
+      console.log('Full access user: granting access to permissions:', requiredPermissions);
       return true;
     }
     
@@ -338,13 +328,8 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
   };
 
   const hasAllPermissions = (requiredPermissions: Permission[]): boolean => {
-    // Super admin bypass: If user has super_admin or admin role, grant access to everything
-    if (userRole === 'super_admin' || userRole === 'admin') {
-      return true;
-    }
-    
-    // Special permission bypass: If user has 'super_admin' or 'admin' permission, grant access
-    if (permissions.includes('super_admin') || permissions.includes('admin')) {
+    // Full access bypass: If user has all critical permissions, grant access to everything
+    if (hasFullAccess()) {
       return true;
     }
     
@@ -417,10 +402,14 @@ export function withPermissions<P extends object>(
     const { hasAllPermissions, isLoading } = usePermissions();
     
     if (isLoading) {
+      // Note: This is a low-level component, translations would require context
+      // For now, keeping English as fallback
       return <div>Loading permissions...</div>;
     }
     
     if (!hasAllPermissions(requiredPermissions)) {
+      // Note: This is a low-level component, translations would require context
+      // For now, keeping English as fallback
       return <div>Access denied. Insufficient permissions.</div>;
     }
     
