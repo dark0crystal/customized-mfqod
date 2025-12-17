@@ -196,30 +196,53 @@ async def update_user_role(
     
     current_user = current_user_data["user"]
     current_user_id = current_user.get("id")
-    current_user_role = current_user.get("role") or current_user.get("role_name")
     
-    # Prevent role escalation: Only super_admin can assign super_admin or admin roles
+    # Import permission services for full access check
+    from app.services import permissionServices
+    
+    # Prevent role escalation: Only users with full access can assign roles with all permissions
+    # Check if the role being assigned has all permissions (full access)
     if role_update.role_name:
         role_name_lower = role_update.role_name.lower()
-        if role_name_lower in ["super_admin", "admin"]:
-            if not current_user_role or current_user_role.lower() != "super_admin":
-                logger.warning(
-                    f"User {current_user_id} attempted to assign {role_update.role_name} role without super_admin privileges"
-                )
-                raise HTTPException(
-                    status_code=403,
-                    detail="Only super_admin can assign super_admin or admin roles"
-                )
         
-        # Prevent users from elevating their own role
-        if current_user_id == user_id:
-            if role_name_lower in ["super_admin", "admin"]:
+        # Get the role to check its permissions
+        from app.models import Role
+        target_role = session.query(Role).filter(Role.name == role_update.role_name).first()
+        
+        if target_role:
+            # Get all permissions in system
+            all_permissions = permissionServices.get_all_permissions(session)
+            role_permissions = {perm.name for perm in target_role.permissions}
+            all_permission_names = {perm.name for perm in all_permissions}
+            
+            # Check if target role has all permissions (full access)
+            has_all_permissions = role_permissions == all_permission_names and len(all_permission_names) > 0
+            
+            if has_all_permissions:
+                # Only users with full access can assign roles with full access
+                if not permissionServices.has_full_access(session, current_user_id):
+                    logger.warning(
+                        f"User {current_user_id} attempted to assign {role_update.role_name} role without full access privileges"
+                    )
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Only users with full system access can assign roles with full access"
+                    )
+        
+        # Prevent users from elevating their own role to one with full access
+        if current_user_id == user_id and target_role:
+            role_permissions = {perm.name for perm in target_role.permissions}
+            all_permissions = permissionServices.get_all_permissions(session)
+            all_permission_names = {perm.name for perm in all_permissions}
+            has_all_permissions = role_permissions == all_permission_names and len(all_permission_names) > 0
+            
+            if has_all_permissions:
                 logger.warning(
                     f"User {current_user_id} attempted to elevate their own role to {role_update.role_name}"
                 )
                 raise HTTPException(
                     status_code=403,
-                    detail="You cannot elevate your own role to admin or super_admin"
+                    detail="You cannot elevate your own role to one with full system access"
                 )
     
     user_update = UserUpdate(role_name=role_update.role_name)

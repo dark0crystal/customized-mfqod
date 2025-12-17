@@ -228,23 +228,48 @@ def assign_multiple_permissions_to_role(session: Session, role_id: str, permissi
 # ============================= 
 def get_role_permissions(session: Session, role_id: str) -> List[Permission]:
     """Get all permissions for a specific role"""
-    role_statement = select(Role).where(Role.id == role_id)
-    role = session.execute(role_statement).scalars().first()
+    from sqlalchemy.orm import joinedload
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"[PERMISSIONS] Fetching permissions for role_id: {role_id}")
+    
+    # Use eager loading to ensure permissions are loaded before session closes
+    role_statement = select(Role).options(
+        joinedload(Role.permissions)
+    ).where(Role.id == role_id)
+    role = session.execute(role_statement).unique().scalars().first()
+    
     if not role:
+        logger.warning(f"[PERMISSIONS] Role not found for role_id: {role_id}")
         raise HTTPException(status_code=404, detail="Role not found.")
     
-    return role.permissions
+    logger.info(f"[PERMISSIONS] Found role: {role.name} (id: {role.id})")
+    permissions = role.permissions
+    logger.info(f"[PERMISSIONS] Role has {len(permissions)} permissions")
+    
+    if len(permissions) == 0:
+        logger.warning(f"[PERMISSIONS] WARNING: Role '{role.name}' has no permissions assigned!")
+        logger.warning(f"[PERMISSIONS] This could mean permissions were not properly assigned to the role.")
+    else:
+        permission_names = [p.name for p in permissions]
+        logger.info(f"[PERMISSIONS] Permission names: {', '.join(permission_names)}")
+    
+    return permissions
 
 # ============================= 
 # Get User Permissions
 # ============================= 
 def get_user_permissions(session: Session, user_id: str) -> List[Permission]:
     """Get all permissions for a user through their role"""
-    from app.models import User
+    from app.models import User, Role
+    from sqlalchemy.orm import joinedload
     
-    # Get user with role and permissions
-    user_statement = select(User).where(User.id == user_id)
-    user = session.execute(user_statement).scalars().first()
+    # Get user with role and permissions (eagerly loaded)
+    user_statement = select(User).options(
+        joinedload(User.role).joinedload(Role.permissions)
+    ).where(User.id == user_id)
+    user = session.execute(user_statement).unique().scalars().first()
     
     if not user or not user.role:
         return []
@@ -278,11 +303,14 @@ def has_full_access(session: Session, user_id: str) -> bool:
 # ============================= 
 def check_user_permission(session: Session, user_id: str, permission_name: str) -> bool:
     """Check if a user has a specific permission through their role"""
-    from app.models import User
+    from app.models import User, Role
+    from sqlalchemy.orm import joinedload
     
-    # Get user with role and permissions
-    user_statement = select(User).where(User.id == user_id)
-    user = session.execute(user_statement).scalars().first()
+    # Get user with role and permissions (eagerly loaded)
+    user_statement = select(User).options(
+        joinedload(User.role).joinedload(Role.permissions)
+    ).where(User.id == user_id)
+    user = session.execute(user_statement).unique().scalars().first()
     
     if not user or not user.role:
         return False

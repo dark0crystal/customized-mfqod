@@ -43,6 +43,8 @@ class ClaimWithDetails(ClaimResponse):
     item_title: Optional[str] = None
     item_description: Optional[str] = None
     item_status: Optional[str] = None
+    images: Optional[List[dict]] = []  # List of image objects with id and url
+    item_type: Optional[dict] = None  # Item type with name_ar, name_en, etc.
 
 
 class ClaimWithImages(ClaimResponse):
