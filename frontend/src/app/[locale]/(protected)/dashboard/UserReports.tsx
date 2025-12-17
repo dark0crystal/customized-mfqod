@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useRouter } from '@/i18n/navigation';
 import { formatDateOnly } from '@/utils/dateFormatter';
+import { getPendingMissingItemsCount } from '@/services/itemsService';
 
 interface MissingItem {
   id: string;
@@ -97,6 +98,7 @@ export default function UserReports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'missing' | 'found' | 'claims'>('missing');
+  const [pendingMissingItemsCount, setPendingMissingItemsCount] = useState<number>(0);
   const t = useTranslations('dashboard.userReports');
   const router = useRouter();
 
@@ -169,6 +171,20 @@ export default function UserReports() {
         const missingItemsList = missingItemsData.missing_items || [];
         const foundItemsList = foundItemsData.items || [];
         
+        // Debug logging to verify data structure
+        console.log('Missing items data:', {
+          total: missingItemsData.total,
+          missing_items_count: missingItemsList.length,
+          first_item: missingItemsList[0],
+          response_structure: Object.keys(missingItemsData)
+        });
+        console.log('Found items data:', {
+          total: foundItemsData.total,
+          items_count: foundItemsList.length,
+          first_item: foundItemsList[0],
+          response_structure: Object.keys(foundItemsData)
+        });
+        
         const reportsData: UserReportsData = {
           missingItems: missingItemsList,
           foundItems: foundItemsList,
@@ -184,6 +200,19 @@ export default function UserReports() {
         };
 
         setData(reportsData);
+        
+        // Fetch pending missing items count separately using the dedicated API
+        try {
+          const pendingCount = await getPendingMissingItemsCount();
+          console.log('Pending missing items count from API:', pendingCount);
+          setPendingMissingItemsCount(pendingCount);
+        } catch (err) {
+          console.error('Error fetching pending missing items count:', err);
+          // Fallback: calculate from fetched data
+          const pendingCount = missingItemsList.filter((item: MissingItem) => item.status === 'pending').length;
+          console.log('Fallback pending count from data:', pendingCount);
+          setPendingMissingItemsCount(pendingCount);
+        }
       } catch (err) {
         console.error("Error fetching user reports:", err);
         setError(err instanceof Error ? err.message : "Failed to fetch reports");
@@ -310,7 +339,7 @@ export default function UserReports() {
             >
               <span className="hidden sm:inline">{t('missingItems')}</span>
               <span className="sm:hidden">{t('missingItems')}</span>
-              <span className="ml-1">({data.missingItems.filter((item: MissingItem) => item.status === 'pending').length})</span>
+              <span className="ml-1">({pendingMissingItemsCount})</span>
             </button>
             <button
               onClick={() => setActiveTab('found')}
