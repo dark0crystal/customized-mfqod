@@ -175,7 +175,7 @@ async def get_claim(
             from app.services import permissionServices
             if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
                 has_access = True
-            elif permissionServices.is_super_admin(db, current_user.id):
+            elif permissionServices.has_full_access(db, current_user.id):
                 has_access = True
         
         if not has_access:
@@ -515,7 +515,7 @@ async def get_claim_images(
             from app.services import permissionServices
             if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
                 has_access = True
-            elif permissionServices.is_super_admin(db, current_user.id):
+            elif permissionServices.has_full_access(db, current_user.id):
                 has_access = True
         
         if not has_access:
@@ -596,7 +596,7 @@ async def delete_claim_image(
 # ===========================
 
 @router.post("/{claim_id}/send-visit-notification")
-@require_permission("can_process_claims")
+@require_permission("can_manage_claims")
 async def send_visit_notification(
     claim_id: str,
     notification_request: VisitNotificationRequest,
@@ -624,7 +624,7 @@ async def send_visit_notification(
         has_access = False
         if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
             has_access = True
-        elif permissionServices.is_super_admin(db, current_user.id):
+        elif permissionServices.has_full_access(db, current_user.id):
             has_access = True
         
         if not has_access:

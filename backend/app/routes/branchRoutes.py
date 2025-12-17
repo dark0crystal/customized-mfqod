@@ -32,7 +32,7 @@ def get_address_service(db: Session = Depends(get_session)) -> AddressService:
 # ===========================
 
 @router.post("/", response_model=BranchResponse, status_code=status.HTTP_201_CREATED)
-@require_permission("can_create_branches")
+@require_permission("can_manage_branches")
 def create_branch(
     branch: BranchCreate,
     request: Request,
@@ -90,7 +90,7 @@ def get_public_branches(
 
 
 @router.get("/", response_model=List[BranchWithOrganization])
-@require_permission("can_view_branches")
+@require_permission("can_manage_branches")
 def get_branches(
     request: Request,
     skip: int = Query(0, ge=0),
@@ -133,7 +133,7 @@ def get_branches(
 
 
 @router.get("/{branch_id}", response_model=BranchWithOrganization)
-@require_permission("can_view_branches")
+@require_permission("can_manage_branches")
 def get_branch(
     branch_id: str,
     request: Request,
@@ -176,7 +176,7 @@ def get_branch(
 
 
 @router.put("/{branch_id}", response_model=BranchResponse)
-@require_permission("can_edit_branches")
+@require_permission("can_manage_branches")
 def update_branch(
     branch_id: str,
     branch_update: BranchUpdate,
@@ -194,7 +194,7 @@ def update_branch(
 
 
 @router.delete("/{branch_id}", status_code=status.HTTP_204_NO_CONTENT)
-@require_permission("can_delete_branches")
+@require_permission("can_manage_branches")
 def delete_branch(
     branch_id: str,
     request: Request,
@@ -216,7 +216,7 @@ def delete_branch(
 # ===========================
 
 @router.post("/addresses/", response_model=AddressResponse, status_code=status.HTTP_201_CREATED)
-@require_permission("can_create_addresses")
+@require_permission("can_manage_addresses")
 def create_address(
     address: AddressCreate,
     request: Request,
@@ -233,7 +233,7 @@ def create_address(
 
 
 @router.get("/addresses/", response_model=List[AddressWithDetails])
-@require_permission("can_view_addresses")
+@require_permission("can_manage_addresses")
 def get_addresses(
     request: Request,
     skip: int = Query(0, ge=0),
@@ -281,7 +281,7 @@ def get_addresses(
 
 
 @router.get("/addresses/{address_id}", response_model=AddressWithDetails)
-# @require_permission("can_view_addresses")  # Uncomment if permissions are needed
+# @require_permission("can_manage_addresses")  # Uncomment if permissions are needed
 def get_address(
     address_id: str,
     request: Request,
@@ -328,7 +328,7 @@ def get_address(
 
 
 @router.put("/addresses/{address_id}", response_model=AddressResponse)
-# @require_permission("can_edit_addresses")  # Uncomment if permissions are needed
+# @require_permission("can_manage_addresses")  # Uncomment if permissions are needed
 def update_address(
     address_id: str,
     address_update: AddressUpdate,
@@ -346,7 +346,7 @@ def update_address(
 
 
 @router.delete("/addresses/{address_id}", status_code=status.HTTP_204_NO_CONTENT)
-# @require_permission("can_delete_addresses")  # Uncomment if permissions are needed
+# @require_permission("can_manage_addresses")  # Uncomment if permissions are needed
 def delete_address(
     address_id: str,
     request: Request,
@@ -368,7 +368,7 @@ def delete_address(
 # ===========================
 
 @router.get("/{branch_id}/addresses/", response_model=List[AddressWithDetails])
-# @require_permission("can_view_addresses")  # Uncomment if permissions are needed
+# @require_permission("can_manage_addresses")  # Uncomment if permissions are needed
 def get_branch_addresses(
     branch_id: str,
     request: Request,
