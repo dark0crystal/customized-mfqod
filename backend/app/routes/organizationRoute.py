@@ -27,7 +27,7 @@ def get_organization_service(db: Session = Depends(get_session)) -> Organization
 # ===========================
 
 @router.post("/", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)
-# @require_permission("can_create_organizations")  # Uncomment if permissions are needed
+# @require_permission("can_manage_organizations")  # Uncomment if permissions are needed
 def create_organization(
     organization: OrganizationCreate,
     request: Request,
@@ -44,7 +44,7 @@ def create_organization(
 
 
 @router.get("/", response_model=List[OrganizationResponse])
-# @require_permission("can_view_organizations")  # Uncomment if permissions are needed
+# @require_permission("can_manage_organizations")  # Uncomment if permissions are needed
 def get_organizations(
     request: Request,
     skip: int = Query(0, ge=0),
@@ -60,7 +60,7 @@ def get_organizations(
 
 
 @router.get("/{organization_id}", response_model=OrganizationWithBranches)
-# @require_permission("can_view_organizations")  # Uncomment if permissions are needed
+# @require_permission("can_manage_organizations")  # Uncomment if permissions are needed
 def get_organization(
     organization_id: str,
     request: Request,
@@ -105,7 +105,7 @@ def get_organization(
 
 
 @router.put("/{organization_id}", response_model=OrganizationResponse)
-# @require_permission("can_edit_organizations")  # Uncomment if permissions are needed
+# @require_permission("can_manage_organizations")  # Uncomment if permissions are needed
 def update_organization(
     organization_id: str,
     organization_update: OrganizationUpdate,
@@ -123,7 +123,7 @@ def update_organization(
 
 
 @router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
-# @require_permission("can_delete_organizations")  # Uncomment if permissions are needed
+# @require_permission("can_manage_organizations")  # Uncomment if permissions are needed
 def delete_organization(
     organization_id: str,
     request: Request,
@@ -141,7 +141,7 @@ def delete_organization(
 
 
 # @router.get("/organizations/search/", response_model=List[OrganizationResponse])
-# # @require_permission("can_view_organizations")  # Uncomment if permissions are needed
+# # @require_permission("can_manage_organizations")  # Uncomment if permissions are needed
 # def search_organizations(
 #     name: str = Query(..., min_length=1),
 #     request: Request,

@@ -44,7 +44,7 @@ def get_missing_item_service(db: Session = Depends(get_session)) -> MissingItemS
 # ===========================
 
 @router.post("/", response_model=MissingItemResponse, status_code=201)
-@require_permission("can_create_missing_items")
+@require_permission("can_manage_missing_items")
 async def create_missing_item(
     missing_item_data: CreateMissingItemRequest,
     request: Request,
@@ -53,7 +53,7 @@ async def create_missing_item(
 ):
     """
     Create a new missing item
-    Requires: can_create_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         missing_item = missing_item_service.create_missing_item(missing_item_data)
@@ -111,7 +111,7 @@ async def get_public_missing_items(
         raise HTTPException(status_code=500, detail=f"Error retrieving public missing items: {str(e)}")
 
 @router.get("/", response_model=MissingItemListResponse)
-@require_permission("can_view_missing_items")
+@require_permission("can_manage_missing_items")
 async def get_missing_items(
     request: Request,
     skip: int = Query(0, ge=0, description="Number of missing items to skip"),
@@ -126,7 +126,7 @@ async def get_missing_items(
 ):
     """
     Get missing items with filtering and pagination
-    Requires: can_view_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         filters = MissingItemFilterRequest(
@@ -152,7 +152,7 @@ async def get_missing_items(
         raise HTTPException(status_code=500, detail=f"Error retrieving missing items: {str(e)}")
 
 @router.get("/search/", response_model=MissingItemListResponse)
-@require_permission("can_view_missing_items")
+@require_permission("can_manage_missing_items")
 async def search_missing_items(
     request: Request,
     q: str = Query(..., description="Search term"),
@@ -168,7 +168,7 @@ async def search_missing_items(
 ):
     """
     Search missing items by title or description
-    Requires: can_view_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         filters = MissingItemFilterRequest(
@@ -194,7 +194,7 @@ async def search_missing_items(
         raise HTTPException(status_code=500, detail=f"Error searching missing items: {str(e)}")
 
 @router.get("/users/{user_id}/missing-items", response_model=MissingItemListResponse)
-@require_any_permission(["can_view_missing_items", "can_view_own_missing_items"])
+@require_permission("can_manage_missing_items")
 async def get_user_missing_items(
     user_id: str,
     request: Request,
@@ -206,7 +206,7 @@ async def get_user_missing_items(
 ):
     """
     Get all missing items for a specific user
-    Requires: can_view_missing_items OR can_view_own_missing_items permission
+    Requires: can_manage_missing_items permission (users can always view their own missing items)
     """
     try:
         missing_items, total = missing_item_service.get_missing_items_by_user(user_id, include_deleted, skip, limit)
@@ -224,7 +224,7 @@ async def get_user_missing_items(
         raise HTTPException(status_code=500, detail=f"Error retrieving user missing items: {str(e)}")
 
 @router.get("/statistics/", response_model=dict)
-@require_permission("can_view_statistics")
+@require_permission("can_view_analytics")
 async def get_missing_item_statistics(
     request: Request,
     user_id: Optional[str] = Query(None, description="Get statistics for specific user"),
@@ -233,7 +233,7 @@ async def get_missing_item_statistics(
 ):
     """
     Get missing item statistics
-    Requires: can_view_statistics permission
+    Requires: can_view_analytics permission
     """
     try:
         stats = missing_item_service.get_missing_item_statistics(user_id)
@@ -242,7 +242,7 @@ async def get_missing_item_statistics(
         raise HTTPException(status_code=500, detail=f"Error retrieving statistics: {str(e)}")
 
 @router.get("/pending-count", response_model=dict)
-@require_permission("can_view_missing_items")
+@require_permission("can_manage_missing_items")
 async def get_pending_missing_items_count(
     request: Request,
     db: Session = Depends(get_session),
@@ -251,7 +251,7 @@ async def get_pending_missing_items_count(
 ):
     """
     Get count of pending missing items (approval == False) accessible to the current user based on branch assignments
-    Requires: can_view_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         count = missing_item_service.get_pending_missing_items_count(current_user.id)
@@ -260,7 +260,7 @@ async def get_pending_missing_items_count(
         raise HTTPException(status_code=500, detail=f"Error retrieving pending missing items count: {str(e)}")
 
 @router.get("/{missing_item_id}", response_model=MissingItemDetailResponse)
-@require_permission("can_view_missing_items")
+@require_permission("can_manage_missing_items")
 async def get_missing_item(
     missing_item_id: str,
     request: Request,
@@ -270,7 +270,7 @@ async def get_missing_item(
 ):
     """
     Get a single missing item by ID with related data
-    Requires: can_view_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         missing_item = missing_item_service.get_missing_item_detail_by_id(missing_item_id, include_deleted)
@@ -285,7 +285,7 @@ async def get_missing_item(
 # ===========================
 
 @router.put("/{missing_item_id}", response_model=MissingItemResponse)
-@require_permission("can_edit_missing_items")
+@require_permission("can_manage_missing_items")
 async def update_missing_item(
     missing_item_id: str,
     update_data: UpdateMissingItemRequest,
@@ -295,7 +295,7 @@ async def update_missing_item(
 ):
     """
     Update an existing missing item
-    Requires: can_edit_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         missing_item = missing_item_service.update_missing_item(missing_item_id, update_data)
@@ -306,7 +306,7 @@ async def update_missing_item(
         raise HTTPException(status_code=500, detail=f"Error updating missing item: {str(e)}")
 
 @router.patch("/{missing_item_id}", response_model=MissingItemResponse)
-@require_permission("can_edit_missing_items")
+@require_permission("can_manage_missing_items")
 async def patch_missing_item(
     missing_item_id: str,
     update_data: dict,
@@ -316,7 +316,7 @@ async def patch_missing_item(
 ):
     """
     Partially update an existing missing item with location history tracking
-    Requires: can_edit_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         missing_item = missing_item_service.patch_missing_item(missing_item_id, update_data)
@@ -327,7 +327,7 @@ async def patch_missing_item(
         raise HTTPException(status_code=500, detail=f"Error patching missing item: {str(e)}")
 
 @router.patch("/{missing_item_id}/toggle-approval", response_model=MissingItemResponse)
-@require_permission("can_approve_missing_items")
+@require_permission("can_manage_missing_items")
 async def toggle_missing_item_approval(
     missing_item_id: str,
     request: Request,
@@ -336,7 +336,7 @@ async def toggle_missing_item_approval(
 ):
     """
     Toggle the approval status of a missing item
-    Requires: can_approve_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         missing_item = missing_item_service.toggle_approval(missing_item_id)
@@ -417,7 +417,7 @@ async def assign_pending_item_to_missing(
 # ===========================
 
 @router.delete("/{missing_item_id}", response_model=DeleteMissingItemResponse)
-@require_permission("can_delete_missing_items")
+@require_permission("can_manage_missing_items")
 async def delete_missing_item(
     missing_item_id: str,
     request: Request,
@@ -427,7 +427,7 @@ async def delete_missing_item(
 ):
     """
     Delete a missing item (soft delete by default, permanent if specified)
-    Requires: can_delete_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         missing_item_service.delete_missing_item(missing_item_id, permanent)
@@ -443,7 +443,7 @@ async def delete_missing_item(
         raise HTTPException(status_code=500, detail=f"Error deleting missing item: {str(e)}")
 
 @router.patch("/{missing_item_id}/restore", response_model=MissingItemResponse)
-@require_permission("can_restore_missing_items")
+@require_permission("can_manage_missing_items")
 async def restore_missing_item(
     missing_item_id: str,
     request: Request,
@@ -452,7 +452,7 @@ async def restore_missing_item(
 ):
     """
     Restore a soft-deleted missing item
-    Requires: can_restore_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         missing_item = missing_item_service.restore_missing_item(missing_item_id)
@@ -467,7 +467,7 @@ async def restore_missing_item(
 # ===========================
 
 @router.post("/bulk/delete", response_model=BulkOperationResponse)
-@require_permission("can_bulk_delete_missing_items")
+@require_permission("can_manage_missing_items")
 async def bulk_delete_missing_items(
     request: BulkDeleteMissingItemRequest,
     req: Request,
@@ -476,7 +476,7 @@ async def bulk_delete_missing_items(
 ):
     """
     Bulk delete multiple missing items
-    Requires: can_bulk_delete_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         result = missing_item_service.bulk_delete(request)
@@ -489,7 +489,7 @@ async def bulk_delete_missing_items(
         raise HTTPException(status_code=500, detail=f"Error in bulk delete: {str(e)}")
 
 @router.put("/bulk/update", response_model=BulkOperationResponse)
-@require_permission("can_bulk_edit_missing_items")
+@require_permission("can_manage_missing_items")
 async def bulk_update_missing_items(
     request: BulkUpdateMissingItemRequest,
     req: Request,
@@ -498,7 +498,7 @@ async def bulk_update_missing_items(
 ):
     """
     Bulk update multiple missing items
-    Requires: can_bulk_edit_missing_items permission
+    Requires: can_manage_missing_items permission
     """
     try:
         result = missing_item_service.bulk_update(request)
@@ -511,7 +511,7 @@ async def bulk_update_missing_items(
         raise HTTPException(status_code=500, detail=f"Error in bulk update: {str(e)}")
 
 @router.patch("/bulk/approval", response_model=BulkOperationResponse)
-@require_all_permissions(["can_approve_missing_items", "can_bulk_edit_missing_items"])
+@require_permission("can_manage_missing_items")
 async def bulk_approval_missing_items(
     request: BulkApprovalMissingItemRequest,
     req: Request,
@@ -520,7 +520,7 @@ async def bulk_approval_missing_items(
 ):
     """
     Bulk update approval status for multiple missing items
-    Requires: BOTH can_approve_missing_items AND can_bulk_edit_missing_items permissions
+    Requires: can_manage_missing_items permission
     """
     try:
         result = missing_item_service.bulk_approval(request)
