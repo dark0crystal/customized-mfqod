@@ -14,7 +14,7 @@ export default function ReportMissingItem() {
     // Wait for permissions to load
     if (!isLoading && isAuthenticated) {
       // Check if user has permission to create missing items
-      if (!hasPermission('can_create_missing_items')) {
+      if (!hasPermission('can_manage_missing_items')) {
         // Redirect to dashboard if user doesn't have permission
         router.push('/dashboard');
       }
@@ -36,7 +36,7 @@ export default function ReportMissingItem() {
   }
 
   // Check permission before rendering form
-  if (!hasPermission('can_create_missing_items')) {
+  if (!hasPermission('can_manage_missing_items')) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">

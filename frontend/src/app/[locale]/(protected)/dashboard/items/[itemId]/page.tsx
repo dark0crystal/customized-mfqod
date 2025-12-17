@@ -6,7 +6,6 @@ import Claims from "./Claims";
 import EditPost from "./EditPost";
 import LocationTracking from "@/components/LocationTracking";
 import { tokenManager } from '@/utils/tokenManager';
-import { authenticatedFetch } from '@/utils/authenticatedFetch';
 import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import CustomDropdown from '@/components/ui/CustomDropdown';
@@ -16,6 +15,20 @@ import { formatDate } from '@/utils/dateFormatter';
 import { Trash2 } from 'lucide-react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
+
+// Helper function to create authenticated headers
+const getAuthHeaders = (): HeadersInit => {
+  const token = tokenManager.getAccessToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  return headers;
+};
 
 // Helper to get initials
 const getInitials = (name?: string): string => {
@@ -169,7 +182,9 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
       setLoading(true);
       setError(null);
       try {
-        const response = await authenticatedFetch(`${API_BASE_URL}/api/items/${params.itemId}`);
+        const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+          headers: getAuthHeaders()
+        });
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.detail || `Failed to fetch item details: ${response.status}`);
@@ -183,10 +198,6 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
         setStatus(data.status || (data.approval ? 'approved' : 'pending'));
       } catch (err) {
         console.error('Error fetching item:', err);
-        // Don't set error if it's a token expiration (redirect will happen)
-        if (err instanceof Error && err.message.includes('Token has expired')) {
-          return;
-        }
         setError(err instanceof Error ? err.message : "Error fetching item details.");
         setItem(null);
       } finally {
@@ -210,10 +221,14 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
 
       try {
         // Fetch all branches
-        const allBranchesResponse = await authenticatedFetch(`${API_BASE_URL}/api/branches/`);
+        const allBranchesResponse = await fetch(`${API_BASE_URL}/api/branches/`, {
+          headers: getAuthHeaders()
+        });
 
         // Fetch user's managed branches
-        const managedBranchesResponse = await authenticatedFetch(`${API_BASE_URL}/api/branches/my-managed-branches/`);
+        const managedBranchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
+          headers: getAuthHeaders()
+        });
 
         if (allBranchesResponse.ok && managedBranchesResponse.ok) {
           const allBranches = await allBranchesResponse.json();
@@ -254,7 +269,9 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
   const fetchClaims = async (): Promise<Claim[]> => {
     setLoadingClaims(true);
     try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/api/claims/item/${params.itemId}`);
+      const response = await fetch(`${API_BASE_URL}/api/claims/item/${params.itemId}`, {
+        headers: getAuthHeaders()
+      });
       if (response.ok) {
         const data = await response.json();
         setClaims(data);
@@ -265,10 +282,6 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
       }
     } catch (error) {
       console.error('Error fetching claims:', error);
-      // Don't return empty array if token expired (redirect will happen)
-      if (error instanceof Error && error.message.includes('Token has expired')) {
-        throw error;
-      }
       return [];
     } finally {
       setLoadingClaims(false);
@@ -340,8 +353,9 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
     try {
       // If we have a selected claim and changing to approved, use PATCH endpoint with approved_claim_id
       if (status === 'approved' && selectedClaimId) {
-        const response = await authenticatedFetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
           method: 'PATCH',
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             status: 'approved',
             approved_claim_id: selectedClaimId
@@ -359,8 +373,9 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
         }
       } else {
         // Use the status endpoint to update status
-        const response = await authenticatedFetch(`${API_BASE_URL}/api/items/${params.itemId}/status?new_status=${status}`, {
+        const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}/status?new_status=${status}`, {
           method: 'PATCH',
+          headers: getAuthHeaders(),
         });
 
         if (response.ok) {
@@ -372,10 +387,6 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
       }
     } catch (err) {
       console.error('Error updating status:', err);
-      // Token expiration will trigger redirect, so don't show error
-      if (err instanceof Error && err.message.includes('Token has expired')) {
-        return;
-      }
     } finally {
       setIsUpdating(false);
     }
@@ -393,8 +404,9 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
     // Update status and proceed with update
     setIsUpdating(true);
     try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
         method: 'PATCH',
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           status: 'approved',
           approved_claim_id: selectedClaimId
@@ -413,10 +425,6 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
       }
     } catch (err) {
       console.error('Error updating status:', err);
-      // Token expiration will trigger redirect, so don't show error
-      if (err instanceof Error && err.message.includes('Token has expired')) {
-        return;
-      }
       alert(t('updateStatusError') || 'Failed to update status');
     } finally {
       setIsUpdating(false);
@@ -436,8 +444,9 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
     setShowPendingDisclaimer(false);
     setIsUpdating(true);
     try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
         method: 'PATCH',
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           status: 'pending',
           approved_claim_id: null
@@ -458,10 +467,6 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
       }
     } catch (err) {
       console.error('Error updating status:', err);
-      // Token expiration will trigger redirect, so don't show error
-      if (err instanceof Error && err.message.includes('Token has expired')) {
-        return;
-      }
       alert(t('updateStatusError') || 'Failed to update status');
       // Revert status on error
       setStatus(previousStatus);
@@ -490,8 +495,9 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
 
     setIsSubmittingTransfer(true);
     try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/api/transfer-requests/`, {
+      const response = await fetch(`${API_BASE_URL}/api/transfer-requests/`, {
         method: 'POST',
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           item_id: item.id,
           to_branch_id: selectedTransferBranch,
@@ -510,10 +516,6 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
       }
     } catch (err) {
       console.error('Error submitting transfer request:', err);
-      // Token expiration will trigger redirect, so don't show error
-      if (err instanceof Error && err.message.includes('Token has expired')) {
-        return;
-      }
       alert(t('transferRequestFailed') || 'Failed to submit transfer request');
     } finally {
       setIsSubmittingTransfer(false);
@@ -525,8 +527,9 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
 
     setIsDeleting(true);
     try {
-      const response = await authenticatedFetch(`${API_BASE_URL}/api/items/${params.itemId}?permanent=true`, {
+      const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}?permanent=true`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
       });
 
       if (response.ok) {
@@ -540,10 +543,6 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
       }
     } catch (err) {
       console.error('Error deleting item:', err);
-      // Token expiration will trigger redirect, so don't show error
-      if (err instanceof Error && err.message.includes('Token has expired')) {
-        return;
-      }
       alert(t('deleteItemFailed') || 'Failed to delete item');
       setIsDeleting(false);
       setShowDeleteModal(false);
