@@ -417,6 +417,7 @@ class AuthService:
             "username": user.username,
             "user_type": user.user_type.value,
             "role": user.role.name if user.role else None,
+            "role_id": user.role_id if user.role else None,
             "exp": int((now + timedelta(minutes=self.config.ACCESS_TOKEN_EXPIRE_MINUTES)).timestamp()),
             "iat": int(now.timestamp()),
             "iss": "university-lost-found-auth"

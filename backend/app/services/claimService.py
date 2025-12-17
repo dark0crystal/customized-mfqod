@@ -156,8 +156,8 @@ class ClaimService:
         if claim.user_id == user_id:
             return True
         
-        # Check if user is a moderator/admin
-        if permissionServices.is_super_admin(self.db, user_id):
+        # Check if user has full access
+        if permissionServices.has_full_access(self.db, user_id):
             return True
         
         # Check if user is a branch manager for the item's branch
@@ -268,10 +268,10 @@ class ClaimService:
 
             # Approval status changes are admin-only
             if claim_update.approval is not None and user_id:
-                # Only admins/moderators can change approval status
-                if not permissionServices.is_super_admin(self.db, user_id):
-                    # Check if user has admin permission
-                    if not permissionServices.check_user_permission(self.db, user_id, "admin"):
+                # Only users with full access or can_manage_claims permission can change approval status
+                if not permissionServices.has_full_access(self.db, user_id):
+                    # Check if user has can_manage_claims permission
+                    if not permissionServices.check_user_permission(self.db, user_id, "can_manage_claims"):
                         raise HTTPException(
                             status_code=status.HTTP_403_FORBIDDEN,
                             detail="Only administrators can change claim approval status"
@@ -532,10 +532,31 @@ class ClaimService:
                 item_title = None
                 item_description = None
                 item_status = None
+                item_type = None
                 if claim.item:
                     item_title = claim.item.title
                     item_description = claim.item.description
                     item_status = claim.item.status
+                    # Extract item type if available
+                    if claim.item.item_type:
+                        item_type = {
+                            "id": claim.item.item_type.id,
+                            "name_ar": claim.item.item_type.name_ar,
+                            "name_en": claim.item.item_type.name_en,
+                            "description_ar": claim.item.item_type.description_ar,
+                            "description_en": claim.item.item_type.description_en
+                        }
+                
+                # Get images for this claim
+                images = []
+                try:
+                    from app.services.imageService import ImageService
+                    image_service = ImageService(self.db)
+                    claim_images = image_service.get_images_by_entity("claim", claim.id)
+                    images = [{"id": img.id, "url": img.url} for img in claim_images]
+                except Exception as img_error:
+                    logger.warning(f"Error fetching images for claim {claim.id}: {img_error}")
+                    images = []
                 
                 # Create ClaimWithDetails
                 claim_detail = ClaimWithDetails(
@@ -552,7 +573,9 @@ class ClaimService:
                     user_email=user_email,
                     item_title=item_title,
                     item_description=item_description,
-                    item_status=item_status
+                    item_status=item_status,
+                    images=images,
+                    item_type=item_type
                 )
                 claims_with_details.append(claim_detail)
             
@@ -681,10 +704,27 @@ class ClaimService:
                 logger.error(f"Missing data for claim notification: {claim.id}")
                 return
             
-            # Get moderator emails (users with admin or moderator roles)
-            moderators = self.db.query(User).filter(
-                or_(User.role == "admin", User.role == "moderator")
-            ).all()
+            # Get moderator emails (users with can_manage_claims permission or full access)
+            from app.models import Role, Permission, RolePermissions
+            
+            # Get users with can_manage_claims permission
+            moderators = self.db.query(User).join(
+                Role, User.role_id == Role.id
+            ).join(
+                RolePermissions, Role.id == RolePermissions.role_id
+            ).join(
+                Permission, RolePermissions.permission_id == Permission.id
+            ).filter(
+                Permission.name == "can_manage_claims"
+            ).distinct().all()
+            
+            # Also include users with full access (all permissions)
+            all_users = self.db.query(User).all()
+            for user in all_users:
+                if user.id not in [m.id for m in moderators]:
+                    from app.services import permissionServices
+                    if permissionServices.has_full_access(self.db, user.id):
+                        moderators.append(user)
             
             moderator_emails = [mod.email for mod in moderators if mod.email]
             
