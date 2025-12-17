@@ -37,6 +37,7 @@ interface Claim {
   item_description?: string;
   item_status?: string;
   is_assigned?: boolean;
+  images?: Array<{ id: string; url: string }>;
 }
 
 // Claims Component
@@ -46,14 +47,7 @@ export default function Claims({ postId }: { postId: string }) {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showDisclaimer, setShowDisclaimer] = useState(false);
-  const [pendingClaimId, setPendingClaimId] = useState<string | null>(null);
-  const [existingClaimInfo, setExistingClaimInfo] = useState<{
-    has_existing: boolean;
-    claim_id?: string;
-    claim_title?: string;
-    claimer_name?: string;
-  } | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const fetchClaims = useCallback(async () => {
     setIsLoading(true);
@@ -79,125 +73,40 @@ export default function Claims({ postId }: { postId: string }) {
     fetchClaims();
   }, [fetchClaims]);
 
-  async function checkExistingApprovedClaim(claimId: string): Promise<boolean> {
+  // Helper function to get image URL
+  const getImageUrl = (imageUrl: string): string => {
+    if (!imageUrl) return '';
+    
+    // If the url is already absolute, validate and return as is
+    if (/^https?:\/\//.test(imageUrl)) {
+      try {
+        new URL(imageUrl);
+        return imageUrl;
+      } catch {
+        return '';
+      }
+    }
+    
+    // Process relative URLs
+    let processedUrl = imageUrl.replace('/uploads/images/', '/static/images/');
+    if (!processedUrl.startsWith('/')) {
+      processedUrl = '/' + processedUrl;
+    }
+    
+    const baseUrl = API_BASE_URL.replace(/\/$/, '');
+    const fullUrl = `${baseUrl}${processedUrl}`;
+    
+    // Validate the constructed URL
     try {
-      const response = await fetch(`${API_BASE_URL}/api/claims/${claimId}/check-existing-approved`, {
-        headers: getAuthHeaders()
-      });
-      
-      if (!response.ok) {
-        return false;
-      }
-      
-      const data = await response.json();
-      if (data.has_existing) {
-        setExistingClaimInfo(data);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Error checking existing approved claim:', error);
-      return false;
+      new URL(fullUrl);
+      return fullUrl;
+    } catch {
+      return '';
     }
-  }
-
-  async function handleClaimApproval(claimId: string, approval: boolean) {
-    // If rejecting, proceed directly
-    if (!approval) {
-      await proceedWithApproval(claimId, approval);
-      return;
-    }
-
-    // If approving, check for existing approved claim
-    const hasExisting = await checkExistingApprovedClaim(claimId);
-    if (hasExisting) {
-      setPendingClaimId(claimId);
-      setShowDisclaimer(true);
-    } else {
-      await proceedWithApproval(claimId, approval);
-    }
-  }
-
-  async function proceedWithApproval(claimId: string, approval: boolean) {
-    try {
-      const endpoint = approval 
-        ? `${API_BASE_URL}/api/claims/${claimId}/approve`
-        : `${API_BASE_URL}/api/claims/${claimId}/reject`;
-      
-      const response = await fetch(endpoint, {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({}),
-      });
-
-      if (response.ok) {
-        console.log('Claim status updated');
-        fetchClaims();
-        setShowDisclaimer(false);
-        setPendingClaimId(null);
-        setExistingClaimInfo(null);
-      } else {
-        console.error('Failed to update claim status');
-      }
-    } catch (error) {
-      console.error('Error updating claim approval:', error);
-    }
-  }
-
-  function handleDisclaimerConfirm() {
-    if (pendingClaimId) {
-      proceedWithApproval(pendingClaimId, true);
-    }
-  }
-
-  function handleDisclaimerCancel() {
-    setShowDisclaimer(false);
-    setPendingClaimId(null);
-    setExistingClaimInfo(null);
-  }
+  };
 
   return (
     <div>
-      {/* Disclaimer Modal */}
-      {showDisclaimer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {t('disclaimerTitle') || 'Existing Approved Claim'}
-            </h3>
-            <p className="text-gray-700 mb-4">
-              {t('disclaimerMessage') || 'There is already an approved claim for this post. Approving this claim will unapprove the previous claim. Do you want to continue?'}
-            </p>
-            {existingClaimInfo && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-                <p className="text-sm text-gray-700">
-                  <strong>{t('currentApprovedClaim') || 'Current approved claim:'}</strong> {existingClaimInfo.claim_title || 'N/A'}
-                </p>
-                {existingClaimInfo.claimer_name && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    {t('claimer') || 'Claimer:'} {existingClaimInfo.claimer_name}
-                  </p>
-                )}
-              </div>
-            )}
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={handleDisclaimerCancel}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                {t('cancel') || 'Cancel'}
-              </button>
-              <button
-                onClick={handleDisclaimerConfirm}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                {t('confirm') || 'Continue'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {isLoading && (
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -230,7 +139,7 @@ export default function Claims({ postId }: { postId: string }) {
                           </h3>
                           <button
                             onClick={() => router.push(`/dashboard/claims/${claim.id}`)}
-                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                            className="p-1.5 text-gray-500 hover:text-[#3277AE] hover:bg-blue-50 rounded-lg transition-colors duration-200"
                             title={t('viewClaimDetails') || 'View Claim Details'}
                             aria-label={t('viewClaimDetails') || 'View Claim Details'}
                           >
@@ -276,6 +185,48 @@ export default function Claims({ postId }: { postId: string }) {
                       </p>
                     </div>
 
+                    {/* Images Section */}
+                    <div className="mb-4">
+                      {claim.images && claim.images.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {claim.images.map((image) => {
+                            const imageUrl = getImageUrl(image.url);
+                            const imageKey = `${claim.id}-${image.id}`;
+                            const hasFailed = failedImages.has(imageKey);
+                            
+                            return (
+                              <div
+                                key={image.id}
+                                className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200"
+                              >
+                                {imageUrl && !hasFailed ? (
+                                  <img
+                                    src={imageUrl}
+                                    alt={`Claim image ${image.id}`}
+                                    className="w-full h-full object-cover"
+                                    onError={() => {
+                                      setFailedImages(prev => new Set(prev).add(imageKey));
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="flex items-center justify-center w-full h-full text-gray-400 text-xs text-center p-2">
+                                    {t('imageNotFound') || 'Image not found'}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+                          <div className="text-gray-400 text-2xl mb-2">🖼️</div>
+                          <p className="text-gray-500 text-sm">
+                            {t('noImagesAvailable') || 'No images available'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Divider */}
                     <div className="border-t border-gray-200 my-4"></div>
 
@@ -299,20 +250,6 @@ export default function Claims({ postId }: { postId: string }) {
                           {claim.user_email || 'N/A'}
                         </p>
                       </div>
-                    </div>
-
-                    {/* Action Button */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <button
-                        onClick={() => handleClaimApproval(claim.id, !claim.approval)}
-                        className={`w-full px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                          claim.approval 
-                            ? 'bg-red-600 hover:bg-red-700 text-white' 
-                            : 'bg-green-600 hover:bg-green-700 text-white'
-                        }`}
-                      >
-                        {claim.approval ? (t('reject') || 'Reject Claim') : (t('approve') || 'Approve Claim')}
-                      </button>
                     </div>
                   </div>
                 </div>
