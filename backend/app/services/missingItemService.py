@@ -264,11 +264,11 @@ class MissingItemService:
             MissingItem.temporary_deletion == False
         )
         
-        # Check if user is super_admin - if so, return all pending missing items
-        is_admin = permissionServices.is_super_admin(self.db, user_id)
+        # Check if user has full access - if so, return all pending missing items
+        is_admin = permissionServices.has_full_access(self.db, user_id)
         
         if is_admin:
-            logger.info(f"Super admin user {user_id} - returning all pending missing items count")
+            logger.info(f"User with full access {user_id} - returning all pending missing items count")
             return query.count()
         
         # Check if user is a branch manager - branch managers see pending missing items in their managed branches
@@ -365,8 +365,8 @@ class MissingItemService:
 
         now = datetime.now(timezone.utc)
 
-        # Permission: super admin can assign anywhere; branch managers must own the branch
-        is_admin = permissionServices.is_super_admin(self.db, current_user.id)
+        # Permission: users with full access can assign anywhere; branch managers must own the branch
+        is_admin = permissionServices.has_full_access(self.db, current_user.id)
         managed_branch_ids: List[str] = []
         if not is_admin:
             if not is_branch_manager(current_user.id, self.db):

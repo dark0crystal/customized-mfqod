@@ -773,8 +773,8 @@ class ItemService:
         except: pass
         # #endregion
         
-        # Check if user is super_admin - if so, return all pending items
-        is_admin = permissionServices.is_super_admin(self.db, user_id)
+        # Check if user has full access - if so, return all pending items
+        is_admin = permissionServices.has_full_access(self.db, user_id)
         
         # #region agent log
         try:
@@ -1206,10 +1206,28 @@ class ItemService:
             if not item_with_details or not item_with_details.user:
                 return
             
-            # Get moderator emails (users with admin or moderator roles)
-            moderators = self.db.query(User).filter(
-                or_(User.role == "admin", User.role == "moderator")
-            ).all()
+            # Get moderator emails (users with can_manage_items permission or full access)
+            from app.models import Role, Permission, RolePermissions
+            from sqlalchemy import and_
+            
+            # Get users with can_manage_items permission
+            moderators = self.db.query(User).join(
+                Role, User.role_id == Role.id
+            ).join(
+                RolePermissions, Role.id == RolePermissions.role_id
+            ).join(
+                Permission, RolePermissions.permission_id == Permission.id
+            ).filter(
+                Permission.name == "can_manage_items"
+            ).distinct().all()
+            
+            # Also include users with full access (all permissions)
+            all_users = self.db.query(User).all()
+            for user in all_users:
+                if user.id not in [m.id for m in moderators]:
+                    from app.services import permissionServices
+                    if permissionServices.has_full_access(self.db, user.id):
+                        moderators.append(user)
             
             moderator_emails = [mod.email for mod in moderators if mod.email]
             

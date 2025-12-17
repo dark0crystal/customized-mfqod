@@ -236,21 +236,42 @@ def get_role_permissions(session: Session, role_id: str) -> List[Permission]:
     return role.permissions
 
 # ============================= 
-# Check if User is Super Admin
+# Get User Permissions
 # ============================= 
-def is_super_admin(session: Session, user_id: str) -> bool:
-    """Check if a user has super admin role (super_admin or admin role)"""
+def get_user_permissions(session: Session, user_id: str) -> List[Permission]:
+    """Get all permissions for a user through their role"""
     from app.models import User
     
-    # Get user with role
+    # Get user with role and permissions
     user_statement = select(User).where(User.id == user_id)
     user = session.execute(user_statement).scalars().first()
     
     if not user or not user.role:
+        return []
+    
+    return user.role.permissions
+
+# ============================= 
+# Check if User has Full Access
+# ============================= 
+def has_full_access(session: Session, user_id: str) -> bool:
+    """Check if user has all permissions (full system access)"""
+    # Get all permissions in system
+    all_permissions = get_all_permissions(session)
+    
+    # If no permissions exist in system, return False
+    if not all_permissions:
         return False
     
-    # Check for both super_admin and admin roles for backward compatibility
-    return user.role.name.lower() in ["super_admin", "admin"]
+    # Get user's permissions
+    user_permissions = get_user_permissions(session, user_id)
+    
+    # Convert to sets of permission names for comparison
+    all_permission_names = {perm.name for perm in all_permissions}
+    user_permission_names = {perm.name for perm in user_permissions}
+    
+    # Check if user has all permissions
+    return user_permission_names == all_permission_names and len(all_permission_names) > 0
 
 # ============================= 
 # Check User Permission
@@ -266,8 +287,8 @@ def check_user_permission(session: Session, user_id: str, permission_name: str) 
     if not user or not user.role:
         return False
     
-    # Super Admin bypass: If user has super_admin or admin role, grant access to everything
-    if user.role.name.lower() in ["super_admin", "admin"]:
+    # Full access bypass: If user has all permissions, grant access to everything
+    if has_full_access(session, user_id):
         return True
     
     # Check if user's role has the permission
