@@ -7,6 +7,8 @@ import logging
 from app.db.database import get_session
 from app.services.auth_service import AuthService
 from app.services.enhanced_ad_service import EnhancedADService
+from app.services.otp_service import otp_service
+from app.services.notification_service import send_otp_email
 from app.middleware.auth_middleware import (
     auth_middleware, 
     get_current_user_required, 
@@ -20,7 +22,9 @@ from app.schemas.auth_schemas import (
     RefreshTokenRequest,
     ChangePasswordRequest,
     ResetPasswordRequest,
-    UserProfileUpdateRequest
+    UserProfileUpdateRequest,
+    SendOTPRequest,
+    VerifyOTPRequest
 )
 from app.models import User, LoginAttempt, UserSession, ADSyncLog
 
@@ -67,6 +71,93 @@ async def login(
             detail="Authentication service error"
         )
 
+@router.post("/send-otp", summary="Send OTP for Email Verification")
+async def send_otp(
+    otp_request: SendOTPRequest,
+    db: Session = Depends(get_session)
+):
+    """
+    Send OTP code to email address for verification.
+    Required before registration.
+    
+    - **email**: Email address to verify
+    """
+    try:
+        # Check if email is already registered
+        existing_user = db.query(User).filter(User.email == otp_request.email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email address is already registered"
+            )
+        
+        # Generate and store OTP
+        otp_code, expires_at = otp_service.store_otp(otp_request.email, db)
+        
+        # Send OTP email
+        email_sent = await send_otp_email(otp_request.email, otp_code)
+        
+        if not email_sent:
+            logger.warning(f"Failed to send OTP email to {otp_request.email}, but OTP was generated")
+            # Still return success as OTP is stored (for testing/debugging)
+        
+        logger.info(f"OTP sent to email: {otp_request.email}")
+        return {
+            "message": "OTP sent successfully",
+            "expires_at": expires_at.isoformat()
+        }
+        
+    except ValueError as e:
+        # Rate limit error
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(e)
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Send OTP error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send OTP"
+        )
+
+@router.post("/verify-otp", summary="Verify OTP Code")
+async def verify_otp(
+    verify_request: VerifyOTPRequest,
+    db: Session = Depends(get_session)
+):
+    """
+    Verify OTP code for email address.
+    Required before registration.
+    
+    - **email**: Email address
+    - **otp_code**: 6-digit OTP code
+    """
+    try:
+        is_valid = otp_service.verify_otp(verify_request.email, verify_request.otp_code, db)
+        
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired OTP code"
+            )
+        
+        logger.info(f"OTP verified successfully for email: {verify_request.email}")
+        return {
+            "message": "OTP verified successfully",
+            "verified": True
+        }
+        
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Verify OTP error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to verify OTP"
+        )
+
 @router.post("/register", response_model=UserResponse, summary="Register External User")
 async def register(
     user_data: RegisterRequest,
@@ -76,7 +167,9 @@ async def register(
     Register a new external user account.
     Internal university users are automatically created via Active Directory sync.
     
-    - **email**: Valid email address
+    Requires email verification via OTP before registration.
+    
+    - **email**: Valid email address (must be verified via OTP)
     - **password**: Strong password meeting security requirements
     - **first_name**: User's first name
     - **last_name**: User's last name
@@ -84,6 +177,13 @@ async def register(
     - **phone_number**: Optional phone number
     """
     try:
+        # Check if email has been verified via OTP
+        if not otp_service.is_email_verified(user_data.email, db):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email address must be verified before registration. Please verify your email with the OTP code."
+            )
+        
         new_user = await auth_service.create_external_user(user_data.dict(), db)
         
         logger.info(f"New external user registered: {new_user.email}")

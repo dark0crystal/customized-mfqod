@@ -78,7 +78,7 @@ router = APIRouter()
 # Add new item type
 # ================= 
 @router.post("/", response_model=ItemTypeResponse, status_code=status.HTTP_201_CREATED)
-@require_permission("can_create_item_types")
+@require_permission("can_manage_item_types")
 async def create_item_type(
     payload: CreateItemTypeRequest,
     request: Request,  # Token extracted automatically from this
@@ -106,7 +106,7 @@ async def get_public_item_types(
 # List all item types (authenticated)
 # ================= 
 @router.get("/", response_model=list[ItemTypeResponse])
-@require_permission("can_view_item_types")
+@require_permission("can_manage_item_types")
 async def list_item_types(
     request: Request,  # Token extracted automatically from this
     db: Session = Depends(get_session)
@@ -117,7 +117,7 @@ async def list_item_types(
 # Get specific item type
 # ================= 
 @router.get("/{item_type_id}", response_model=ItemTypeResponse)
-@require_permission("can_view_item_types")
+@require_permission("can_manage_item_types")
 async def get_item_type(
     item_type_id: str,
     request: Request,  # Token extracted automatically from this
@@ -132,7 +132,7 @@ async def get_item_type(
 # Update item type
 # ================= 
 @router.put("/{item_type_id}", response_model=ItemTypeResponse)
-@require_any_permission(["can_edit_item_types", "can_manage_item_types"])
+@require_any_permission(["can_manage_item_types", "can_manage_item_types"])
 async def update_item_type(
     item_type_id: str,
     data: UpdateItemTypeRequest,
@@ -148,7 +148,7 @@ async def update_item_type(
 # Delete Item Type
 # ================= 
 @router.delete("/{item_type_id}", status_code=status.HTTP_204_NO_CONTENT)
-@require_all_permissions(["can_delete_item_types", "can_manage_item_types"])
+@require_all_permissions(["can_manage_item_types", "can_manage_item_types"])
 async def delete_item_type(
     item_type_id: str,
     request: Request,  # Token extracted automatically from this

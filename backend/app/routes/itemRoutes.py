@@ -50,7 +50,7 @@ def get_item_service(db: Session = Depends(get_session)) -> ItemService:
 # ===========================
 
 @router.post("/", response_model=ItemResponse, status_code=201)
-@require_permission("can_create_items")
+@require_permission("can_manage_items")
 async def create_item(
     item_data: CreateItemRequest,
     request: Request,
@@ -59,7 +59,7 @@ async def create_item(
 ):
     """
     Create a new item
-    Requires: can_create_items permission
+    Requires: can_manage_items permission
     """
     try:
         item = item_service.create_item(item_data)
@@ -116,7 +116,7 @@ async def get_public_items(
         raise HTTPException(status_code=500, detail=f"Error retrieving public items: {str(e)}")
 
 @router.get("/", response_model=ItemListResponse)
-@require_permission("can_view_items")
+@require_permission("can_manage_items")
 async def get_items(
     request: Request,
     skip: int = Query(0, ge=0, description="Number of items to skip"),
@@ -136,82 +136,7 @@ async def get_items(
 ):
     """
     Get items with filtering and pagination
-    Requires: can_view_items permission
-    """
-    try:
-        # Parse date strings to datetime objects
-        parsed_date_from = None
-        parsed_date_to = None
-        
-        if date_from:
-            try:
-                parsed_date_from = datetime.strptime(date_from, "%Y-%m-%d")
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid date_from format. Use YYYY-MM-DD")
-        
-        if date_to:
-            try:
-                parsed_date_to = datetime.strptime(date_to, "%Y-%m-%d")
-                # Set to end of day for inclusive filtering
-                parsed_date_to = parsed_date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid date_to format. Use YYYY-MM-DD")
-        
-        filters = ItemFilterRequest(
-            skip=skip,
-            limit=limit,
-            user_id=user_id,
-            approved_only=approved_only,
-            include_deleted=include_deleted,
-            item_type_id=item_type_id,
-            branch_id=branch_id,
-            date_from=parsed_date_from,
-            date_to=parsed_date_to
-        )
-        
-        # When approved_only is True or show_all is True, show all items (skip branch-based access control)
-        # This allows the public search page to display all approved items, or users to view all items
-        # Otherwise, apply branch-based access control for regular queries
-        user_id_for_access_control = None if (approved_only or show_all) else current_user.id
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"get_items: show_all={show_all}, approved_only={approved_only}, user_id_for_access_control={user_id_for_access_control}, current_user.id={current_user.id}")
-        
-        items, total = item_service.get_items(filters, user_id_for_access_control)
-        
-        return ItemListResponse(
-            items=items,
-            total=total,
-            skip=skip,
-            limit=limit,
-            has_more=(skip + limit) < total
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving items: {str(e)}")
-
-@router.get("/search/", response_model=ItemListResponse)
-@require_permission("can_view_items")
-async def search_items(
-    request: Request,
-    q: str = Query(..., description="Search term"),
-    skip: int = Query(0, ge=0, description="Number of items to skip"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
-    user_id: Optional[str] = Query(None, description="Filter by user ID"),
-    status: Optional[str] = Query(None, description="Filter by status (cancelled, approved, pending)"),
-    approved_only: bool = Query(False, description="DEPRECATED: Use status=approved instead. Only return approved items"),
-    include_deleted: bool = Query(False, description="Include soft-deleted items"),
-    item_type_id: Optional[str] = Query(None, description="Filter by item type"),
-    branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
-    date_from: Optional[str] = Query(None, description="Filter items created from this date (YYYY-MM-DD)"),
-    date_to: Optional[str] = Query(None, description="Filter items created until this date (YYYY-MM-DD)"),
-    show_all: bool = Query(False, description="Show all items regardless of branch access (skip branch-based filtering)"),
-    db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service),
-    current_user = Depends(get_current_user_required)
-):
-    """
-    Search items by title or description
-    Requires: can_view_items permission
+    Requires: can_manage_items permission (users can always view their own items)
     """
     try:
         # Parse date strings to datetime objects
@@ -253,10 +178,100 @@ async def search_items(
             date_to=parsed_date_to
         )
         
-        # When approved_only is True, status is APPROVED, or show_all is True, show all items (skip branch-based access control)
+        # When approved_only is True or show_all is True, show all items (skip branch-based access control)
+        # This allows:
+        # - Public search page to display all approved items
+        # - Users to view all items when show_all=True
+        # Otherwise, apply branch-based access control for regular queries
+        # NOTE: We don't bypass branch filtering based on status - users should only see items they manage
+        # regardless of status when show_all=False
+        user_id_for_access_control = None if (approved_only or show_all) else current_user.id
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"get_items: show_all={show_all}, approved_only={approved_only}, user_id_for_access_control={user_id_for_access_control}, current_user.id={current_user.id}")
+        
+        items, total = item_service.get_items(filters, user_id_for_access_control)
+        
+        return ItemListResponse(
+            items=items,
+            total=total,
+            skip=skip,
+            limit=limit,
+            has_more=(skip + limit) < total
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving items: {str(e)}")
+
+@router.get("/search/", response_model=ItemListResponse)
+@require_permission("can_manage_items")
+async def search_items(
+    request: Request,
+    q: str = Query(..., description="Search term"),
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
+    user_id: Optional[str] = Query(None, description="Filter by user ID"),
+    status: Optional[str] = Query(None, description="Filter by status (cancelled, approved, pending)"),
+    approved_only: bool = Query(False, description="DEPRECATED: Use status=approved instead. Only return approved items"),
+    include_deleted: bool = Query(False, description="Include soft-deleted items"),
+    item_type_id: Optional[str] = Query(None, description="Filter by item type"),
+    branch_id: Optional[str] = Query(None, description="Filter by branch ID"),
+    date_from: Optional[str] = Query(None, description="Filter items created from this date (YYYY-MM-DD)"),
+    date_to: Optional[str] = Query(None, description="Filter items created until this date (YYYY-MM-DD)"),
+    show_all: bool = Query(False, description="Show all items regardless of branch access (skip branch-based filtering)"),
+    db: Session = Depends(get_session),
+    item_service: ItemService = Depends(get_item_service),
+    current_user = Depends(get_current_user_required)
+):
+    """
+    Search items by title or description
+    Requires: can_manage_items permission (users can always view their own items)
+    """
+    try:
+        # Parse date strings to datetime objects
+        parsed_date_from = None
+        parsed_date_to = None
+        
+        if date_from:
+            try:
+                parsed_date_from = datetime.strptime(date_from, "%Y-%m-%d")
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date_from format. Use YYYY-MM-DD")
+        
+        if date_to:
+            try:
+                parsed_date_to = datetime.strptime(date_to, "%Y-%m-%d")
+                # Set to end of day for inclusive filtering
+                parsed_date_to = parsed_date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date_to format. Use YYYY-MM-DD")
+        
+        # Parse status if provided
+        status_enum = None
+        if status:
+            try:
+                status_enum = ItemStatus(status.lower())
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid status: {status}. Valid values are: cancelled, approved, pending")
+        
+        filters = ItemFilterRequest(
+            skip=skip,
+            limit=limit,
+            user_id=user_id,
+            status=status_enum,
+            approved_only=approved_only,
+            include_deleted=include_deleted,
+            item_type_id=item_type_id,
+            branch_id=branch_id,
+            date_from=parsed_date_from,
+            date_to=parsed_date_to
+        )
+        
+        # When approved_only is True or show_all is True, show all items (skip branch-based access control)
         # This allows the public search page to display all approved items, or users to view all items
         # Otherwise, apply branch-based access control for regular queries
-        user_id_for_access_control = None if (approved_only or status_enum == ItemStatus.APPROVED or show_all) else current_user.id
+        # NOTE: We don't bypass branch filtering based on status - users should only see items they manage
+        # regardless of status when show_all=False
+        user_id_for_access_control = None if (approved_only or show_all) else current_user.id
         
         items, total = item_service.search_items(q, filters, user_id_for_access_control)
         
@@ -271,7 +286,7 @@ async def search_items(
         raise HTTPException(status_code=500, detail=f"Error searching items: {str(e)}")
 
 @router.get("/users/{user_id}/items", response_model=ItemListResponse)
-@require_any_permission(["can_view_items", "can_view_own_items"])
+@require_permission("can_manage_items")
 async def get_user_items(
     user_id: str,
     request: Request,
@@ -283,7 +298,7 @@ async def get_user_items(
 ):
     """
     Get all items for a specific user
-    Requires: can_view_items OR can_view_own_items permission
+    Requires: can_manage_items permission (users can always view their own items)
     """
     try:
         items, total = item_service.get_items_by_user(user_id, include_deleted, skip, limit)
@@ -301,7 +316,7 @@ async def get_user_items(
         raise HTTPException(status_code=500, detail=f"Error retrieving user items: {str(e)}")
 
 @router.get("/statistics/", response_model=dict)
-@require_permission("can_view_statistics")
+@require_permission("can_view_analytics")
 async def get_item_statistics(
     request: Request,
     user_id: Optional[str] = Query(None, description="Get statistics for specific user"),
@@ -310,7 +325,7 @@ async def get_item_statistics(
 ):
     """
     Get item statistics
-    Requires: can_view_statistics permission
+    Requires: can_view_analytics permission
     """
     try:
         stats = item_service.get_item_statistics(user_id)
@@ -319,7 +334,7 @@ async def get_item_statistics(
         raise HTTPException(status_code=500, detail=f"Error retrieving statistics: {str(e)}")
 
 @router.get("/pending-count", response_model=dict)
-@require_permission("can_view_items")
+@require_permission("can_manage_items")
 async def get_pending_items_count(
     request: Request,
     db: Session = Depends(get_session),
@@ -328,7 +343,7 @@ async def get_pending_items_count(
 ):
     """
     Get count of pending items accessible to the current user based on branch assignments
-    Requires: can_view_items permission
+    Requires: can_manage_items permission
     """
     import json
     import os
@@ -418,7 +433,7 @@ async def get_public_item(
         raise HTTPException(status_code=500, detail=f"Error retrieving public item: {str(e)}")
 
 @router.get("/{item_id}", response_model=ItemDetailResponse)
-@require_permission("can_view_items")
+@require_permission("can_manage_items")
 async def get_item(
     item_id: str,
     request: Request,
@@ -428,7 +443,7 @@ async def get_item(
 ):
     """
     Get a single item by ID with related data
-    Requires: can_view_items permission
+    Requires: can_manage_items permission (users can always view their own items)
     """
     try:
         item = item_service.get_item_detail_by_id(item_id, include_deleted)
@@ -443,7 +458,7 @@ async def get_item(
 # ===========================
 
 @router.put("/{item_id}", response_model=ItemResponse)
-@require_permission("can_edit_items")
+@require_permission("can_manage_items")
 async def update_item(
     item_id: str,
     update_data: UpdateItemRequest,
@@ -454,7 +469,7 @@ async def update_item(
 ):
     """
     Update an existing item
-    Requires: can_edit_items permission
+    Requires: can_manage_items permission
     """
     try:
         item = item_service.update_item(item_id, update_data)
@@ -465,7 +480,7 @@ async def update_item(
         raise HTTPException(status_code=500, detail=f"Error updating item: {str(e)}")
 
 @router.patch("/{item_id}", response_model=ItemResponse)
-@require_permission("can_edit_items")
+@require_permission("can_manage_items")
 async def patch_item(
     item_id: str,
     update_data: dict,
@@ -476,7 +491,7 @@ async def patch_item(
 ):
     """
     Partially update an existing item with location history tracking
-    Requires: can_edit_items permission
+    Requires: can_manage_items permission
     """
     try:
         item = item_service.patch_item(item_id, update_data)
@@ -487,7 +502,7 @@ async def patch_item(
         raise HTTPException(status_code=500, detail=f"Error patching item: {str(e)}")
 
 @router.patch("/{item_id}/toggle-approval", response_model=ItemResponse)
-@require_permission("can_approve_items")
+@require_permission("can_manage_items")
 async def toggle_item_approval(
     item_id: str,
     request: Request,
@@ -497,7 +512,7 @@ async def toggle_item_approval(
 ):
     """
     Toggle the approval status of an item (toggles between approved and pending)
-    Requires: can_approve_items permission
+    Requires: can_manage_items permission
     """
     try:
         item = item_service.toggle_approval(item_id)
@@ -508,7 +523,7 @@ async def toggle_item_approval(
         raise HTTPException(status_code=500, detail=f"Error toggling approval: {str(e)}")
 
 @router.patch("/{item_id}/status", response_model=ItemResponse)
-@require_permission("can_approve_items")
+@require_permission("can_manage_items")
 async def update_item_status(
     item_id: str,
     new_status: ItemStatus,
@@ -519,7 +534,7 @@ async def update_item_status(
 ):
     """
     Update item status explicitly
-    Requires: can_approve_items permission
+    Requires: can_manage_items permission
     """
     try:
         from app.models import ItemStatus as ModelItemStatus
@@ -533,7 +548,7 @@ async def update_item_status(
         raise HTTPException(status_code=500, detail=f"Error updating status: {str(e)}")
 
 @router.patch("/{item_id}/approve", response_model=ItemResponse)
-@require_permission("can_approve_items")
+@require_permission("can_manage_items")
 async def approve_item(
     item_id: str,
     request: Request,
@@ -544,7 +559,7 @@ async def approve_item(
     """
     Approve an item (change status from pending to approved)
     Requires: item status must be 'pending' and item must have an approved claim
-    Requires: can_approve_items permission
+    Requires: can_manage_items permission
     """
     try:
         item = item_service.approve_item(item_id)
@@ -580,7 +595,7 @@ async def update_claims_count(
 # ===========================
 
 @router.delete("/{item_id}", response_model=DeleteItemResponse)
-@require_permission("can_delete_items")
+@require_permission("can_manage_items")
 async def delete_item(
     item_id: str,
     request: Request,
@@ -591,7 +606,7 @@ async def delete_item(
 ):
     """
     Delete an item (soft delete by default, permanent if specified)
-    Requires: can_delete_items permission
+    Requires: can_manage_items permission
     """
     try:
         item_service.delete_item(item_id, permanent)
@@ -607,7 +622,7 @@ async def delete_item(
         raise HTTPException(status_code=500, detail=f"Error deleting item: {str(e)}")
 
 @router.patch("/{item_id}/restore", response_model=ItemResponse)
-@require_permission("can_restore_items")
+@require_permission("can_manage_items")
 async def restore_item(
     item_id: str,
     request: Request,
@@ -617,7 +632,7 @@ async def restore_item(
 ):
     """
     Restore a soft-deleted item
-    Requires: can_restore_items permission
+    Requires: can_manage_items permission
     """
     try:
         item = item_service.restore_item(item_id)
@@ -632,7 +647,7 @@ async def restore_item(
 # ===========================
 
 @router.post("/bulk/delete", response_model=BulkOperationResponse)
-@require_permission("can_bulk_delete_items")
+@require_permission("can_manage_items")
 async def bulk_delete_items(
     request: BulkDeleteRequest,
     req: Request,
@@ -642,7 +657,7 @@ async def bulk_delete_items(
 ):
     """
     Bulk delete multiple items
-    Requires: can_bulk_delete_items permission
+    Requires: can_manage_items permission
     """
     try:
         result = item_service.bulk_delete(request)
@@ -655,7 +670,7 @@ async def bulk_delete_items(
         raise HTTPException(status_code=500, detail=f"Error in bulk delete: {str(e)}")
 
 @router.put("/bulk/update", response_model=BulkOperationResponse)
-@require_permission("can_bulk_edit_items")
+@require_permission("can_manage_items")
 async def bulk_update_items(
     request: BulkUpdateRequest,
     req: Request,
@@ -665,7 +680,7 @@ async def bulk_update_items(
 ):
     """
     Bulk update multiple items
-    Requires: can_bulk_edit_items permission
+    Requires: can_manage_items permission
     """
     try:
         result = item_service.bulk_update(request)
@@ -678,7 +693,7 @@ async def bulk_update_items(
         raise HTTPException(status_code=500, detail=f"Error in bulk update: {str(e)}")
 
 @router.patch("/bulk/approval", response_model=BulkOperationResponse)
-@require_all_permissions(["can_approve_items", "can_bulk_edit_items"])
+@require_permission("can_manage_items")
 async def bulk_approval_items(
     request: BulkApprovalRequest,
     req: Request,
@@ -688,7 +703,7 @@ async def bulk_approval_items(
 ):
     """
     Bulk update approval status for multiple items (DEPRECATED: use bulk/status instead)
-    Requires: BOTH can_approve_items AND can_bulk_edit_items permissions
+    Requires: can_manage_items permission
     """
     try:
         result = item_service.bulk_approval(request)
@@ -701,7 +716,7 @@ async def bulk_approval_items(
         raise HTTPException(status_code=500, detail=f"Error in bulk approval: {str(e)}")
 
 @router.patch("/bulk/status", response_model=BulkOperationResponse)
-@require_all_permissions(["can_approve_items", "can_bulk_edit_items"])
+@require_permission("can_manage_items")
 async def bulk_update_status(
     request: BulkStatusRequest,
     req: Request,
@@ -711,7 +726,7 @@ async def bulk_update_status(
 ):
     """
     Bulk update status for multiple items
-    Requires: BOTH can_approve_items AND can_bulk_edit_items permissions
+    Requires: can_manage_items permission
     """
     try:
         result = item_service.bulk_update_status(request)
