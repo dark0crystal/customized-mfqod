@@ -7,12 +7,16 @@ from app.db.database import get_session
 from app.utils.permission_decorator import extract_user_from_token
 from app.schemas.image_schema import UploadImageRequest
 from app.services.imageService import ImageService
+from app.middleware.auth_middleware import get_current_user_required
+from app.models import User
+from app.utils.permission_decorator import require_permission
 import shutil
 from pathlib import Path
 from PIL import Image
 import io
 import logging
 from fastapi.responses import FileResponse
+from typing import Optional
 
 router = APIRouter()
 
@@ -171,10 +175,23 @@ async def serve_image(filename: str):
 @router.get("/items/{item_id}/images/")
 async def get_item_images(
     item_id: str,
+    request: Request,
     db: Session = Depends(get_session),
     image_service: ImageService = Depends(get_image_service)
 ):
-    images = image_service.get_images_by_item_id(item_id)
+    """Get images for an item, filtering hidden images based on user permissions"""
+    # Try to get current user if authenticated
+    user: Optional[User] = None
+    try:
+        user_id = extract_user_from_token(request)
+        if user_id:
+            from app.models import User
+            user = db.query(User).filter(User.id == user_id).first()
+    except:
+        # User not authenticated, will get only non-hidden images
+        pass
+    
+    images = image_service.get_images_by_item_id(item_id, user=user)
     return images
 
 @router.post("/images/attach/", response_model=dict)
@@ -187,9 +204,10 @@ async def attach_image(
         image = image_service.upload_image(
             url=image_data.url,
             imageable_type=image_data.imageable_type,
-            imageable_id=image_data.imageable_id
+            imageable_id=image_data.imageable_id,
+            is_hidden=image_data.is_hidden if hasattr(image_data, 'is_hidden') else False
         )
-        return {"id": image.id, "url": image.url, "imageable_type": image.imageable_type, "imageable_id": image.imageable_id}
+        return {"id": image.id, "url": image.url, "imageable_type": image.imageable_type, "imageable_id": image.imageable_id, "is_hidden": image.is_hidden}
     except Exception as e:
         logging.error(f"Attach image failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -199,6 +217,7 @@ async def upload_image_to_item(
     item_id: str,
     request: Request,
     file: UploadFile = File(...),
+    is_hidden: bool = Form(False),
     db: Session = Depends(get_session),
     image_service: ImageService = Depends(get_image_service)
 ):
@@ -247,7 +266,8 @@ async def upload_image_to_item(
             image = image_service.upload_image(
                 url=image_url,
                 imageable_type="item",
-                imageable_id=item_id
+                imageable_id=item_id,
+                is_hidden=is_hidden
             )
         except Exception as e:
             if os.path.exists(file_path):
@@ -270,6 +290,7 @@ async def upload_image_to_item(
                 "url": image.url,
                 "imageable_type": image.imageable_type,
                 "imageable_id": image.imageable_id,
+                "is_hidden": image.is_hidden,
                 "filename": unique_filename,
                 "original_filename": file.filename,
                 "file_size": os.path.getsize(file_path),
@@ -291,6 +312,7 @@ async def upload_multiple_images(
     imageable_type: str = Form(...),
     imageable_id: str = Form(...),
     files: List[UploadFile] = File(...),
+    is_hidden: bool = Form(False),
     db: Session = Depends(get_session),
     image_service: ImageService = Depends(get_image_service)
 ):
@@ -356,7 +378,8 @@ async def upload_multiple_images(
                 image = image_service.upload_image(
                     url=image_url,
                     imageable_type=imageable_type,
-                    imageable_id=imageable_id
+                    imageable_id=imageable_id,
+                    is_hidden=is_hidden
                 )
             except Exception as e:
                 logging.error(f"Database operation failed for '{file.filename}': {e}")
@@ -369,6 +392,7 @@ async def upload_multiple_images(
             uploaded_images.append({
                 "id": image.id,
                 "url": image.url,
+                "is_hidden": image.is_hidden,
                 "filename": unique_filename,
                 "original_filename": file.filename
             })
@@ -429,5 +453,52 @@ async def delete_image(
     except Exception as e:
         logging.error(f"Delete failed: {e}")
         raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+
+@router.patch("/{image_id}/toggle-hidden/")
+@require_permission("can_manage_items")
+async def toggle_image_hidden_status(
+    image_id: str,
+    db: Session = Depends(get_session),
+    image_service: ImageService = Depends(get_image_service),
+    current_user: User = Depends(get_current_user_required)
+):
+    """Toggle the hidden status of an image. Requires can_manage_items permission."""
+    image = image_service.toggle_image_hidden_status(image_id)
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    return {
+        "success": True,
+        "message": "Image hidden status toggled successfully",
+        "data": {
+            "id": image.id,
+            "url": image.url,
+            "is_hidden": image.is_hidden
+        }
+    }
+
+@router.patch("/{image_id}/set-hidden/")
+@require_permission("can_manage_items")
+async def set_image_hidden_status(
+    image_id: str,
+    is_hidden: bool = Form(...),
+    db: Session = Depends(get_session),
+    image_service: ImageService = Depends(get_image_service),
+    current_user: User = Depends(get_current_user_required)
+):
+    """Set the hidden status of an image. Requires can_manage_items permission."""
+    image = image_service.update_image_hidden_status(image_id, is_hidden)
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    return {
+        "success": True,
+        "message": f"Image hidden status set to {is_hidden}",
+        "data": {
+            "id": image.id,
+            "url": image.url,
+            "is_hidden": image.is_hidden
+        }
+    }
 
 
