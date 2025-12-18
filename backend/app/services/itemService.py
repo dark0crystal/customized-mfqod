@@ -381,17 +381,35 @@ class ItemService:
         
         return self._item_to_response(item)
     
-    def update_status(self, item_id: str, new_status: ItemStatus) -> Optional[ItemResponse]:
+    def update_status(self, item_id: str, new_status: ItemStatus, user_id: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> Optional[ItemResponse]:
         """Update item status explicitly"""
         item = self.get_item_by_id(item_id)
         if not item:
             raise ValueError("Item not found")
         
+        old_status = item.status
         item.status = new_status.value
         item.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
         self.db.refresh(item)
+        
+        # Log the status change if user_id is provided
+        if user_id and old_status != new_status.value:
+            try:
+                from app.services.auditLogService import AuditLogService
+                from app.models import AuditActionType
+                audit_service = AuditLogService(self.db)
+                audit_service.create_item_status_change_log(
+                    item_id=item_id,
+                    old_status=old_status,
+                    new_status=new_status.value,
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+            except Exception as e:
+                logger.error(f"Failed to create audit log for item status change: {e}")
         
         return self._item_to_response(item)
     
@@ -538,7 +556,7 @@ class ItemService:
     # Delete Operations
     # ===========================
     
-    def delete_item(self, item_id: str, permanent: bool = False) -> bool:
+    def delete_item(self, item_id: str, permanent: bool = False, user_id: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> bool:
         """Delete an item (soft delete by default, permanent deletes all related data)"""
         item = self.db.query(Item).filter(Item.id == item_id).first()
         if not item:
@@ -571,9 +589,25 @@ class ItemService:
             item.updated_at = datetime.now(timezone.utc)
         
         self.db.commit()
+        
+        # Log the deletion if user_id is provided
+        if user_id:
+            try:
+                from app.services.auditLogService import AuditLogService
+                audit_service = AuditLogService(self.db)
+                audit_service.create_item_deletion_log(
+                    item_id=item_id,
+                    permanent=permanent,
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+            except Exception as e:
+                logger.error(f"Failed to create audit log for item deletion: {e}")
+        
         return True
     
-    def restore_item(self, item_id: str) -> Optional[ItemResponse]:
+    def restore_item(self, item_id: str, user_id: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> Optional[ItemResponse]:
         """Restore a soft-deleted item"""
         item = self.db.query(Item).filter(Item.id == item_id).first()
         if not item:
@@ -587,6 +621,20 @@ class ItemService:
         
         self.db.commit()
         self.db.refresh(item)
+        
+        # Log the restoration if user_id is provided
+        if user_id:
+            try:
+                from app.services.auditLogService import AuditLogService
+                audit_service = AuditLogService(self.db)
+                audit_service.create_item_restoration_log(
+                    item_id=item_id,
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+            except Exception as e:
+                logger.error(f"Failed to create audit log for item restoration: {e}")
         
         return self._item_to_response(item)
     
