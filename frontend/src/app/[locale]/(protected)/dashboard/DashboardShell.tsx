@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import SideNavbar from "./SideNavbar";
 import Brand from "@/components/navbar/Brand";
 import { useDirection } from "@/components/DirectionProvider";
+import { tokenManager } from '@/utils/tokenManager';
+import { usePermissions } from '@/PermissionsContext';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -13,6 +15,7 @@ interface DashboardShellProps {
 
 export default function DashboardShell({ children, initialDirection }: DashboardShellProps) {
   const { direction } = useDirection();
+  const { permissions, userRole, roleId, isAuthenticated, isLoading: permissionsLoading } = usePermissions();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [resolvedDirection, setResolvedDirection] = useState<'ltr' | 'rtl'>(() => {
     if (initialDirection) return initialDirection;
@@ -21,6 +24,16 @@ export default function DashboardShell({ children, initialDirection }: Dashboard
     }
     return direction;
   });
+
+  // Log when DashboardShell mounts
+  useEffect(() => {
+    console.log('[DASHBOARD_SHELL] Component mounted');
+    console.log('[DASHBOARD_SHELL] Permissions loading:', permissionsLoading);
+    console.log('[DASHBOARD_SHELL] Is authenticated:', isAuthenticated);
+    console.log('[DASHBOARD_SHELL] User role:', userRole);
+    console.log('[DASHBOARD_SHELL] Role ID:', roleId);
+    console.log('[DASHBOARD_SHELL] Permissions count:', permissions.length);
+  }, [permissionsLoading, isAuthenticated, userRole, roleId, permissions.length]);
 
   // Sync with direction after hydration to avoid initial LTR flash for RTL locales
   React.useEffect(() => {
