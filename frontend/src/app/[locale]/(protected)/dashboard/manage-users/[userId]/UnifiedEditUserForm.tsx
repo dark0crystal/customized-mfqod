@@ -116,12 +116,15 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                 const rolesRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/roles/all`, { headers });
                 if (rolesRes.ok) {
                     const rolesData = await rolesRes.json();
-                    // Filter roles: Only super_admin can assign super_admin/admin
-                    const filteredRoles = rolesData.filter((r: Role) => {
-                        const rName = r.name.toLowerCase();
-                        if (rName === 'super_admin' || rName === 'admin') return currentUserRole === 'super_admin';
-                        return true;
-                    });
+                    // Filter roles: Only users with can_manage_roles permission can assign all roles
+                    // Backend will enforce additional restrictions for roles with full access
+                    const filteredRoles = hasPermission('can_manage_roles') 
+                        ? rolesData 
+                        : rolesData.filter((r: Role) => {
+                            // Users without can_manage_roles can only see non-admin roles
+                            const rName = r.name.toLowerCase();
+                            return rName !== 'super_admin' && rName !== 'admin';
+                        });
                     setRoles(filteredRoles);
                 }
 
@@ -149,7 +152,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
         if (userId && hasPermission('can_manage_users')) {
             fetchAllData();
         }
-    }, [userId, setValue, currentUserRole, hasPermission]);
+    }, [userId, setValue, hasPermission]);
 
     // Fetch branches when Org changes
     useEffect(() => {
