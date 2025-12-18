@@ -2,12 +2,14 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { usePermissions } from "@/PermissionsContext";
 import ReportMissingItemForm from "@/components/forms/ReportMissingItemForm";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
 export default function ReportMissingItem() {
   const router = useRouter();
+  const t = useTranslations('common');
   const { hasPermission, isLoading, isAuthenticated } = usePermissions();
 
   useEffect(() => {
@@ -40,13 +42,13 @@ export default function ReportMissingItem() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600 mb-4">You don't have permission to report missing items.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('accessDenied')}</h2>
+          <p className="text-gray-600 mb-4">{t('noPermissionToReportMissingItems')}</p>
           <button
             onClick={() => router.push('/dashboard')}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Go to Dashboard
+            {t('goToDashboard')}
           </button>
         </div>
       </div>
