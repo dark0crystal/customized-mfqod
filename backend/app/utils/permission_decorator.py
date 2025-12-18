@@ -162,10 +162,10 @@ def require_permission(permission_name: str):
             # Extract user ID from token
             user_id = extract_user_from_token(request)
             
-            # Check if user is super admin first (admins have access to everything)
-            if permissionServices.is_super_admin(session, user_id):
-                # Super admin has access to everything - skip permission check
-                logger.info(f"Super admin user {user_id} granted access to permission '{permission_name}'")
+            # Check if user has full access first (users with all permissions have access to everything)
+            if permissionServices.has_full_access(session, user_id):
+                # User with full access has access to everything - skip permission check
+                logger.info(f"User with full access {user_id} granted access to permission '{permission_name}'")
                 pass
             else:
                 # Check if user has the required permission using the permission service
@@ -251,10 +251,10 @@ def require_any_permission(permission_names: List[str]):
             # Extract user ID from token
             user_id = extract_user_from_token(request)
             
-            # Check if user is super admin first (admins have access to everything)
-            if permissionServices.is_super_admin(session, user_id):
-                # Super admin has access to everything - skip permission check
-                logger.info(f"Super admin user {user_id} granted access to any of permissions: {permission_names}")
+            # Check if user has full access first (users with all permissions have access to everything)
+            if permissionServices.has_full_access(session, user_id):
+                # User with full access has access to everything - skip permission check
+                logger.info(f"User with full access {user_id} granted access to any of permissions: {permission_names}")
                 pass
             else:
                 # Check if user has any of the required permissions
@@ -341,10 +341,10 @@ def require_all_permissions(permission_names: List[str]):
             # Extract user ID from token
             user_id = extract_user_from_token(request)
             
-            # Check if user is super admin first (admins have access to everything)
-            if permissionServices.is_super_admin(session, user_id):
-                # Super admin has access to everything - skip permission check
-                logger.info(f"Super admin user {user_id} granted access to all permissions: {permission_names}")
+            # Check if user has full access first (users with all permissions have access to everything)
+            if permissionServices.has_full_access(session, user_id):
+                # User with full access has access to everything - skip permission check
+                logger.info(f"User with full access {user_id} granted access to all permissions: {permission_names}")
                 pass
             else:
                 # Check if user has all required permissions
@@ -374,10 +374,10 @@ def require_all_permissions(permission_names: List[str]):
 # Alternative: Create a dependency for getting current user
 def require_super_admin():
     """
-    Decorator to protect routes that require super admin (admin role) access only.
+    Decorator to protect routes that require full system access (all permissions).
     
     This decorator automatically extracts the user ID from the request token
-    and checks if the user has the admin role.
+    and checks if the user has all permissions in the system.
     
     Usage:
     @require_super_admin()
@@ -385,12 +385,12 @@ def require_super_admin():
         pass
     
     Returns:
-        Callable: The decorated function with super admin checking logic.
+        Callable: The decorated function with full access checking logic.
     
     Raises:
         HTTPException: 
             - 401 if token is missing, invalid, or expired
-            - 403 if user is not a super admin
+            - 403 if user does not have full system access
             - 500 if request or database session is not available
     """
     def decorator(func: Callable) -> Callable:
@@ -427,14 +427,14 @@ def require_super_admin():
             # Extract user ID from token
             user_id = extract_user_from_token(request)
             
-            # Check if user is super admin
-            if not permissionServices.is_super_admin(session, user_id):
+            # Check if user has full access (all permissions)
+            if not permissionServices.has_full_access(session, user_id):
                 raise HTTPException(
                     status_code=403, 
-                    detail="Super admin access required"
+                    detail="Full system access required (user must have all permissions)"
                 )
             
-            # Super admin access verified, execute the original function
+            # Full access verified, execute the original function
             import inspect
             
             # Check if the function is async
