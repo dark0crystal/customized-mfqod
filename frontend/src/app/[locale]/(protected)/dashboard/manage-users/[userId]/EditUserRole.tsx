@@ -156,15 +156,16 @@ export default function EditUserRole({ userId }: { userId: string }) {
     );
   }
 
-  // Filter roles based on current user's role
-  // Only super_admin can assign super_admin or admin roles
-  const availableRoles = roles.filter(role => {
-    const roleNameLower = role.name.toLowerCase();
-    if (roleNameLower === 'super_admin' || roleNameLower === 'admin') {
-      return userRole === 'super_admin';
-    }
-    return true;
-  });
+  // Filter roles based on current user's permissions
+  // Only users with can_manage_roles permission can assign all roles
+  // Backend will enforce additional restrictions for roles with full access
+  const availableRoles = hasPermission('can_manage_roles')
+    ? roles
+    : roles.filter(role => {
+        // Users without can_manage_roles can only see non-admin roles
+        const roleNameLower = role.name.toLowerCase();
+        return roleNameLower !== 'super_admin' && roleNameLower !== 'admin';
+      });
 
   // Check if user is trying to edit themselves
   const isEditingSelf = currentUserId === userId;
@@ -218,9 +219,9 @@ export default function EditUserRole({ userId }: { userId: string }) {
         {/* Submit Button */}
         <button
           onClick={handleSubmit}
-          disabled={isSubmitting || !selectedRole || (isEditingSelf && (selectedRole.toLowerCase() === 'admin' || selectedRole.toLowerCase() === 'super_admin'))}
+          disabled={isSubmitting || !selectedRole}
           className="w-full px-4 py-3 text-white rounded-md hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-          style={{ backgroundColor: isSubmitting || !selectedRole || (isEditingSelf && (selectedRole.toLowerCase() === 'admin' || selectedRole.toLowerCase() === 'super_admin')) ? undefined : '#3277AE' }}
+          style={{ backgroundColor: isSubmitting || !selectedRole ? undefined : '#3277AE' }}
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center">
