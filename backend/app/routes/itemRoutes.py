@@ -35,6 +35,8 @@ from app.middleware.branch_auth_middleware import (
     require_branch_access_for_bulk_operations
 )
 from app.middleware.auth_middleware import get_current_user_required
+from app.services.auth_service import AuthService
+from app.models import User
 
 router = APIRouter()
 
@@ -530,6 +532,7 @@ async def update_item_status(
     request: Request,
     db: Session = Depends(get_session),
     item_service: ItemService = Depends(get_item_service),
+    current_user: User = Depends(get_current_user_required),
     _: None = Depends(require_branch_access())
 ):
     """
@@ -540,7 +543,11 @@ async def update_item_status(
         from app.models import ItemStatus as ModelItemStatus
         # Convert schema enum to model enum
         model_status = ModelItemStatus(new_status.value)
-        item = item_service.update_status(item_id, model_status)
+        # Get request info for audit logging
+        auth_service = AuthService()
+        ip_address = auth_service._get_client_ip(request)
+        user_agent = request.headers.get("user-agent", "")
+        item = item_service.update_status(item_id, model_status, current_user.id, ip_address, user_agent)
         return item
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -602,6 +609,7 @@ async def delete_item(
     permanent: bool = Query(False, description="Permanently delete the item"),
     db: Session = Depends(get_session),
     item_service: ItemService = Depends(get_item_service),
+    current_user: User = Depends(get_current_user_required),
     _: None = Depends(require_branch_access())
 ):
     """
@@ -609,7 +617,11 @@ async def delete_item(
     Requires: can_manage_items permission
     """
     try:
-        item_service.delete_item(item_id, permanent)
+        # Get request info for audit logging
+        auth_service = AuthService()
+        ip_address = auth_service._get_client_ip(request)
+        user_agent = request.headers.get("user-agent", "")
+        item_service.delete_item(item_id, permanent, current_user.id, ip_address, user_agent)
         
         return DeleteItemResponse(
             message="Item permanently deleted" if permanent else "Item marked for deletion",
@@ -628,6 +640,7 @@ async def restore_item(
     request: Request,
     db: Session = Depends(get_session),
     item_service: ItemService = Depends(get_item_service),
+    current_user: User = Depends(get_current_user_required),
     _: None = Depends(require_branch_access())
 ):
     """
@@ -635,7 +648,11 @@ async def restore_item(
     Requires: can_manage_items permission
     """
     try:
-        item = item_service.restore_item(item_id)
+        # Get request info for audit logging
+        auth_service = AuthService()
+        ip_address = auth_service._get_client_ip(request)
+        user_agent = request.headers.get("user-agent", "")
+        item = item_service.restore_item(item_id, current_user.id, ip_address, user_agent)
         return item
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

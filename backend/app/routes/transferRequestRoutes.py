@@ -10,6 +10,7 @@ from app.schemas.transfer_request_schema import (
 )
 from app.middleware.auth_middleware import get_current_user_required
 from app.models import User
+from app.services.auth_service import AuthService
 
 router = APIRouter()
 
@@ -94,8 +95,8 @@ async def get_incoming_transfer_requests(
             # User can approve/reject only if:
             # 1. They manage the destination branch (to_branch_id)
             # 2. They do NOT manage the source branch (from_branch_id)
-            manages_destination = managed_branch_ids and req.to_branch_id in managed_branch_ids
-            manages_source = managed_branch_ids and req.from_branch_id in managed_branch_ids
+            manages_destination = bool(managed_branch_ids and req.to_branch_id in managed_branch_ids)
+            manages_source = bool(managed_branch_ids and req.from_branch_id in managed_branch_ids)
             can_approve = manages_destination and not manages_source
             result.append(transfer_service.to_response(req, can_approve=can_approve))
         
@@ -137,9 +138,15 @@ async def approve_transfer_request(
 ):
     """Approve a transfer request"""
     try:
+        # Get request info for audit logging
+        auth_service = AuthService()
+        ip_address = auth_service._get_client_ip(request)
+        user_agent = request.headers.get("user-agent", "")
         transfer_request = transfer_service.approve_transfer_request(
             request_id,
-            current_user.id
+            current_user.id,
+            ip_address,
+            user_agent
         )
         return transfer_service.to_response(transfer_request)
     except HTTPException:
@@ -157,11 +164,17 @@ async def reject_transfer_request(
 ):
     """Reject a transfer request"""
     try:
+        # Get request info for audit logging
+        auth_service = AuthService()
+        ip_address = auth_service._get_client_ip(request)
+        user_agent = request.headers.get("user-agent", "")
         notes = rejection_data.notes if rejection_data else None
         transfer_request = transfer_service.reject_transfer_request(
             request_id,
             current_user.id,
-            notes
+            notes,
+            ip_address,
+            user_agent
         )
         return transfer_service.to_response(transfer_request)
     except HTTPException:

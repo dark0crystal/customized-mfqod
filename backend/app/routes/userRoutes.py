@@ -200,11 +200,20 @@ async def update_user_role(
     # Import permission services for full access check
     from app.services import permissionServices
     
+    # Check if user has permission to manage roles
+    if not permissionServices.check_user_permission(session, current_user_id, "can_manage_roles"):
+        if not permissionServices.has_full_access(session, current_user_id):
+            logger.warning(
+                f"User {current_user_id} attempted to assign role without can_manage_roles permission"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Permission 'can_manage_roles' is required to assign roles"
+            )
+    
     # Prevent role escalation: Only users with full access can assign roles with all permissions
     # Check if the role being assigned has all permissions (full access)
     if role_update.role_name:
-        role_name_lower = role_update.role_name.lower()
-        
         # Get the role to check its permissions
         from app.models import Role
         target_role = session.query(Role).filter(Role.name == role_update.role_name).first()
@@ -222,7 +231,7 @@ async def update_user_role(
                 # Only users with full access can assign roles with full access
                 if not permissionServices.has_full_access(session, current_user_id):
                     logger.warning(
-                        f"User {current_user_id} attempted to assign {role_update.role_name} role without full access privileges"
+                        f"User {current_user_id} attempted to assign role with full access without full access privileges"
                     )
                     raise HTTPException(
                         status_code=403,
@@ -238,7 +247,7 @@ async def update_user_role(
             
             if has_all_permissions:
                 logger.warning(
-                    f"User {current_user_id} attempted to elevate their own role to {role_update.role_name}"
+                    f"User {current_user_id} attempted to elevate their own role to one with full access"
                 )
                 raise HTTPException(
                     status_code=403,
