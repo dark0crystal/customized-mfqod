@@ -46,6 +46,7 @@ const getAuthHeaders = () => {
 
 export default function EditUserManagement({ userId }: { userId: string }) {
   const t = useTranslations('userDetails');
+  const tCommon = useTranslations('common');
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting }, reset } = useForm<FormFields>();
   const locale = useLocale();
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
@@ -119,8 +120,8 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
         <div className="text-center py-12">
           <div className="text-red-500 text-4xl mb-4">🔒</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Access Denied</h3>
-          <p className="text-gray-600">You don't have permission to manage users.</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{tCommon('accessDenied')}</h3>
+          <p className="text-gray-600">{tCommon('noPermissionToManageUsers')}</p>
         </div>
       </div>
     );
