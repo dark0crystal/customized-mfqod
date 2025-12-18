@@ -210,11 +210,26 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
     let payload: JWTPayload | null = null;
 
     try {
-      console.log('Initializing permissions...');
+      console.log('========================================');
+      console.log('[PERMISSIONS] Initializing permissions...');
+      console.log('========================================');
 
       // Get JWT token from cookies
       token = getCookie('token') || getCookie('jwt') || getCookie('access_token');
-      console.log('Token found:', !!token);
+      const refreshToken = getCookie('refresh_token');
+      
+      // Helper to mask token
+      const maskToken = (t: string | null): string => {
+        if (!t) return 'null';
+        if (t.length <= 20) return t;
+        return `${t.substring(0, 10)}...${t.substring(t.length - 10)}`;
+      };
+      
+      console.log('[PERMISSIONS] Token Information:');
+      console.log('  - Access token found:', !!token);
+      console.log('  - Access token (masked):', maskToken(token));
+      console.log('  - Refresh token found:', !!refreshToken);
+      console.log('  - Refresh token (masked):', maskToken(refreshToken));
 
       if (!token) {
         console.log('No token found, setting as guest');
@@ -227,7 +242,17 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
 
       // Decode JWT to get role_id
       payload = decodeJWT(token);
-      console.log('Decoded JWT payload:', payload);
+      console.log('[PERMISSIONS] Decoded JWT Payload:');
+      console.log('  - Full payload:', payload);
+      if (payload) {
+        console.log('  - User ID:', payload.user_id || payload.sub);
+        console.log('  - Email:', payload.email);
+        console.log('  - Role:', payload.role);
+        console.log('  - Role ID:', payload.role_id);
+        console.log('  - Expires at:', payload.exp ? new Date(payload.exp * 1000).toISOString() : 'N/A');
+        console.log('  - Issued at:', payload.iat ? new Date(payload.iat * 1000).toISOString() : 'N/A');
+        console.log('  - Token expired:', payload.exp ? payload.exp * 1000 < Date.now() : 'Unknown');
+      }
 
       if (!payload) {
         console.log('Invalid token, setting as guest');
@@ -278,15 +303,28 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
 
       // Fetch permissions from API for all users (permission-based access)
       console.log(`[PERMISSIONS] Starting to fetch permissions for role_id: ${payload.role_id}`);
+      console.log(`[PERMISSIONS] API URL: ${API_BASE}/api/permissions/role/${payload.role_id}`);
       const fetchedPermissions = await fetchPermissions(payload.role_id, token);
       console.log(`[PERMISSIONS] Successfully fetched ${fetchedPermissions.length} permissions`);
       setPermissions(fetchedPermissions);
 
       // Determine user role based on permissions fetched from API
-      console.log('Fetched permissions:', fetchedPermissions);
+      console.log('[PERMISSIONS] Fetched permissions:', fetchedPermissions);
       console.log(`[PERMISSIONS] Permissions state updated with ${fetchedPermissions.length} items`);
+      if (fetchedPermissions.length > 0) {
+        console.log('[PERMISSIONS] Permission names:', fetchedPermissions.join(', '));
+      } else {
+        console.warn('[PERMISSIONS] WARNING: No permissions fetched!');
+      }
 
-      console.log('Permissions initialized successfully');
+      console.log('[PERMISSIONS] Final State:');
+      console.log('  - Is authenticated:', true);
+      console.log('  - User role:', payload.role?.toLowerCase() || 'user');
+      console.log('  - Role ID:', payload.role_id);
+      console.log('  - Permissions count:', fetchedPermissions.length);
+      console.log('========================================');
+      console.log('[PERMISSIONS] Permissions initialized successfully');
+      console.log('========================================');
 
     } catch (error) {
       console.error('[PERMISSIONS] Failed to initialize permissions:', error);
