@@ -51,38 +51,6 @@ class AuthMiddleware:
             logger.warning(f"Authentication failed: {e.detail}")
             raise e
     
-    def require_roles(self, required_roles: List[str]):
-        """
-        Dependency factory that requires specific roles
-        Usage: @app.get("/admin", dependencies=[Depends(auth.require_roles(["admin"]))])
-        Note: This checks role names. For permission-based access, use require_permissions instead.
-        """
-        async def role_checker(
-            current_user: User = Depends(self.require_authentication),
-            db: Session = Depends(get_session)
-        ) -> User:
-            if not current_user.role:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="User has no assigned role"
-                )
-            
-            # Full access bypass: If user has all permissions, grant access
-            if permissionServices.has_full_access(db, current_user.id):
-                logger.info(f"User with full access {current_user.email} granted access to roles: {required_roles}")
-                return current_user
-            
-            if current_user.role.name not in required_roles:
-                logger.warning(f"User {current_user.email} attempted to access resource requiring roles {required_roles} but has role {current_user.role.name}")
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Required roles: {', '.join(required_roles)}"
-                )
-            
-            return current_user
-        
-        return role_checker
-    
     def require_permissions(self, required_permissions: List[str]):
         """
         Dependency factory that requires specific permissions
@@ -205,16 +173,6 @@ def require_auth(f):
         # This is typically handled by FastAPI dependencies
         return await f(*args, **kwargs)
     return decorated_function
-
-def require_role(roles: List[str]):
-    """Decorator that requires specific roles"""
-    def decorator(f):
-        @wraps(f)
-        async def decorated_function(*args, **kwargs):
-            # This is typically handled by FastAPI dependencies
-            return await f(*args, **kwargs)
-        return decorated_function
-    return decorator
 
 def require_permission(permissions: List[str]):
     """Decorator that requires specific permissions"""
