@@ -181,7 +181,9 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
   const [selectedClaimId, setSelectedClaimId] = useState<string>('');
   const [pendingStatusChange, setPendingStatusChange] = useState<string | null>(null);
   const [showPendingDisclaimer, setShowPendingDisclaimer] = useState(false);
-  const [hideNewImages, setHideNewImages] = useState(false);
+  const [imageVisibility, setImageVisibility] = useState<string>('show');
+  const [showImageVisibilityModal, setShowImageVisibilityModal] = useState(false);
+  const [pendingImageVisibility, setPendingImageVisibility] = useState<string | null>(null);
 
   // Helper to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -683,7 +685,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
                   setShowEditForm(false);
                 }}
                 onCancel={() => setShowEditForm(false)}
-                hideNewImages={hideNewImages}
+                hideNewImages={imageVisibility === 'hide'}
               />
             ) : (
               /* Read-only Item Information Section */
@@ -900,26 +902,32 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
               </div>
             </div>
 
-            {/* Hide New Images Card - Only shown when editing */}
-            {showEditForm && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="hideNewImages"
-                    checked={hideNewImages}
-                    onChange={(e) => setHideNewImages(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+            {/* Image Visibility Card */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{tEdit('imageVisibility')}</h3>
+              <div className="mb-2">
+                <HydrationSafeWrapper fallback={<div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>}>
+                  <CustomDropdown
+                    options={[
+                      { value: 'show', label: tEdit('show') },
+                      { value: 'hide', label: tEdit('hide') }
+                    ]}
+                    value={imageVisibility}
+                    onChange={(value) => {
+                      if (value !== imageVisibility) {
+                        setPendingImageVisibility(value);
+                        setShowImageVisibilityModal(true);
+                      }
+                    }}
+                    placeholder={tEdit('imageVisibility')}
+                    className="w-full"
                   />
-                  <label htmlFor="hideNewImages" className="ml-6 text-sm text-gray-700 cursor-pointer">
-                    <span className="font-semibold">{tEdit('hideNewImages')}</span>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {tEdit('hideNewImagesDescription')}
-                    </p>
-                  </label>
-                </div>
+                </HydrationSafeWrapper>
               </div>
-            )}
+              <p className="text-xs text-gray-500 mt-2">
+                {tEdit('hideNewImagesDescription')}
+              </p>
+            </div>
 
             {/* Location Card */}
             <div className="bg-white rounded-lg shadow-sm p-6">
@@ -1221,6 +1229,68 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
                       className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                       {isUpdating ? (t('updating') || 'Updating...') : (t('confirm') || 'Continue')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Image Visibility Change Confirmation Modal */}
+            {showImageVisibilityModal && pendingImageVisibility && (
+              <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black bg-opacity-50">
+                <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                  <div className="mb-4">
+                    <h3 className="text-xl font-semibold text-gray-900">{tEdit('confirmImageVisibilityChange')}</h3>
+                  </div>
+
+                  <div className="mb-6">
+                    <p className="text-gray-700 mb-3">
+                      {tEdit('imageVisibilityChangeDescription')}
+                    </p>
+                    <div className={`border rounded-lg p-3 ${
+                      pendingImageVisibility === 'hide' 
+                        ? 'bg-orange-50 border-orange-200' 
+                        : 'bg-blue-50 border-blue-200'
+                    }`}>
+                      <p className={`text-sm font-medium mb-1 ${
+                        pendingImageVisibility === 'hide' 
+                          ? 'text-orange-800' 
+                          : 'text-blue-800'
+                      }`}>
+                        {pendingImageVisibility === 'hide' ? tEdit('hide') : tEdit('show')}
+                      </p>
+                      <p className={`text-xs ${
+                        pendingImageVisibility === 'hide' 
+                          ? 'text-orange-700' 
+                          : 'text-blue-700'
+                      }`}>
+                        {pendingImageVisibility === 'hide' 
+                          ? tEdit('imageVisibilityHideDescription')
+                          : tEdit('imageVisibilityShowDescription')
+                        }
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowImageVisibilityModal(false);
+                        setPendingImageVisibility(null);
+                      }}
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                    >
+                      {tEdit('cancel')}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setImageVisibility(pendingImageVisibility);
+                        setShowImageVisibilityModal(false);
+                        setPendingImageVisibility(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      {tEdit('saveChanges')}
                     </button>
                   </div>
                 </div>
