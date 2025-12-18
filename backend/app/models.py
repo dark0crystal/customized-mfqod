@@ -29,8 +29,7 @@ class ItemStatus(enum.Enum):
     """Item status enumeration"""
     CANCELLED = "cancelled"
     APPROVED = "approved"
-    ON_HOLD = "on_hold"
-    RECEIVED = "received"
+    PENDING = "pending"
     
     @classmethod
     def _missing_(cls, value):
@@ -167,7 +166,7 @@ class Item(Base):
     description: Mapped[str] = mapped_column(Text)
     claims_count: Mapped[int] = mapped_column(Integer, default=0)
     temporary_deletion: Mapped[bool] = mapped_column(Boolean, default=False)
-    status: Mapped[str] = mapped_column(String, default=ItemStatus.ON_HOLD.value, nullable=False)
+    status: Mapped[str] = mapped_column(String, default=ItemStatus.PENDING.value, nullable=False)
     approved_claim_id: Mapped[Optional[str]] = mapped_column(ForeignKey("claim.id"), nullable=True)
     item_type_id: Mapped[Optional[str]] = mapped_column(ForeignKey("itemtype.id"), nullable=True)
     item_type: Mapped[Optional["ItemType"]] = relationship("ItemType", back_populates="items")
@@ -180,6 +179,10 @@ class Item(Base):
     )
     approved_claim: Mapped[Optional["Claim"]] = relationship("Claim", foreign_keys=[approved_claim_id])
     addresses: Mapped[List["Address"]] = relationship("Address", back_populates="item")
+    missing_item_links: Mapped[List["MissingItemFoundItem"]] = relationship(
+        "MissingItemFoundItem",
+        back_populates="item"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     
@@ -246,7 +249,7 @@ class Address(Base):
     item: Mapped[Optional["Item"]] = relationship("Item", back_populates="addresses")
     missing_item_id: Mapped[Optional[str]] = mapped_column(ForeignKey("missingitem.id"), nullable=True)
     missing_item: Mapped[Optional["MissingItem"]] = relationship("MissingItem", back_populates="addresses")
-    branch_id: Mapped[str] = mapped_column(ForeignKey("branch.id"))
+    branch_id: Mapped[Optional[str]] = mapped_column(ForeignKey("branch.id"), nullable=True)
     branch: Mapped[Optional["Branch"]] = relationship("Branch", back_populates="addresses")
     full_location: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_current: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -339,7 +342,8 @@ class MissingItem(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     title: Mapped[str] = mapped_column(String)
     description: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String, default="lost")  # lost, found, returned
+    # status lifecycle now: pending -> approved/cancelled/visit
+    status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
     approval: Mapped[bool] = mapped_column(Boolean, default=True)
     temporary_deletion: Mapped[bool] = mapped_column(Boolean, default=False)
     item_type_id: Mapped[Optional[str]] = mapped_column(ForeignKey("itemtype.id"), nullable=True)
@@ -347,6 +351,11 @@ class MissingItem(Base):
     user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
     user: Mapped[Optional["User"]] = relationship("User", back_populates="missing_items")
     addresses: Mapped[List["Address"]] = relationship("Address", back_populates="missing_item")
+    assigned_found_items: Mapped[List["MissingItemFoundItem"]] = relationship(
+        "MissingItemFoundItem",
+        back_populates="missing_item",
+        cascade="all, delete-orphan"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     
@@ -362,6 +371,25 @@ class MissingItem(Base):
                 Image.imageable_id == self.id
             ).all()
         return []
+
+
+class MissingItemFoundItem(Base):
+    __tablename__ = "missing_item_found_item"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    missing_item_id: Mapped[str] = mapped_column(ForeignKey("missingitem.id"), nullable=False)
+    item_id: Mapped[str] = mapped_column(ForeignKey("item.id"), nullable=False)
+    branch_id: Mapped[Optional[str]] = mapped_column(ForeignKey("branch.id"), nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    notified_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_by: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    missing_item: Mapped["MissingItem"] = relationship("MissingItem", back_populates="assigned_found_items")
+    item: Mapped["Item"] = relationship("Item", back_populates="missing_item_links")
+    branch: Mapped[Optional["Branch"]] = relationship("Branch")
+    creator: Mapped[Optional["User"]] = relationship("User")
+
 
 class TransferStatus(enum.Enum):
     PENDING = "pending"
