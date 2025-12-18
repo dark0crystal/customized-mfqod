@@ -481,19 +481,22 @@ async def toggle_image_hidden_status(
 @require_permission("can_manage_items")
 async def set_image_hidden_status(
     image_id: str,
-    is_hidden: bool = Form(...),
+    is_hidden: str = Form(...),
     db: Session = Depends(get_session),
     image_service: ImageService = Depends(get_image_service),
     current_user: User = Depends(get_current_user_required)
 ):
     """Set the hidden status of an image. Requires can_manage_items permission."""
-    image = image_service.update_image_hidden_status(image_id, is_hidden)
+    # Convert string to boolean (FormData sends strings)
+    is_hidden_bool = is_hidden.lower() in ('true', '1', 'yes', 'on')
+    
+    image = image_service.update_image_hidden_status(image_id, is_hidden_bool)
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
     
     return {
         "success": True,
-        "message": f"Image hidden status set to {is_hidden}",
+        "message": f"Image hidden status set to {is_hidden_bool}",
         "data": {
             "id": image.id,
             "url": image.url,
