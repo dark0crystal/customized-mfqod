@@ -96,6 +96,7 @@ class ImageResponse(BaseModel):
     id: str
     url: str
     description: Optional[str] = None
+    is_hidden: bool = False
     created_at: datetime
     updated_at: datetime
     
