@@ -75,10 +75,11 @@ export class ImageUploadService {
     itemId: string, 
     file: File,
     onProgress?: (progress: UploadProgress) => void,
+    isHidden: boolean = false,
     maxRetries: number = 2
   ): Promise<UploadResponse> {
     return this.retryUpload(
-      () => this.performSingleUpload(itemId, file, onProgress),
+      () => this.performSingleUpload(itemId, file, onProgress, isHidden),
       maxRetries
     );
   }
@@ -89,11 +90,13 @@ export class ImageUploadService {
   private performSingleUpload(
     itemId: string,
     file: File,
-    onProgress?: (progress: UploadProgress) => void
+    onProgress?: (progress: UploadProgress) => void,
+    isHidden: boolean = false
   ): Promise<UploadResponse> {
     return new Promise((resolve, reject) => {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('is_hidden', isHidden.toString());
 
       const xhr = new XMLHttpRequest();
 
@@ -202,12 +205,14 @@ export class ImageUploadService {
     imageableType: string,
     imageableId: string,
     files: File[],
-    onProgress?: (progress: UploadProgress) => void
+    onProgress?: (progress: UploadProgress) => void,
+    isHidden: boolean = false
   ): Promise<{ message: string; images: any[] }> {
     return new Promise((resolve, reject) => {
       const formData = new FormData();
       formData.append('imageable_type', imageableType);
       formData.append('imageable_id', imageableId);
+      formData.append('is_hidden', isHidden.toString());
       
       files.forEach(file => {
         formData.append('files', file);

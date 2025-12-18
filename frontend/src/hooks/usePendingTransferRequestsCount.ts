@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { tokenManager } from '@/utils/tokenManager';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
+import { getPendingTransferRequestsCount } from '@/services/transferRequestsService';
 
 /**
  * Hook to fetch and manage pending transfer requests count
@@ -14,11 +12,6 @@ export function usePendingTransferRequestsCount() {
   const requestIdRef = useRef<number>(0);
   const isMountedRef = useRef<boolean>(true);
 
-  const getAuthHeaders = (): HeadersInit => {
-    const token = tokenManager.getAccessToken();
-    return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
-  };
-
   const fetchCount = useCallback(async () => {
     // Increment request ID to track the current request
     const currentRequestId = ++requestIdRef.current;
@@ -26,18 +19,7 @@ export function usePendingTransferRequestsCount() {
     try {
       setLoading(true);
       setError(null);
-      
-      // Fetch pending transfer requests
-      const response = await fetch(`${API_BASE_URL}/api/transfer-requests/incoming/?status=pending`, {
-        headers: getAuthHeaders()
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch pending transfer requests');
-      }
-      
-      const data = await response.json();
-      const pendingCount = Array.isArray(data) ? data.length : 0;
+      const pendingCount = await getPendingTransferRequestsCount();
       
       // Only update state if this is still the current request and component is mounted
       if (currentRequestId === requestIdRef.current && isMountedRef.current) {
