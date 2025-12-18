@@ -19,7 +19,8 @@ import {
   Tags,
   Loader2,
   ArrowRightLeft,
-  ClipboardList
+  ClipboardList,
+  FileSearch
 } from 'lucide-react';
 import Brand from '@/components/navbar/Brand';
 import { Link } from '@/i18n/navigation';
@@ -29,6 +30,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePendingItemsCount } from '@/hooks/usePendingItemsCount';
 import { usePendingMissingItemsCount } from '@/hooks/usePendingMissingItemsCount';
 import { usePendingTransferRequestsCount } from '@/hooks/usePendingTransferRequestsCount';
+import { tokenManager } from '@/utils/tokenManager';
 
 // Helper to get user from cookies
 const getUserFromCookies = () => {
@@ -75,7 +77,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [loadingLinks, setLoadingLinks] = useState<Set<string>>(new Set());
-  const { userRole, hasAnyPermission, hasAllPermissions, isAuthenticated, permissions, isLoading: permissionsLoading } = usePermissions();
+  const { userRole, hasAnyPermission, hasAllPermissions, isAuthenticated, permissions, isLoading: permissionsLoading, roleId } = usePermissions();
   const user = getUserFromCookies();
   const { logout, isLoading: logoutLoading } = useAuth();
   const pathname = usePathname();
@@ -242,6 +244,13 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
       showBadge: true
     },
     {
+      id: 'audit-logs',
+      label: t('auditLogs'),
+      icon: <FileSearch size={20} />,
+      href: '/dashboard/audit-logs',
+      requiredPermissions: ['can_view_audit_logs']
+    },
+    {
       id: 'analytics',
       label: t('analytics'),
       icon: <TrendingUp size={20} />,
@@ -289,7 +298,45 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
     return true;
   };
 
-  // Log permission status when permissions or navigation items change
+  // Log comprehensive permission status when permissions or navigation items change
+  useEffect(() => {
+    console.log('[SIDEBAR] Permission Status Update:');
+    console.log('  - Permissions loading:', permissionsLoading);
+    console.log('  - Is authenticated:', isAuthenticated);
+    console.log('  - User role:', userRole);
+    console.log('  - Role ID:', roleId);
+    console.log('  - Permissions count:', permissions.length);
+    console.log('  - Permissions:', permissions);
+    if (permissions.length > 0) {
+      console.log('  - Permission names:', permissions.join(', '));
+    }
+    
+    // Log user info from cookies
+    const userFromCookies = getUserFromCookies();
+    if (userFromCookies) {
+      console.log('[SIDEBAR] User from cookies:', {
+        id: userFromCookies.id,
+        email: userFromCookies.email,
+        role: userFromCookies.role,
+        role_id: userFromCookies.role_id
+      });
+    }
+    
+    // Log token info
+    const accessToken = tokenManager.getAccessToken();
+    const refreshToken = tokenManager.getRefreshToken();
+    const maskToken = (t: string | null): string => {
+      if (!t) return 'null';
+      if (t.length <= 20) return t;
+      return `${t.substring(0, 10)}...${t.substring(t.length - 10)}`;
+    };
+    console.log('[SIDEBAR] Token Status:');
+    console.log('  - Access token exists:', !!accessToken);
+    console.log('  - Access token (masked):', maskToken(accessToken));
+    console.log('  - Refresh token exists:', !!refreshToken);
+    console.log('  - Refresh token (masked):', maskToken(refreshToken));
+  }, [permissionsLoading, isAuthenticated, userRole, roleId, permissions.length]);
+  
   useEffect(() => {
     if (!permissionsLoading && isAuthenticated) {
       console.log('[SIDEBAR] Permission status:', {
@@ -353,13 +400,24 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
 
   // Render navigation item
   const renderNavItem = (item: NavItem, depth: number = 0) => {
-    if (!canAccessItem(item)) {
-      return null;
+    const hasChildren = item.children && item.children.length > 0;
+    const accessibleChildren = item.children?.filter(child => canAccessItem(child)) || [];
+    
+    // For items with children: show parent if ANY child is accessible OR parent has permission
+    // For items without children: show only if parent has permission
+    if (hasChildren) {
+      // Parent with children: show if at least one child is accessible OR parent has permission
+      if (accessibleChildren.length === 0 && !canAccessItem(item)) {
+        return null;
+      }
+    } else {
+      // Parent without children: show only if parent has permission
+      if (!canAccessItem(item)) {
+        return null;
+      }
     }
 
     const isExpanded = expandedItems.includes(item.id);
-    const hasChildren = item.children && item.children.length > 0;
-    const accessibleChildren = item.children?.filter(child => canAccessItem(child)) || [];
     const isActive = pathname === item.href;
     const isChildActive = item.children?.some(child => pathname === child.href);
     const isLoading = loadingLinks.has(item.id);
