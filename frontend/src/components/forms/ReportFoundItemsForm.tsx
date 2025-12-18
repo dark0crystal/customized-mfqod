@@ -8,6 +8,8 @@ import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
 import { tokenManager } from "@/utils/tokenManager";
+import CustomDropdown from "@/components/ui/CustomDropdown";
+import HydrationSafeWrapper from "@/components/HydrationSafeWrapper";
 
 // Type definitions for form fields
 type ItemFormFields = {
@@ -108,6 +110,7 @@ export default function ReportFoundItem() {
   const [orgSelectDisabled, setOrgSelectDisabled] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
+  const [imageVisibility, setImageVisibility] = useState<string>('show');
 
   const c = useTranslations("report-found");
   const router = useRouter();
@@ -148,7 +151,7 @@ export default function ReportFoundItem() {
           (progress) => {
             setUploadProgress(progress);
           },
-          false
+          imageVisibility === 'hide'
         );
         
         if (result.success) {
@@ -556,6 +559,28 @@ export default function ReportFoundItem() {
           {errors.item_type_id && (
             <p className="mt-2 text-sm text-red-500">{errors.item_type_id.message}</p>
           )}
+        </div>
+
+        {/* Image Visibility */}
+        <div>
+          <label className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
+            {c("imageVisibility")}
+          </label>
+          <HydrationSafeWrapper fallback={<div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>}>
+            <CustomDropdown
+              options={[
+                { value: 'show', label: c("show") },
+                { value: 'hide', label: c("hide") }
+              ]}
+              value={imageVisibility}
+              onChange={setImageVisibility}
+              placeholder={c("imageVisibility")}
+              className="w-full"
+            />
+          </HydrationSafeWrapper>
+          <p className="text-xs text-gray-500 mt-1">
+            {c("hideImagesDescription")}
+          </p>
         </div>
 
         {/* File Upload Component */}

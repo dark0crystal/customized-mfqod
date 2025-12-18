@@ -177,6 +177,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
     // --- Handlers ---
 
     const onSubmit: SubmitHandler<ProfileFormFields> = async (data) => {
+        console.log('Form submitted with data:', data);
         setSuccessMessage(null);
         setErrorMessage(null);
         setIsSaving(true);
@@ -186,6 +187,8 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             const updates = [];
 
             // 1. Update Profile Info
+            // Convert empty phone_number to null to avoid validation errors
+            const phoneNumber = data.phone_number?.trim();
             updates.push(
                 fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}`, {
                     method: "PUT",
@@ -194,7 +197,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                         first_name: data.first_name,
                         last_name: data.last_name,
                         email: data.email,
-                        phone_number: data.phone_number
+                        phone_number: phoneNumber && phoneNumber.length > 0 ? phoneNumber : null
                     })
                 })
             );
@@ -318,7 +321,16 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             {successMessage && <div className="bg-green-50 text-green-700 p-4 border-b border-green-100">{successMessage}</div>}
             {errorMessage && <div className="bg-red-50 text-red-700 p-4 border-b border-red-100">{errorMessage}</div>}
 
-            <form onSubmit={handleSubmit(onSubmit)} className="p-6 md:p-8 space-y-10">
+            <form onSubmit={handleSubmit(
+                onSubmit,
+                (errors) => {
+                    console.error('Form validation errors:', errors);
+                    const errorMessages = Object.values(errors).map(err => err?.message).filter(Boolean);
+                    setErrorMessage(errorMessages.length > 0 
+                        ? errorMessages.join(', ') 
+                        : (t('formValidationError') || 'Please fix the form errors'));
+                }
+            )} className="p-6 md:p-8 space-y-10" noValidate>
 
                 {/* --- Basic Information --- */}
                 <section>
@@ -429,11 +441,19 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                     </div>
                 </section>
 
+                {/* Hidden input for isActive to ensure it's included in form submission */}
+                <input type="hidden" {...register("isActive")} />
+
                 {/* --- Action Buttons --- */}
                 <div className="pt-6 border-t border-gray-100 flex justify-end space-x-4">
                     <button
                         type="submit"
-                        disabled={isSaving}
+                        disabled={isSaving || isLoading}
+                        onClick={(e) => {
+                            console.log('Submit button clicked');
+                            console.log('Form errors:', errors);
+                            console.log('Form state:', { isSaving, isLoading });
+                        }}
                         className="px-6 py-2.5 bg-[#3277AE] text-white rounded-lg font-medium hover:bg-[#2a6594] focus:ring-4 focus:ring-blue-100 transition-all disabled:opacity-70"
                     >
                         {isSaving ? t('savingChanges') : t('saveChanges')}
