@@ -159,6 +159,7 @@ interface Claim {
 export default function PostDetails({ params }: { params: { itemId: string } }) {
   const router = useRouter();
   const t = useTranslations('dashboard.items.detail');
+  const tEdit = useTranslations('editPost');
   const locale = useLocale();
   const [item, setItem] = useState<ItemData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -180,6 +181,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
   const [selectedClaimId, setSelectedClaimId] = useState<string>('');
   const [pendingStatusChange, setPendingStatusChange] = useState<string | null>(null);
   const [showPendingDisclaimer, setShowPendingDisclaimer] = useState(false);
+  const [hideNewImages, setHideNewImages] = useState(false);
 
   // Helper to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -681,6 +683,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
                   setShowEditForm(false);
                 }}
                 onCancel={() => setShowEditForm(false)}
+                hideNewImages={hideNewImages}
               />
             ) : (
               /* Read-only Item Information Section */
@@ -896,6 +899,27 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
                 </div>
               </div>
             </div>
+
+            {/* Hide New Images Card - Only shown when editing */}
+            {showEditForm && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="hideNewImages"
+                    checked={hideNewImages}
+                    onChange={(e) => setHideNewImages(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                  />
+                  <label htmlFor="hideNewImages" className="ml-6 text-sm text-gray-700 cursor-pointer">
+                    <span className="font-semibold">{tEdit('hideNewImages')}</span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {tEdit('hideNewImagesDescription')}
+                    </p>
+                  </label>
+                </div>
+              </div>
+            )}
 
             {/* Location Card */}
             <div className="bg-white rounded-lg shadow-sm p-6">

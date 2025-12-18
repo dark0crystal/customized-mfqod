@@ -72,6 +72,12 @@ interface ItemData {
   approved_claim_id?: string | null; // ID of the approved claim
   temporary_deletion?: boolean;
   uploadedPostPhotos?: { postUrl: string }[];
+  images?: Array<{
+    id: string;
+    url: string;
+    description?: string;
+    is_hidden?: boolean;
+  }>;
   addresses?: Array<{
     id: string;
     is_current: boolean;
@@ -96,9 +102,10 @@ interface EditPostProps {
   params: { itemId: string };
   onSave?: () => void;
   onCancel?: () => void;
+  hideNewImages?: boolean;
 }
 
-export default function EditPost({ params, onSave }: EditPostProps) {
+export default function EditPost({ params, onSave, hideNewImages: externalHideNewImages }: EditPostProps) {
   const router = useRouter();
   const t = useTranslations('editPost');
   const locale = useLocale();
@@ -122,6 +129,15 @@ export default function EditPost({ params, onSave }: EditPostProps) {
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [hideNewImages, setHideNewImages] = useState(externalHideNewImages ?? false);
+  const [updatingImageStatus, setUpdatingImageStatus] = useState<string | null>(null);
+
+  // Sync with external prop if provided
+  useEffect(() => {
+    if (externalHideNewImages !== undefined) {
+      setHideNewImages(externalHideNewImages);
+    }
+  }, [externalHideNewImages]);
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ItemFormFields>();
   const formRef = useRef<HTMLFormElement>(null);
@@ -202,6 +218,20 @@ export default function EditPost({ params, onSave }: EditPostProps) {
         });
         if (response.ok) {
           const data = await response.json();
+          
+          // Fetch images separately
+          try {
+            const imagesResponse = await fetch(`${API_BASE_URL}/api/images/items/${params.itemId}/images/`, {
+              headers: getAuthHeaders(),
+            });
+            if (imagesResponse.ok) {
+              const imagesData = await imagesResponse.json();
+              data.images = imagesData;
+            }
+          } catch (error) {
+            console.error('Error fetching images:', error);
+          }
+          
           setItem(data);
           setOriginalLocation(data.location?.full_location || '');
 
@@ -299,7 +329,8 @@ export default function EditPost({ params, onSave }: EditPostProps) {
               newImages,
               (progress) => {
                 setUploadProgress(progress);
-              }
+              },
+              hideNewImages
             );
 
             // Refresh item data to show new images
@@ -308,6 +339,18 @@ export default function EditPost({ params, onSave }: EditPostProps) {
             });
             if (itemResponse.ok) {
               const updatedItem = await itemResponse.json();
+              // Fetch images separately
+              try {
+                const imagesResponse = await fetch(`${API_BASE_URL}/api/images/items/${params.itemId}/images/`, {
+                  headers: getAuthHeaders(),
+                });
+                if (imagesResponse.ok) {
+                  const imagesData = await imagesResponse.json();
+                  updatedItem.images = imagesData;
+                }
+              } catch (error) {
+                console.error('Error fetching images:', error);
+              }
               setItem(updatedItem);
             }
 
@@ -505,6 +548,70 @@ export default function EditPost({ params, onSave }: EditPostProps) {
         {/* --- Images --- */}
         <section>
           <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">{t('itemImages') || 'Images'}</h2>
+
+          {/* Existing Images */}
+          {item.images && item.images.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-md font-medium text-gray-700 mb-3">{t('existingImages') || 'Existing Images'}</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {item.images.map((image) => (
+                  <div key={image.id} className="relative border border-gray-200 rounded-lg overflow-hidden">
+                    <img
+                      src={`${API_BASE_URL}${image.url}`}
+                      alt={image.description || 'Item image'}
+                      className="w-full h-32 object-cover"
+                    />
+                    <div className="p-2 bg-white">
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={image.is_hidden || false}
+                          onChange={async (e) => {
+                            setUpdatingImageStatus(image.id);
+                            try {
+                              const formData = new FormData();
+                              formData.append('is_hidden', e.target.checked.toString());
+                              const response = await fetch(`${API_BASE_URL}/api/images/${image.id}/set-hidden/`, {
+                                method: 'PATCH',
+                                headers: {
+                                  'Authorization': getAuthHeaders().Authorization || '',
+                                },
+                                body: formData,
+                              });
+                              if (response.ok) {
+                                // Update local state
+                                setItem(prev => {
+                                  if (!prev) return prev;
+                                  return {
+                                    ...prev,
+                                    images: prev.images?.map(img =>
+                                      img.id === image.id ? { ...img, is_hidden: e.target.checked } : img
+                                    )
+                                  };
+                                });
+                              } else {
+                                console.error('Failed to update image status');
+                              }
+                            } catch (error) {
+                              console.error('Error updating image status:', error);
+                            } finally {
+                              setUpdatingImageStatus(null);
+                            }
+                          }}
+                          disabled={updatingImageStatus === image.id}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-xs text-gray-600">
+                          {image.is_hidden ? (t('hidden') || 'Hidden') : (t('visible') || 'Visible')}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
 
           <CompressorFileInput
             onFilesSelected={setNewImages}
