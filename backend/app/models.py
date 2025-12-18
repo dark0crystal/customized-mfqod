@@ -416,3 +416,38 @@ class BranchTransferRequest(Base):
     approved_by: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
     approved_by_user: Mapped[Optional["User"]] = relationship("User", foreign_keys=[approved_by])
 
+
+class AuditActionType(enum.Enum):
+    """Audit log action types"""
+    ITEM_STATUS_CHANGED = "item_status_changed"
+    ITEM_DELETED = "item_deleted"
+    ITEM_RESTORED = "item_restored"
+    TRANSFER_APPROVED = "transfer_approved"
+    TRANSFER_REJECTED = "transfer_rejected"
+    
+    @classmethod
+    def _missing_(cls, value):
+        """Handle case-insensitive mapping for backward compatibility"""
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for member in cls:
+                if member.value.lower() == value_lower:
+                    return member
+        return None
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    action_type: Mapped[AuditActionType] = mapped_column(Enum(AuditActionType), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    entity_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("user.id"), nullable=False, index=True)
+    user: Mapped["User"] = relationship("User")
+    old_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    new_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON string for additional context (renamed from metadata to avoid SQLAlchemy reserved name)
+    ip_address: Mapped[str] = mapped_column(String, nullable=False)
+    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+
