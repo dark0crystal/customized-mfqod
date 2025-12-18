@@ -33,5 +33,6 @@ export const PERMISSIONS = {
   SYSTEM_CONFIG: 'can_configure_system',
   VIEW_SYSTEM_LOGS: 'can_view_system_logs',
   MANAGE_ROLES: 'can_manage_roles',
-  MANAGE_PERMISSIONS: 'can_manage_permissions'
+  MANAGE_PERMISSIONS: 'can_manage_permissions',
+  VIEW_AUDIT_LOGS: 'can_view_audit_logs'
 };

@@ -368,13 +368,7 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
 
   // Helper function to check if user has full access (all permissions)
   const hasFullAccess = (): boolean => {
-    // 1. Super admin role bypass
-    if (userRole === 'super_admin') {
-      console.log('[PERMISSIONS] Full access granted: User role is super_admin');
-      return true;
-    }
-
-    // 2. Comprehensive permissions check (heuristic)
+    // Comprehensive permissions check (heuristic)
     const criticalPermissions = [
       'can_manage_items',
       'can_manage_missing_items',
