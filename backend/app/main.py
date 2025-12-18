@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.db.database import init_db, get_session
-from app.routes import userRoutes, roleRoutes, itemRoutes, itemTypeRoutes, userStatusRoutes, permissionRoutes, branchRoutes, organizationRoute, imageRoutes, addressRoutes, notificationRoutes, claimRoutes, analyticsRoutes, missingItemRoutes, transferRequestRoutes
+from app.routes import userRoutes, roleRoutes, itemRoutes, itemTypeRoutes, userStatusRoutes, permissionRoutes, branchRoutes, organizationRoute, imageRoutes, addressRoutes, notificationRoutes, claimRoutes, analyticsRoutes, missingItemRoutes, transferRequestRoutes, auditLogRoutes
 from app.routes.comprehensive_auth_routes import router as comprehensive_auth_router
 from app.routes.imageRoutes import router as image_router
 from fastapi.staticfiles import StaticFiles
@@ -106,6 +106,7 @@ app.include_router(claimRoutes.router, prefix="/api/claims", tags=["Claims"])
 app.include_router(missingItemRoutes.router, prefix="/api/missing-items", tags=["Missing Items"])
 app.include_router(analyticsRoutes.router, prefix="/api", tags=["Analytics"])
 app.include_router(transferRequestRoutes.router, prefix="/api/transfer-requests", tags=["Transfer Requests"])
+app.include_router(auditLogRoutes.router, prefix="/api/audit-logs", tags=["Audit Logs"])
 
 
 # Health check endpoint

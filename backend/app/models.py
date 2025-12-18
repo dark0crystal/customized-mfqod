@@ -263,6 +263,7 @@ class Image(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     imageable_id: Mapped[str] = mapped_column(String, index=True)
     imageable_type: Mapped[str] = mapped_column(String, index=True)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
