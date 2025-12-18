@@ -8,6 +8,7 @@ import CompressorFileInput from "./CompressorFileInput";
 import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
+import { tokenManager } from "@/utils/tokenManager";
 
 // Zod schema for form validation (used for type inference)
 // Note: Validation messages are handled in the component using translations
@@ -251,11 +252,19 @@ export default function ReportMissingItem() {
         return;
       }
 
+      // Get current user ID from token manager
+      const currentUser = tokenManager.getUser();
+      if (!currentUser || !currentUser.id) {
+        setAuthError(c("authenticationRequired") || "User information not found. Please log in again.");
+        setIsProcessing(false);
+        return;
+      }
+
       // STEP 1: Create the missing item
       const missingItemPayload = {
         title: data.title,
         description: data.content,
-        user_id: "48d1fe78-ddaa-4c1d-bd28-6f5395774bb5", // Consider making this dynamic
+        user_id: currentUser.id,
         item_type_id: data.item_type_id,
         status: "pending", // Default status for missing items
         approval: true,

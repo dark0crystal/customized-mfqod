@@ -7,6 +7,7 @@ import CompressorFileInput from "./CompressorFileInput";
 import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
+import { tokenManager } from "@/utils/tokenManager";
 
 // Type definitions for form fields
 type ItemFormFields = {
@@ -146,7 +147,8 @@ export default function ReportFoundItem() {
           file,
           (progress) => {
             setUploadProgress(progress);
-          }
+          },
+          false
         );
         
         if (result.success) {
@@ -341,11 +343,19 @@ export default function ReportFoundItem() {
         return;
       }
 
+      // Get current user ID from token manager
+      const currentUser = tokenManager.getUser();
+      if (!currentUser || !currentUser.id) {
+        setAuthError("User information not found. Please log in again.");
+        setIsProcessing(false);
+        return;
+      }
+
       // STEP 1: Create the item
       const itemPayload = {
         title: data.title,
         description: data.content,
-        user_id: "48d1fe78-ddaa-4c1d-bd28-6f5395774bb5", // Consider making this dynamic
+        user_id: currentUser.id,
         item_type_id: data.item_type_id,
         approval: true,
         temporary_deletion: false
@@ -517,6 +527,9 @@ export default function ReportFoundItem() {
             className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           />
+          <p className="mt-1 text-xs text-gray-500">
+            {c("descriptionDisclaimer")}
+          </p>
           {errors.content && (
             <p className="mt-2 text-sm text-red-500">{errors.content.message}</p>
           )}
