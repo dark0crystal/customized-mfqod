@@ -41,6 +41,7 @@ export default function Search() {
     id: string;
     title: string;
     description: string;
+    is_hidden?: boolean;
     [key: string]: unknown;
   }>>([]);
   const [itemImages, setItemImages] = useState<Record<string, ItemImage[]>>({});
@@ -82,6 +83,7 @@ export default function Search() {
     id: string;
     title: string;
     description: string;
+    is_hidden?: boolean;
     [key: string]: unknown;
   }>) => {
     // Ensure itemsList is an array
