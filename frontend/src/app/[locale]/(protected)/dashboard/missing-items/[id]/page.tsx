@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import Image from "next/image";
 import { tokenManager } from "@/utils/tokenManager";
+import { usePermissions } from "@/PermissionsContext";
 import EditMissingItemForm from "./EditMissingItemForm";
 import ItemDropdown from "@/components/ui/ItemDropdown";
 import MultiSelectItemDropdown from "@/components/ui/MultiSelectItemDropdown";
@@ -123,6 +124,9 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
   const [approveLoading, setApproveLoading] = useState(false);
   const [connectedItems, setConnectedItems] = useState<Record<string, ConnectedItemDetail>>({});
   const [loadingConnectedItems, setLoadingConnectedItems] = useState(false);
+  
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const hasManageMissingItemsPermission = hasPermission("can_manage_missing_items");
 
   useEffect(() => {
       const authenticated = tokenManager.isAuthenticated();
@@ -471,26 +475,28 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
                 {t("status")}: <span className="font-semibold capitalize">{tStatus(missingItem.status)}</span>
               </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-gray-700">{t("changeStatus")}</label>
-              <select
-                className="border rounded px-3 py-2"
-                value={missingItem.status}
-                disabled={statusSaving}
-                onChange={(e) => handleStatusChange(e.target.value)}
-              >
-                <option value="pending">{tStatus("pending")}</option>
-                <option value="approved">{tStatus("approved")}</option>
-                <option value="cancelled">{tStatus("cancelled")}</option>
-                <option value="visit">{tStatus("visit")}</option>
-              </select>
-              <button
-                className="mt-2 px-3 py-2 rounded bg-blue-100 text-blue-800 hover:bg-blue-200"
-                onClick={() => setAssignModalOpen(true)}
-              >
-                {t("assignFoundItems")}
-              </button>
-            </div>
+            {hasManageMissingItemsPermission && (
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-gray-700">{t("changeStatus")}</label>
+                <select
+                  className="border rounded px-3 py-2"
+                  value={missingItem.status}
+                  disabled={statusSaving}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                >
+                  <option value="pending">{tStatus("pending")}</option>
+                  <option value="approved">{tStatus("approved")}</option>
+                  <option value="cancelled">{tStatus("cancelled")}</option>
+                  <option value="visit">{tStatus("visit")}</option>
+                </select>
+                <button
+                  className="mt-2 px-3 py-2 rounded bg-blue-100 text-blue-800 hover:bg-blue-200"
+                  onClick={() => setAssignModalOpen(true)}
+                >
+                  {t("assignFoundItems")}
+                </button>
+              </div>
+            )}
           </div>
 
           {missingItem.assigned_found_items && missingItem.assigned_found_items.length > 0 && (

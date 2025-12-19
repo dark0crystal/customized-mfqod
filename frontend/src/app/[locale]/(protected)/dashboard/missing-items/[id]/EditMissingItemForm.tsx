@@ -69,12 +69,6 @@ interface MissingItem {
   updated_at: string;
   item_type_id?: string;
   item_type?: ItemType;
-  addresses?: Array<{
-    id: string;
-    branch_id?: string;
-    branch?: Branch;
-    is_current: boolean;
-  }>;
   images?: Array<{
     id: string;
     url: string;
@@ -192,21 +186,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           setValue('content', data.description);
           setValue('item_type_id', data.item_type_id || '');
 
-          // Set organization if available - but wait for organizations to load
-          if (data.addresses && data.addresses.length > 0) {
-            console.log('Addresses found:', data.addresses);
-            const currentAddress = data.addresses.find((addr: { is_current?: boolean }) => addr.is_current) || data.addresses[0];
-            console.log('Current address:', currentAddress);
-            if (currentAddress?.branch) {
-              console.log('Branch found:', currentAddress.branch);
-              const orgId = currentAddress.branch.organization?.id || currentAddress.branch.organization_id;
-              if (orgId) {
-                console.log('Organization ID from address:', orgId);
-                // Store orgId in missingItem state, will be set when organizations load
-                setMissingItem(prev => prev ? { ...prev, _orgId: orgId } as MissingItem & { _orgId?: string } : null);
-              }
-            }
-          }
+          // Organization selection is no longer based on addresses
         } else if (response.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
         } else {
@@ -220,42 +200,8 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
     fetchMissingItem();
   }, [missingItemId, API_BASE_URL, setValue]);
 
-  // Set organization values after organizations are loaded
-  useEffect(() => {
-    if (missingItem && organizations.length > 0) {
-      console.log('Setting organization values after organizations loaded');
-      console.log('Missing item:', missingItem);
-      console.log('Organizations:', organizations);
-      
-      let orgId: string | null = null;
-      
-      // Try to get orgId from stored _orgId first
-      const missingItemWithOrgId = missingItem as MissingItem & { _orgId?: string };
-      if (missingItemWithOrgId._orgId) {
-        orgId = missingItemWithOrgId._orgId;
-        console.log('Using stored orgId:', orgId);
-      } else if (missingItem.addresses && missingItem.addresses.length > 0) {
-        const currentAddress = missingItem.addresses.find((addr: { is_current?: boolean }) => addr.is_current) || missingItem.addresses[0];
-        if (currentAddress?.branch) {
-          orgId = currentAddress.branch.organization?.id || currentAddress.branch.organization_id || null;
-          console.log('Getting orgId from address:', orgId);
-        }
-      }
-      
-      if (orgId) {
-        // Verify the organization exists in the organizations list
-        const orgExists = organizations.some(org => org.id === orgId);
-        if (orgExists) {
-          console.log('Setting organization to:', orgId);
-          setValue('orgnization', orgId, { shouldValidate: false, shouldDirty: false });
-        } else {
-          console.warn('Organization ID not found in organizations list:', orgId);
-        }
-      } else {
-        console.log('No organization ID found for this missing item');
-      }
-    }
-  }, [missingItem, organizations, setValue]);
+  // Organization selection is no longer based on addresses
+  // Users can manually select organization if needed
 
   // Fetch organizations and item types
   useEffect(() => {
