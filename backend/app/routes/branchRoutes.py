@@ -90,16 +90,19 @@ def get_public_branches(
 
 
 @router.get("/", response_model=List[BranchWithOrganization])
-@require_permission("can_manage_branches")
 def get_branches(
     request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     organization_id: Optional[str] = Query(None),
     db: Session = Depends(get_session),
-    branch_service: BranchService = Depends(get_branch_service)
+    branch_service: BranchService = Depends(get_branch_service),
+    current_user: User = Depends(get_current_user_required)
 ):
-    """Get all branches with optional filtering by organization"""
+    """
+    Get all branches with optional filtering by organization
+    Requires: Authentication (user must be logged in)
+    """
     try:
         branches = branch_service.get_branches(skip=skip, limit=limit, organization_id=organization_id)
         
@@ -133,14 +136,17 @@ def get_branches(
 
 
 @router.get("/{branch_id}", response_model=BranchWithOrganization)
-@require_permission("can_manage_branches")
 def get_branch(
     branch_id: str,
     request: Request,
     db: Session = Depends(get_session),
-    branch_service: BranchService = Depends(get_branch_service)
+    branch_service: BranchService = Depends(get_branch_service),
+    current_user: User = Depends(get_current_user_required)
 ):
-    """Get a branch by ID"""
+    """
+    Get a branch by ID
+    Requires: Authentication (user must be logged in)
+    """
     try:
         branch = branch_service.get_branch_by_id(branch_id)
         

@@ -44,16 +44,16 @@ def get_missing_item_service(db: Session = Depends(get_session)) -> MissingItemS
 # ===========================
 
 @router.post("/", response_model=MissingItemResponse, status_code=201)
-@require_permission("can_manage_missing_items")
 async def create_missing_item(
     missing_item_data: CreateMissingItemRequest,
     request: Request,
     db: Session = Depends(get_session),
-    missing_item_service: MissingItemService = Depends(get_missing_item_service)
+    missing_item_service: MissingItemService = Depends(get_missing_item_service),
+    current_user = Depends(get_current_user_required)
 ):
     """
     Create a new missing item
-    Requires: can_manage_missing_items permission
+    Requires: Authentication (user must be logged in)
     """
     try:
         missing_item = missing_item_service.create_missing_item(missing_item_data)

@@ -40,8 +40,8 @@ export const routePermissions: Record<string, RoutePermissionConfig> = {
     description: 'View and manage missing items',
   },
   '/dashboard/report-missing-item': {
-    permission: 'can_manage_missing_items',
-    description: 'Report missing items',
+    permission: [],
+    description: 'Report missing items - accessible to all authenticated users',
   },
   
   // Claims management

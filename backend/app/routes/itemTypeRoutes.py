@@ -71,6 +71,7 @@ from app.schemas.item_type_schema import (
     ItemTypeResponse
 )
 from app.utils.permission_decorator import require_permission, require_any_permission, require_all_permissions
+from app.middleware.auth_middleware import get_current_user_required
 
 router = APIRouter()
 
@@ -106,23 +107,31 @@ async def get_public_item_types(
 # List all item types (authenticated)
 # ================= 
 @router.get("/", response_model=list[ItemTypeResponse])
-@require_permission("can_manage_item_types")
 async def list_item_types(
-    request: Request,  # Token extracted automatically from this
-    db: Session = Depends(get_session)
+    request: Request,
+    db: Session = Depends(get_session),
+    current_user = Depends(get_current_user_required)
 ):
+    """
+    List all item types
+    Requires: Authentication (user must be logged in)
+    """
     return ItemTypeService(db).list_item_types()
 
 # ================= 
 # Get specific item type
 # ================= 
 @router.get("/{item_type_id}", response_model=ItemTypeResponse)
-@require_permission("can_manage_item_types")
 async def get_item_type(
     item_type_id: str,
-    request: Request,  # Token extracted automatically from this
-    db: Session = Depends(get_session)
+    request: Request,
+    db: Session = Depends(get_session),
+    current_user = Depends(get_current_user_required)
 ):
+    """
+    Get a specific item type by ID
+    Requires: Authentication (user must be logged in)
+    """
     try:
         return ItemTypeService(db).get_item_type_by_id(item_type_id)
     except ValueError as e:
