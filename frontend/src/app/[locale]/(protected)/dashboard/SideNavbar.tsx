@@ -177,7 +177,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
           label: t('reportMissingItem'),
           icon: <FileText size={16} />,
           href: '/dashboard/report-missing-item',
-          requiredPermissions: ['can_manage_missing_items']
+          requiredPermissions: []
         },
         {
           id: 'missing-items',
