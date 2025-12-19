@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import DisplayMissingItems from './DisplayMissingItems';
+import { usePermissions } from '@/PermissionsContext';
 
 // Define the MissingItem type
 type MissingItem = {
@@ -68,6 +69,8 @@ function getTokenFromCookies(): string | null {
 
 export default function MissingItemsPage() {
   const locale = useLocale();
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const hasManageMissingItemsPermission = hasPermission('can_manage_missing_items');
   const t = useTranslations("dashboard.missingItems");
   const tFilters = useTranslations("dashboard.missingItems.filters");
   const tStatus = useTranslations("dashboard.missingItems.status");
@@ -137,6 +140,11 @@ export default function MissingItemsPage() {
   };
 
   const openAssignModal = async (missingItem: MissingItem) => {
+    // Only allow assign if user has permission
+    if (!hasManageMissingItemsPermission) {
+      setAssignError(tDetail("noPermission") || "You do not have permission to assign found items");
+      return;
+    }
     setSelectedMissingItem(missingItem);
     setAssignNote("");
     setSelectedFoundItemIds([]);
@@ -435,10 +443,23 @@ export default function MissingItemsPage() {
   };
 
   useEffect(() => {
-    fetchItemTypes();
-    fetchBranches();
-    fetchMissingItems();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!permissionsLoading) {
+      fetchItemTypes();
+      fetchBranches();
+      fetchMissingItems();
+    }
+  }, [permissionsLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (permissionsLoading) {
+    return (
+      <div className="relative w-full min-h-[88vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#3277AE' }}></div>
+          <p className="text-gray-500">{t("loading") || "Loading..."}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full min-h-[88vh]">

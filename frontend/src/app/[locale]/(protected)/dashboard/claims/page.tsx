@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
 import { formatDateOnly } from '@/utils/dateFormatter';
+import { usePermissions } from '@/PermissionsContext';
 
 // Types
 interface Claim {
@@ -61,6 +62,9 @@ const getAuthHeaders = (): HeadersInit => {
 
 export default function ClaimsPage() {
   const t = useTranslations('dashboard.claims');
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const hasManageClaimsPermission = hasPermission('can_manage_claims');
+  
   const [claims, setClaims] = useState<Claim[]>([]);
   const [filteredClaims, setFilteredClaims] = useState<Claim[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,16 +83,36 @@ export default function ClaimsPage() {
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
-  // Fetch all claims
+  // Fetch claims - conditionally based on permissions
   const fetchClaims = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/claims/all`, {
+      // If user has can_manage_claims permission, fetch all claims
+      // Otherwise, fetch only user's own claims
+      const endpoint = hasManageClaimsPermission 
+        ? `${API_BASE_URL}/api/claims/all`
+        : `${API_BASE_URL}/api/claims/my-claims`;
+      
+      const response = await fetch(endpoint, {
         headers: getAuthHeaders()
       });
       
       if (!response.ok) {
+        // If user doesn't have permission for /all, fallback to /my-claims
+        if (response.status === 403 && hasManageClaimsPermission) {
+          console.warn('User lost permission, falling back to own claims');
+          const fallbackResponse = await fetch(`${API_BASE_URL}/api/claims/my-claims`, {
+            headers: getAuthHeaders()
+          });
+          if (!fallbackResponse.ok) {
+            throw new Error('Failed to fetch claims');
+          }
+          const fallbackData = await fallbackResponse.json();
+          setClaims(fallbackData);
+          setFilteredClaims(fallbackData);
+          return;
+        }
         throw new Error('Failed to fetch claims');
       }
       
@@ -97,14 +121,30 @@ export default function ClaimsPage() {
       setFilteredClaims(data);
     } catch (err) {
       console.error('Error fetching claims:', err);
-      setError(t('errorLoading'));
+      // Provide more specific error messages
+      if (err instanceof Error) {
+        if (err.message.includes('403') || err.message.includes('Forbidden')) {
+          setError(t('noPermission') || 'You do not have permission to view claims');
+        } else if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+          setError(t('unauthorized') || 'Please log in to view claims');
+        } else {
+          setError(t('errorLoading') || 'Failed to load claims. Please try again.');
+        }
+      } else {
+        setError(t('errorLoading') || 'Failed to load claims. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Check for existing approved claim
+  // Check for existing approved claim (admin only)
   const checkExistingApprovedClaim = async (claimId: string): Promise<boolean> => {
+    // Only allow this check if user has manage claims permission
+    if (!hasManageClaimsPermission) {
+      return false;
+    }
+    
     try {
       const response = await fetch(`${API_BASE_URL}/api/claims/${claimId}/check-existing-approved`, {
         headers: getAuthHeaders()
@@ -126,8 +166,14 @@ export default function ClaimsPage() {
     }
   };
 
-  // Proceed with approval/rejection
+  // Proceed with approval/rejection (admin only)
   const proceedWithApproval = async (claimId: string, approval: boolean) => {
+    // Only allow approval/rejection if user has manage claims permission
+    if (!hasManageClaimsPermission) {
+      setError(t('noPermission') || 'You do not have permission to approve or reject claims');
+      return;
+    }
+    
     try {
       const endpoint = approval 
         ? `${API_BASE_URL}/api/claims/${claimId}/approve`
@@ -218,12 +264,15 @@ export default function ClaimsPage() {
     setFilteredClaims(filtered);
   }, [claims, searchTerm, filters]);
 
-  // Load claims on component mount
+  // Load claims on component mount and when permissions change
   useEffect(() => {
-    fetchClaims();
-  }, []);
+    if (!permissionsLoading) {
+      fetchClaims();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permissionsLoading, hasManageClaimsPermission]);
 
-  if (isLoading) {
+  if (isLoading || permissionsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -451,21 +500,26 @@ export default function ClaimsPage() {
                   >
                     {t('viewDetails')}
                   </Link>
-                  {!claim.approval && (
-                    <button
-                      onClick={() => handleClaimApproval(claim.id, true)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      {t('approve')}
-                    </button>
-                  )}
-                  {claim.approval && (
-                    <button
-                      onClick={() => handleClaimApproval(claim.id, false)}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      {t('reject')}
-                    </button>
+                  {/* Admin-only approval/rejection buttons */}
+                  {hasManageClaimsPermission && (
+                    <>
+                      {!claim.approval && (
+                        <button
+                          onClick={() => handleClaimApproval(claim.id, true)}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                          {t('approve')}
+                        </button>
+                      )}
+                      {claim.approval && (
+                        <button
+                          onClick={() => handleClaimApproval(claim.id, false)}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                        >
+                          {t('reject')}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -579,27 +633,32 @@ export default function ClaimsPage() {
                   >
                     {t('close')}
                   </button>
-                  {!selectedClaim.approval && (
-                    <button
-                      onClick={() => {
-                        handleClaimApproval(selectedClaim.id, true);
-                        setSelectedClaim(null);
-                      }}
-                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      {t('approveClaim')}
-                    </button>
-                  )}
-                  {selectedClaim.approval && (
-                    <button
-                      onClick={() => {
-                        handleClaimApproval(selectedClaim.id, false);
-                        setSelectedClaim(null);
-                      }}
-                      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      {t('rejectClaim')}
-                    </button>
+                  {/* Admin-only approval/rejection buttons */}
+                  {hasManageClaimsPermission && (
+                    <>
+                      {!selectedClaim.approval && (
+                        <button
+                          onClick={() => {
+                            handleClaimApproval(selectedClaim.id, true);
+                            setSelectedClaim(null);
+                          }}
+                          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                          {t('approveClaim')}
+                        </button>
+                      )}
+                      {selectedClaim.approval && (
+                        <button
+                          onClick={() => {
+                            handleClaimApproval(selectedClaim.id, false);
+                            setSelectedClaim(null);
+                          }}
+                          className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                        >
+                          {t('rejectClaim')}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
