@@ -9,13 +9,12 @@ class ImageService:
     def __init__(self, db: Session):
         self.db = db
     
-    def upload_image(self, url: str, imageable_type: str, imageable_id: str, is_hidden: bool = False) -> Image:
+    def upload_image(self, url: str, imageable_type: str, imageable_id: str) -> Image:
         """Create a new image record in the database"""
         image = Image(
             url=url,
             imageable_type=imageable_type,
-            imageable_id=imageable_id,
-            is_hidden=is_hidden
+            imageable_id=imageable_id
         )
         self.db.add(image)
         self.db.commit()
@@ -54,59 +53,49 @@ class ImageService:
         return False
     
     def get_images_by_item_id(self, item_id: str, user: Optional[User] = None, include_hidden: Optional[bool] = None) -> list[Image]:
-        """Get all images for a specific item, filtering hidden images based on user permissions"""
+        """Get all images for a specific item, filtering based on item's is_hidden and user permissions"""
+        # Fetch the item to check its is_hidden status
+        item = self.db.query(Item).filter(Item.id == item_id).first()
+        if not item:
+            return []
+        
         # If include_hidden is explicitly set, use it
         if include_hidden is not None:
             if include_hidden:
-                # Return all images including hidden
+                # Return all images
                 return self.db.query(Image).filter(
                     Image.imageable_id == item_id,
                     Image.imageable_type == "item"
                 ).all()
             else:
-                # Return only non-hidden images
-                return self.db.query(Image).filter(
-                    Image.imageable_id == item_id,
-                    Image.imageable_type == "item",
-                    Image.is_hidden == False
-                ).all()
+                # Return only images if item is not hidden
+                if not item.is_hidden:
+                    return self.db.query(Image).filter(
+                        Image.imageable_id == item_id,
+                        Image.imageable_type == "item"
+                    ).all()
+                else:
+                    return []
         
-        # If user is provided, check permissions
+        # If item is not hidden, return all images
+        if not item.is_hidden:
+            return self.db.query(Image).filter(
+                Image.imageable_id == item_id,
+                Image.imageable_type == "item"
+            ).all()
+        
+        # Item is hidden - check if user can view hidden images
         if user:
             can_view_hidden = self.can_user_view_hidden_images(user, item_id)
             if can_view_hidden:
-                # Return all images including hidden
+                # User has permission, return all images
                 return self.db.query(Image).filter(
                     Image.imageable_id == item_id,
                     Image.imageable_type == "item"
                 ).all()
         
-        # Default: return only non-hidden images
-        return self.db.query(Image).filter(
-            Image.imageable_id == item_id,
-            Image.imageable_type == "item",
-            Image.is_hidden == False
-        ).all()
-    
-    def toggle_image_hidden_status(self, image_id: str) -> Optional[Image]:
-        """Toggle the hidden status of an image"""
-        image = self.get_image_by_id(image_id)
-        if image:
-            image.is_hidden = not image.is_hidden
-            self.db.commit()
-            self.db.refresh(image)
-            return image
-        return None
-    
-    def update_image_hidden_status(self, image_id: str, is_hidden: bool) -> Optional[Image]:
-        """Update the hidden status of an image"""
-        image = self.get_image_by_id(image_id)
-        if image:
-            image.is_hidden = bool(is_hidden)
-            self.db.commit()
-            self.db.refresh(image)
-            return image
-        return None
+        # Item is hidden and user doesn't have permission - return empty list
+        return []
     
     def delete_image(self, image_id: str) -> bool:
         """Delete an image from the database"""
