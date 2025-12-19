@@ -127,7 +127,7 @@ class TransferRequestService:
         """Get a transfer request by ID"""
         return self.db.query(BranchTransferRequest).filter(BranchTransferRequest.id == request_id).first()
     
-    def approve_transfer_request(self, request_id: str, approved_by_user_id: str) -> BranchTransferRequest:
+    def approve_transfer_request(self, request_id: str, approved_by_user_id: str, ip_address: str = "", user_agent: Optional[str] = None) -> BranchTransferRequest:
         """Approve a transfer request and update item location"""
         transfer_request = self.get_transfer_request_by_id(request_id)
         
@@ -200,9 +200,24 @@ class TransferRequestService:
         self.db.commit()
         self.db.refresh(transfer_request)
         
+        # Log the approval
+        try:
+            from app.services.auditLogService import AuditLogService
+            audit_service = AuditLogService(self.db)
+            audit_service.create_transfer_approval_log(
+                transfer_request_id=request_id,
+                user_id=approved_by_user_id,
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create audit log for transfer approval: {e}")
+        
         return transfer_request
     
-    def reject_transfer_request(self, request_id: str, rejected_by_user_id: str, notes: Optional[str] = None) -> BranchTransferRequest:
+    def reject_transfer_request(self, request_id: str, rejected_by_user_id: str, notes: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> BranchTransferRequest:
         """Reject a transfer request"""
         transfer_request = self.get_transfer_request_by_id(request_id)
         
@@ -256,6 +271,22 @@ class TransferRequestService:
         
         self.db.commit()
         self.db.refresh(transfer_request)
+        
+        # Log the rejection
+        try:
+            from app.services.auditLogService import AuditLogService
+            audit_service = AuditLogService(self.db)
+            audit_service.create_transfer_rejection_log(
+                transfer_request_id=request_id,
+                user_id=rejected_by_user_id,
+                notes=notes,
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create audit log for transfer rejection: {e}")
         
         return transfer_request
     

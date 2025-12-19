@@ -102,7 +102,7 @@ class ImageService:
         """Update the hidden status of an image"""
         image = self.get_image_by_id(image_id)
         if image:
-            image.is_hidden = is_hidden
+            image.is_hidden = bool(is_hidden)
             self.db.commit()
             self.db.refresh(image)
             return image
