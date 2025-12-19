@@ -150,8 +150,7 @@ export default function ReportFoundItem() {
           file,
           (progress) => {
             setUploadProgress(progress);
-          },
-          imageVisibility === 'hide'
+          }
         );
         
         if (result.success) {
@@ -361,7 +360,8 @@ export default function ReportFoundItem() {
         user_id: currentUser.id,
         item_type_id: data.item_type_id,
         approval: true,
-        temporary_deletion: false
+        temporary_deletion: false,
+        is_hidden: imageVisibility === 'hide'
       };
 
       const itemResponse = await fetch(`${API_BASE_URL}/api/items`, {
