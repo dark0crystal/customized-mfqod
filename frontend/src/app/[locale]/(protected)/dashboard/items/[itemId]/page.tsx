@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, use } from "react";
 import { Mail, MapPin, ArrowRight } from "lucide-react";
 import Claims from "./Claims";
 import EditPost from "./EditPost";
@@ -156,7 +156,8 @@ interface Claim {
   };
 }
 
-export default function PostDetails({ params }: { params: { itemId: string } }) {
+export default function PostDetails({ params }: { params: Promise<{ itemId: string }> }) {
+  const resolvedParams = use(params);
   const router = useRouter();
   const t = useTranslations('dashboard.items.detail');
   const tEdit = useTranslations('editPost');
@@ -197,7 +198,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
           headers: getAuthHeaders()
         });
         if (!response.ok) {
@@ -220,14 +221,13 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
       }
     };
 
-    if (params?.itemId) {
+    if (resolvedParams?.itemId) {
       fetchData();
     } else {
       setError("Invalid item ID");
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.itemId]);
+  }, [resolvedParams.itemId]);
 
   // Fetch branches for transfer when modal opens
   useEffect(() => {
@@ -284,7 +284,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
   const fetchClaims = async (): Promise<Claim[]> => {
     setLoadingClaims(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/claims/item/${params.itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/claims/item/${resolvedParams.itemId}`, {
         headers: getAuthHeaders()
       });
       if (response.ok) {
@@ -368,7 +368,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
     try {
       // If we have a selected claim and changing to approved, use PATCH endpoint with approved_claim_id
       if (status === 'approved' && selectedClaimId) {
-        const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
           method: 'PATCH',
           headers: getAuthHeaders(),
           body: JSON.stringify({
@@ -388,7 +388,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
         }
       } else {
         // Use the status endpoint to update status
-        const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}/status?new_status=${status}`, {
+        const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}/status?new_status=${status}`, {
           method: 'PATCH',
           headers: getAuthHeaders(),
         });
@@ -419,7 +419,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
     // Update status and proceed with update
     setIsUpdating(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -459,7 +459,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
     setShowPendingDisclaimer(false);
     setIsUpdating(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify({
@@ -542,7 +542,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}?permanent=true`, {
+      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}?permanent=true`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
@@ -586,7 +586,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
           </div>
           <p className="text-red-500 text-lg font-semibold mb-2">{error || t('itemNotFound')}</p>
           <p className="text-gray-600 text-sm mb-4">
-            {params?.itemId ? `Item ID: ${params.itemId}` : 'No item ID provided'}
+            {resolvedParams?.itemId ? `Item ID: ${resolvedParams.itemId}` : 'No item ID provided'}
           </p>
           <button
             onClick={() => router.push('/dashboard/items')}
@@ -606,7 +606,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
         <div className="text-center max-w-md">
           <p className="text-red-500 text-lg font-semibold mb-2">{t('itemNotFound')}</p>
           <p className="text-gray-600 text-sm mb-4">
-            {params?.itemId ? `Item ID: ${params.itemId}` : 'No item ID provided'}
+            {resolvedParams?.itemId ? `Item ID: ${resolvedParams.itemId}` : 'No item ID provided'}
           </p>
           <button
             onClick={() => router.push('/dashboard/items')}
@@ -679,7 +679,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
             {/* Edit Form Section - Wider and on top */}
             {showEditForm ? (
               <EditPost 
-                params={{ itemId: params.itemId }}
+                params={{ itemId: resolvedParams.itemId }}
                 onSave={() => {
                   // This will be called after successful save
                   setShowEditForm(false);
@@ -827,7 +827,7 @@ export default function PostDetails({ params }: { params: { itemId: string } }) 
             {/* Claims Section */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('claims')}</h2>
-              <Claims postId={params.itemId} />
+              <Claims postId={resolvedParams.itemId} />
             </div>
           </div>
 
