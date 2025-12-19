@@ -12,15 +12,13 @@ router = APIRouter()
 
 # Pydantic schemas for request/response
 class AddressCreate(BaseModel):
-    item_id: Optional[str] = None
-    missing_item_id: Optional[str] = None
-    branch_id: Optional[str] = None
+    item_id: str
+    branch_id: str
     is_current: bool = True
 
 class AddressResponse(BaseModel):
     id: str
     item_id: Optional[str] = None
-    missing_item_id: Optional[str] = None
     branch_id: Optional[str] = None
     is_current: bool
     created_at: datetime
@@ -35,53 +33,28 @@ async def create_address(
     request: Request,
     db: Session = Depends(get_session)
 ):
-    """Create a new address for an item or missing item"""
+    """Create a new address for an item"""
     try:
-        # Validate that either item_id or missing_item_id is provided, but not both
-        if not address.item_id and not address.missing_item_id:
-            raise HTTPException(status_code=400, detail="Either item_id or missing_item_id must be provided")
+        # Validate that item exists
+        item = db.query(Item).filter(Item.id == address.item_id).first()
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
         
-        if address.item_id and address.missing_item_id:
-            raise HTTPException(status_code=400, detail="Cannot provide both item_id and missing_item_id")
+        # Validate that branch exists
+        branch = db.query(Branch).filter(Branch.id == address.branch_id).first()
+        if not branch:
+            raise HTTPException(status_code=404, detail="Branch not found")
         
-        # Validate that item exists (if item_id is provided)
-        if address.item_id:
-            item = db.query(Item).filter(Item.id == address.item_id).first()
-            if not item:
-                raise HTTPException(status_code=404, detail="Item not found")
-        
-        # Validate that missing item exists (if missing_item_id is provided)
-        if address.missing_item_id:
-            from app.models import MissingItem
-            missing_item = db.query(MissingItem).filter(MissingItem.id == address.missing_item_id).first()
-            if not missing_item:
-                raise HTTPException(status_code=404, detail="Missing item not found")
-        
-        # Validate that branch exists (required for items, optional for missing items)
-        if address.branch_id:
-            branch = db.query(Branch).filter(Branch.id == address.branch_id).first()
-            if not branch:
-                raise HTTPException(status_code=404, detail="Branch not found")
-        elif address.item_id:
-            # Branch is required for items
-            raise HTTPException(status_code=400, detail="branch_id is required for items")
-        
-        # If this is set as current, mark all other addresses for this item/missing item as not current
+        # If this is set as current, mark all other addresses for this item as not current
         if address.is_current:
-            if address.item_id:
-                db.query(Address).filter(Address.item_id == address.item_id).update(
-                    {"is_current": False}
-                )
-            elif address.missing_item_id:
-                db.query(Address).filter(Address.missing_item_id == address.missing_item_id).update(
-                    {"is_current": False}
-                )
+            db.query(Address).filter(Address.item_id == address.item_id).update(
+                {"is_current": False}
+            )
         
         # Create new address
         new_address = Address(
             id=str(uuid.uuid4()),
             item_id=address.item_id,
-            missing_item_id=address.missing_item_id,
             branch_id=address.branch_id,
             is_current=address.is_current,
             created_at=datetime.now(timezone.utc),
@@ -157,31 +130,25 @@ async def update_address(
         if not address:
             raise HTTPException(status_code=404, detail="Address not found")
         
-        # If this is set as current, mark all other addresses for this item/missing item as not current
+        # If this is set as current, mark all other addresses for this item as not current
         if address_update.is_current:
-            if address_update.item_id:
-                db.query(Address).filter(
-                    Address.item_id == address_update.item_id,
-                    Address.id != address_id
-                ).update({"is_current": False})
-            elif address_update.missing_item_id:
-                db.query(Address).filter(
-                    Address.missing_item_id == address_update.missing_item_id,
-                    Address.id != address_id
-                ).update({"is_current": False})
+            db.query(Address).filter(
+                Address.item_id == address_update.item_id,
+                Address.id != address_id
+            ).update({"is_current": False})
         
-        # Validate branch if provided
-        if address_update.branch_id:
-            branch = db.query(Branch).filter(Branch.id == address_update.branch_id).first()
-            if not branch:
-                raise HTTPException(status_code=404, detail="Branch not found")
-        elif address_update.item_id:
-            # Branch is required for items
-            raise HTTPException(status_code=400, detail="branch_id is required for items")
+        # Validate branch
+        branch = db.query(Branch).filter(Branch.id == address_update.branch_id).first()
+        if not branch:
+            raise HTTPException(status_code=404, detail="Branch not found")
+        
+        # Validate item
+        item = db.query(Item).filter(Item.id == address_update.item_id).first()
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
         
         # Update address fields
         address.item_id = address_update.item_id
-        address.missing_item_id = address_update.missing_item_id
         address.branch_id = address_update.branch_id
         address.is_current = address_update.is_current
         address.updated_at = datetime.now(timezone.utc)

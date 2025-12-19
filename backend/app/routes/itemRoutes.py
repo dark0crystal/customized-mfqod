@@ -287,7 +287,6 @@ async def search_items(
         raise HTTPException(status_code=500, detail=f"Error searching items: {str(e)}")
 
 @router.get("/users/{user_id}/items", response_model=ItemListResponse)
-@require_permission("can_manage_items")
 async def get_user_items(
     user_id: str,
     request: Request,
@@ -295,13 +294,25 @@ async def get_user_items(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
     include_deleted: bool = Query(False, description="Include soft-deleted items"),
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    current_user: User = Depends(get_current_user_required)
 ):
     """
     Get all items for a specific user
-    Requires: can_manage_items permission (users can always view their own items)
+    Users can always view their own items. Viewing other users' items requires can_manage_items permission.
     """
     try:
+        # Check if user is viewing their own items
+        if user_id != current_user.id:
+            # User is trying to view another user's items - require permission
+            from app.services import permissionServices
+            if not permissionServices.has_full_access(db, current_user.id):
+                if not permissionServices.check_user_permission(db, current_user.id, "can_manage_items"):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Permission 'can_manage_items' is required to view other users' items"
+                    )
+        
         items, total = item_service.get_items_by_user(user_id, include_deleted, skip, limit)
         
         return ItemListResponse(
@@ -311,6 +322,8 @@ async def get_user_items(
             limit=limit,
             has_more=(skip + limit) < total
         )
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
