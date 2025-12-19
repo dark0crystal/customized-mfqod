@@ -118,7 +118,6 @@ async def get_public_items(
         raise HTTPException(status_code=500, detail=f"Error retrieving public items: {str(e)}")
 
 @router.get("/", response_model=ItemListResponse)
-@require_permission("can_manage_items")
 async def get_items(
     request: Request,
     skip: int = Query(0, ge=0, description="Number of items to skip"),
@@ -138,7 +137,7 @@ async def get_items(
 ):
     """
     Get items with filtering and pagination
-    Requires: can_manage_items permission (users can always view their own items)
+    Requires: Authentication (user must be logged in)
     """
     try:
         # Parse date strings to datetime objects
@@ -435,17 +434,17 @@ async def get_public_item(
         raise HTTPException(status_code=500, detail=f"Error retrieving public item: {str(e)}")
 
 @router.get("/{item_id}", response_model=ItemDetailResponse)
-@require_permission("can_manage_items")
 async def get_item(
     item_id: str,
     request: Request,
     include_deleted: bool = Query(False, description="Include soft-deleted items"),
     db: Session = Depends(get_session),
-    item_service: ItemService = Depends(get_item_service)
+    item_service: ItemService = Depends(get_item_service),
+    current_user = Depends(get_current_user_required)
 ):
     """
     Get a single item by ID with related data
-    Requires: can_manage_items permission (users can always view their own items)
+    Requires: Authentication (user must be logged in)
     """
     try:
         item = item_service.get_item_detail_by_id(item_id, include_deleted)
@@ -523,6 +522,49 @@ async def toggle_item_approval(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error toggling approval: {str(e)}")
+
+@router.patch("/{item_id}/toggle-hidden/", response_model=ItemResponse)
+@require_permission("can_manage_items")
+async def toggle_item_hidden_status(
+    item_id: str,
+    request: Request,
+    db: Session = Depends(get_session),
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access())
+):
+    """
+    Toggle the hidden status of an item (controls visibility of all images)
+    Requires: can_manage_items permission
+    """
+    try:
+        item = item_service.toggle_item_hidden_status(item_id)
+        return item
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error toggling hidden status: {str(e)}")
+
+@router.patch("/{item_id}/set-hidden/", response_model=ItemResponse)
+@require_permission("can_manage_items")
+async def set_item_hidden_status(
+    item_id: str,
+    is_hidden: bool,
+    request: Request,
+    db: Session = Depends(get_session),
+    item_service: ItemService = Depends(get_item_service),
+    _: None = Depends(require_branch_access())
+):
+    """
+    Set the hidden status of an item (controls visibility of all images)
+    Requires: can_manage_items permission
+    """
+    try:
+        item = item_service.set_item_hidden_status(item_id, is_hidden)
+        return item
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error setting hidden status: {str(e)}")
 
 @router.patch("/{item_id}/status", response_model=ItemResponse)
 @require_permission("can_manage_items")
