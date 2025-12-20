@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 import uuid
 
-from app.models import Claim, User, Item, ItemStatus
+from app.models import Claim, User, Item, ItemStatus, ClaimStatus
 from app.schemas.claim_schema import ClaimCreate, ClaimUpdate, ClaimResponse, ClaimWithDetails
 from app.services.notification_service import send_claim_status_notification, send_new_claim_alert
 from app.middleware.branch_auth_middleware import can_user_manage_item, is_branch_manager
@@ -45,6 +45,7 @@ class ClaimService:
                 title=claim_data.title,
                 description=claim_data.description,
                 approval=False,  # Claims need approval by default
+                status=ClaimStatus.PENDING.value,  # New claims start as pending
                 user_id=user_id,
                 item_id=claim_data.item_id,
                 created_at=datetime.now(timezone.utc),
@@ -148,7 +149,17 @@ class ClaimService:
         if not claim:
             return False
         
-        # If claim is approved, no one can edit it (except admins for approval status)
+        # Get status, defaulting to pending if not set
+        claim_status = getattr(claim, 'status', None)
+        if not claim_status:
+            # Fallback: derive status from approval for backward compatibility
+            claim_status = ClaimStatus.APPROVED.value if (claim.approval if claim.approval is not None else False) else ClaimStatus.PENDING.value
+        
+        # If claim is approved or rejected, no one can edit it (except admins for status changes)
+        if claim_status == ClaimStatus.APPROVED.value or claim_status == ClaimStatus.REJECTED.value:
+            return False
+        
+        # Also check approval for backward compatibility
         if claim.approval:
             return False
         
@@ -224,11 +235,18 @@ class ClaimService:
         if user_id:
             can_edit = self.can_user_edit_claim(user_id, claim_id)
         
+        # Get status, defaulting to pending if not set
+        claim_status = getattr(claim, 'status', None)
+        if not claim_status:
+            # Fallback: derive status from approval for backward compatibility
+            claim_status = ClaimStatus.APPROVED.value if (claim.approval if claim.approval is not None else False) else ClaimStatus.PENDING.value
+        
         return {
             "id": claim.id,
             "title": claim.title,
             "description": claim.description,
             "approval": claim.approval,
+            "status": claim_status,
             "user_id": claim.user_id,
             "item_id": claim.item_id,
             "created_at": claim.created_at,
@@ -277,6 +295,17 @@ class ClaimService:
                             detail="Only administrators can change claim approval status"
                         )
 
+            # Status changes are admin-only
+            if claim_update.status is not None and user_id:
+                # Only users with full access or can_manage_claims permission can change status
+                if not permissionServices.has_full_access(self.db, user_id):
+                    # Check if user has can_manage_claims permission
+                    if not permissionServices.check_user_permission(self.db, user_id, "can_manage_claims"):
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Only administrators can change claim status"
+                        )
+
             # Update fields
             if claim_update.title is not None:
                 claim.title = claim_update.title
@@ -286,6 +315,15 @@ class ClaimService:
                 
             if claim_update.approval is not None:
                 claim.approval = claim_update.approval
+                # Sync status with approval for backward compatibility
+                if claim_update.status is None:
+                    claim.status = ClaimStatus.APPROVED.value if claim_update.approval else ClaimStatus.PENDING.value
+                
+            if claim_update.status is not None:
+                claim.status = claim_update.status
+                # Sync approval with status for backward compatibility
+                if claim_update.approval is None:
+                    claim.approval = (claim_update.status == ClaimStatus.APPROVED.value)
 
             claim.updated_at = datetime.now(timezone.utc)
 
@@ -378,11 +416,12 @@ class ClaimService:
             if previous_approved_claim:
                 # Unapprove the previous claim
                 previous_approved_claim.approval = False
+                previous_approved_claim.status = ClaimStatus.PENDING.value
                 previous_approved_claim.updated_at = datetime.now(timezone.utc)
                 logger.info(f"Unapproved previous claim {previous_approved_claim.id} for item {claim.item.id}")
         
         # Update claim approval status
-        claim = self.update_claim(claim_id, ClaimUpdate(approval=True))
+        claim = self.update_claim(claim_id, ClaimUpdate(approval=True, status=ClaimStatus.APPROVED.value))
         
         # Reload claim with item to ensure we have the latest data
         claim = self.db.query(Claim).options(
@@ -465,7 +504,7 @@ class ClaimService:
             )
         
         # Update claim approval status
-        claim = self.update_claim(claim_id, ClaimUpdate(approval=False))
+        claim = self.update_claim(claim_id, ClaimUpdate(approval=False, status=ClaimStatus.REJECTED.value))
         
         # Reload claim with item to ensure we have the latest data
         claim = self.db.query(Claim).options(
@@ -617,12 +656,19 @@ class ClaimService:
                 is_assigned = False
                 item_status = None
             
+            # Get status, defaulting to pending if not set
+            claim_status = getattr(claim, 'status', None)
+            if not claim_status:
+                # Fallback: derive status from approval for backward compatibility
+                claim_status = ClaimStatus.APPROVED.value if (claim.approval if claim.approval is not None else False) else ClaimStatus.PENDING.value
+            
             # Ensure all required fields are present and valid
             return ClaimResponse(
                 id=str(claim.id) if claim.id else "",
                 title=claim.title or "",
                 description=claim.description or "",
                 approval=claim.approval if claim.approval is not None else False,
+                status=claim_status,
                 user_id=str(claim.user_id) if claim.user_id else None,
                 item_id=str(claim.item_id) if claim.item_id else None,
                 created_at=claim.created_at if claim.created_at else datetime.now(timezone.utc),
@@ -634,11 +680,18 @@ class ClaimService:
             logger.error(f"Error converting claim to response: {e}")
             # Return basic response if conversion fails
             try:
+                # Get status, defaulting to pending if not set
+                fallback_status = getattr(claim, 'status', None) if claim else None
+                if not fallback_status:
+                    # Fallback: derive status from approval for backward compatibility
+                    fallback_status = ClaimStatus.APPROVED.value if (claim.approval if claim and claim.approval is not None else False) else ClaimStatus.PENDING.value
+                
                 return ClaimResponse(
                     id=str(claim.id) if claim and claim.id else "",
                     title=claim.title if claim and claim.title else "",
                     description=claim.description if claim and claim.description else "",
                     approval=claim.approval if claim and claim.approval is not None else False,
+                    status=fallback_status,
                     user_id=str(claim.user_id) if claim and claim.user_id else None,
                     item_id=str(claim.item_id) if claim and claim.item_id else None,
                     created_at=claim.created_at if claim and claim.created_at else datetime.now(timezone.utc),

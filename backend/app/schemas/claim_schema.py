@@ -19,12 +19,14 @@ class ClaimCreate(ClaimBase):
 class ClaimUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = Field(None, min_length=1, max_length=2000)
-    approval: Optional[bool] = None
+    approval: Optional[bool] = None  # Kept for backward compatibility
+    status: Optional[str] = Field(None, description="Claim status: pending, approved, or rejected")
 
 
 class ClaimResponse(ClaimBase):
     id: str
-    approval: bool
+    approval: bool  # Kept for backward compatibility
+    status: str  # Claim status: pending, approved, or rejected
     user_id: Optional[str]
     item_id: Optional[str]
     created_at: datetime
