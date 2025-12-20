@@ -335,12 +335,12 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
     <div className="min-h-screen">
       {confetti && <ReactConfetti width={window.innerWidth} height={window.innerHeight} />}
 
-      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8 md:py-12">
         {/* Back Button */}
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <Link
             href="/search"
-            className="inline-flex items-center hover:opacity-80 transition-opacity"
+            className="inline-flex items-center text-sm sm:text-base hover:opacity-80 transition-opacity"
             style={{ color: '#3277AE' }}
           >
             {t('backToSearch')}
@@ -348,44 +348,44 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
         </div>
 
         <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className='grid grid-rows-2 grid-cols-1 lg:grid-rows-1 lg:grid-cols-2 gap-8 p-8'>
+          <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 p-4 sm:p-6 lg:p-8'>
             {/* Content Section */}
-            <div className='order-2 lg:order-1 space-y-6'>
+            <div className='order-2 lg:order-1 space-y-4 sm:space-y-6'>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-4 leading-tight">{item.title}</h1>
-                <div className="h-px w-20 bg-gray-300 mb-6"></div>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 sm:mb-4 leading-tight">{item.title}</h1>
+                <div className="h-px w-16 sm:w-20 bg-gray-300 mb-4 sm:mb-6"></div>
               </div>
 
-              <div className="prose prose-lg max-w-none">
-                <p className="text-gray-700 leading-relaxed">{item.description}</p>
+              <div className="prose prose-sm sm:prose-base lg:prose-lg max-w-none">
+                <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{item.description}</p>
               </div>
 
               {/* Item Details */}
-              <div className="bg-gray-50 rounded-lg p-6 space-y-4">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">{t('itemDetails')}</h3>
+              <div className="bg-gray-50 rounded-lg p-4 sm:p-6 space-y-3 sm:space-y-4">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3 sm:mb-4">{t('itemDetails')}</h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                   <div className="space-y-1">
-                    <p className="text-sm text-gray-500">{t('type')}</p>
-                    <p className="font-medium text-gray-900">{item.item_type ? getLocalizedName(item.item_type.name_ar, item.item_type.name_en) || 'N/A' : 'N/A'}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">{t('type')}</p>
+                    <p className="font-medium text-gray-900 text-sm sm:text-base">{item.item_type ? getLocalizedName(item.item_type.name_ar, item.item_type.name_en) || 'N/A' : 'N/A'}</p>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-sm text-gray-500">{t('posted')}</p>
-                    <p className="font-medium text-gray-900">{formatDateOnly(item.created_at)}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">{t('posted')}</p>
+                    <p className="font-medium text-gray-900 text-sm sm:text-base">{formatDateOnly(item.created_at)}</p>
                   </div>
 
                   {item.user && (
                     <div className="space-y-1">
-                      <p className="text-sm text-gray-500">{t('postedBy')}</p>
-                      <p className="font-medium text-gray-900">{item.user.first_name} {item.user.last_name}</p>
+                      <p className="text-xs sm:text-sm text-gray-500">{t('postedBy')}</p>
+                      <p className="font-medium text-gray-900 text-sm sm:text-base">{item.user.first_name} {item.user.last_name}</p>
                     </div>
                   )}
 
                   {item.claims_count > 0 && (
                     <div className="space-y-1">
-                      <p className="text-sm text-gray-500">{t('claims')}</p>
-                      <p className="font-medium text-gray-900">{item.claims_count}</p>
+                      <p className="text-xs sm:text-sm text-gray-500">{t('claims')}</p>
+                      <p className="font-medium text-gray-900 text-sm sm:text-base">{item.claims_count}</p>
                     </div>
                   )}
                 </div>
@@ -397,10 +397,10 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
               )}
 
               {/* Claim Section: Show success message */}
-              <div className="bg-gray-50 rounded-lg p-6">
+              <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
                 {claimSuccessMessage && (
-                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded">
-                    <span className="text-green-700 font-semibold">
+                  <div className="mb-4 p-3 sm:p-4 bg-green-50 border border-green-200 rounded">
+                    <span className="text-green-700 font-semibold text-sm sm:text-base">
                       {claimSuccessMessage}
                     </span>
                   </div>
@@ -410,7 +410,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                   <div className="text-center">
                     <button
                       onClick={() => setShowForm(!showForm)}
-                      className="w-full px-8 py-4 bg-white border-2 font-semibold rounded-lg hover:opacity-90 transition-all duration-200"
+                      className="w-full px-6 sm:px-8 py-3 sm:py-4 bg-white border-2 font-semibold text-sm sm:text-base rounded-lg hover:opacity-90 transition-all duration-200"
                       style={{ borderColor: '#3277AE', color: '#3277AE' }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = '#f0f7ff';
@@ -432,10 +432,10 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                   </div>
                 ) : (
                   <div className="text-center">
-                    <p className="text-gray-600 mb-4">{t('loginRequired')}</p>
+                    <p className="text-gray-600 mb-4 text-sm sm:text-base">{t('loginRequired')}</p>
                     <Link
                       href="/auth/login"
-                      className="inline-block px-8 py-4 bg-white border-2 font-semibold rounded-lg hover:opacity-90 transition-all duration-200"
+                      className="inline-block px-6 sm:px-8 py-3 sm:py-4 bg-white border-2 font-semibold text-sm sm:text-base rounded-lg hover:opacity-90 transition-all duration-200"
                       style={{ borderColor: '#3277AE', color: '#3277AE' }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = '#f0f7ff';
@@ -455,9 +455,9 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
 
             {/* Image Section */}
             <div className='order-1 lg:order-2'>
-              <div className="sticky top-8">
+              <div className="lg:sticky lg:top-8">
                 {item.images && item.images.length > 0 ? (
-                  <div className="w-full rounded-2xl overflow-hidden shadow-xl" style={{ minHeight: '400px' }}>
+                  <div className="w-full rounded-lg sm:rounded-xl lg:rounded-2xl overflow-hidden shadow-xl" style={{ minHeight: '250px' }}>
                     <ImageCarousel
                       images={item.images.map((img): CarouselImage => ({
                         id: img.id,
@@ -468,14 +468,14 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                       isModal={false}
                       showCounter={true}
                       showDots={true}
-                      className="rounded-2xl"
+                      className="rounded-lg sm:rounded-xl lg:rounded-2xl"
                     />
                   </div>
                 ) : (
-                  <div className="w-full h-96 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="w-full h-64 sm:h-80 lg:h-96 bg-gray-100 rounded-lg flex items-center justify-center">
                     <div className="text-center">
-                      <p className="text-gray-500 text-lg font-medium">{t('noImages')}</p>
-                      <p className="text-gray-400 text-sm mt-1">{t('noImagesDescription')}</p>
+                      <p className="text-gray-500 text-base sm:text-lg font-medium">{t('noImages')}</p>
+                      <p className="text-gray-400 text-xs sm:text-sm mt-1">{t('noImagesDescription')}</p>
                     </div>
                   </div>
                 )}
@@ -493,16 +493,16 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
 
         {/* Claim Form */}
         {showForm && session?.user && (
-          <div className="mt-8 bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="bg-gray-50 p-6 border-b">
-              <h3 className="text-2xl font-bold text-gray-800">
+          <div className="mt-6 sm:mt-8 bg-white rounded-lg shadow-lg overflow-hidden">
+            <div className="bg-gray-50 p-4 sm:p-6 border-b">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">
                 {t('title')}
               </h3>
             </div>
-            <div className="p-8">
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+            <div className="p-4 sm:p-6 lg:p-8">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 sm:space-y-8">
                 <div>
-                  <label htmlFor="title" className="block text-lg font-semibold text-gray-800 mb-3">
+                  <label htmlFor="title" className="block text-base sm:text-lg font-semibold text-gray-800 mb-2 sm:mb-3">
                     {t('claimTitle')} *
                   </label>
                   <input
@@ -510,7 +510,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                     {...register("title")}
                     type="text"
                     placeholder={t('claimTitlePlaceholder')}
-                    className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-lg"
+                    className="w-full p-3 sm:p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-sm sm:text-base lg:text-lg"
                     style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
                     onFocus={(e) => {
                       e.currentTarget.style.borderColor = '#3277AE';
@@ -523,7 +523,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                 </div>
 
                 <div>
-                  <label htmlFor="description" className="block text-lg font-semibold text-gray-800 mb-3">
+                  <label htmlFor="description" className="block text-base sm:text-lg font-semibold text-gray-800 mb-2 sm:mb-3">
                     {t('proofOfOwnership')} *
                   </label>
                   <textarea
@@ -531,7 +531,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                     {...register("description")}
                     rows={6}
                     placeholder={t('proofPlaceholder')}
-                    className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-lg resize-none"
+                    className="w-full p-3 sm:p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-sm sm:text-base lg:text-lg resize-none"
                     style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
                     onFocus={(e) => {
                       e.currentTarget.style.borderColor = '#3277AE';
@@ -544,13 +544,13 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                 </div>
 
                 <div>
-                  <label className="block text-lg font-semibold text-gray-800 mb-3">
+                  <label className="block text-base sm:text-lg font-semibold text-gray-800 mb-2 sm:mb-3">
                     {t('supportingImages')}
                   </label>
-                  <p className="text-gray-600 mb-4 text-base">
+                  <p className="text-gray-600 mb-3 sm:mb-4 text-sm sm:text-base">
                     {t('supportingImagesDescription')}
                   </p>
-                  <div className="border border-dashed border-gray-300 rounded-lg p-6 hover:border-gray-400 transition-colors duration-200">
+                  <div className="border border-dashed border-gray-300 rounded-lg p-4 sm:p-6 hover:border-gray-400 transition-colors duration-200">
                     <CompressorFileInput
                       onFilesSelected={setCompressedFiles}
                       maxFiles={5}
@@ -560,8 +560,8 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                 </div>
 
                 {isUploading && uploadProgress.length > 0 && (
-                  <div className="space-y-4">
-                    <p className="text-lg font-semibold text-gray-700">{t('uploading')}</p>
+                  <div className="space-y-3 sm:space-y-4">
+                    <p className="text-base sm:text-lg font-semibold text-gray-700">{t('uploading')}</p>
                     {uploadProgress.map((progress, index) => (
                       <div key={index} className="space-y-2">
                         <div className="flex justify-between text-sm text-gray-600">
@@ -583,7 +583,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                   <button
                     type="submit"
                     disabled={isSubmitting || isUploading}
-                    className="w-full py-4 px-6 text-white font-bold text-lg rounded-lg focus:outline-none focus:ring-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+                    className="w-full py-3 sm:py-4 px-4 sm:px-6 text-white font-bold text-base sm:text-lg rounded-lg focus:outline-none focus:ring-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200"
                     style={{
                       backgroundColor: '#3277AE',
                       '--tw-ring-color': '#3277AE'
