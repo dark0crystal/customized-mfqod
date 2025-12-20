@@ -41,6 +41,22 @@ class ItemStatus(enum.Enum):
                     return member
         return None
 
+class ClaimStatus(enum.Enum):
+    """Claim status enumeration"""
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    
+    @classmethod
+    def _missing_(cls, value):
+        """Handle case-insensitive mapping for backward compatibility"""
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for member in cls:
+                if member.value.lower() == value_lower:
+                    return member
+        return None
+
 class UserTypeConverter(TypeDecorator):
     """Custom SQLAlchemy type to handle UserType enum conversion"""
     impl = String
@@ -167,6 +183,7 @@ class Item(Base):
     claims_count: Mapped[int] = mapped_column(Integer, default=0)
     temporary_deletion: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String, default=ItemStatus.PENDING.value, nullable=False)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     approved_claim_id: Mapped[Optional[str]] = mapped_column(ForeignKey("claim.id"), nullable=True)
     item_type_id: Mapped[Optional[str]] = mapped_column(ForeignKey("itemtype.id"), nullable=True)
     item_type: Mapped[Optional["ItemType"]] = relationship("ItemType", back_populates="items")
@@ -247,8 +264,6 @@ class Address(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     item_id: Mapped[Optional[str]] = mapped_column(ForeignKey("item.id"), nullable=True)
     item: Mapped[Optional["Item"]] = relationship("Item", back_populates="addresses")
-    missing_item_id: Mapped[Optional[str]] = mapped_column(ForeignKey("missingitem.id"), nullable=True)
-    missing_item: Mapped[Optional["MissingItem"]] = relationship("MissingItem", back_populates="addresses")
     branch_id: Mapped[Optional[str]] = mapped_column(ForeignKey("branch.id"), nullable=True)
     branch: Mapped[Optional["Branch"]] = relationship("Branch", back_populates="addresses")
     full_location: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -263,7 +278,6 @@ class Image(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     imageable_id: Mapped[str] = mapped_column(String, index=True)
     imageable_type: Mapped[str] = mapped_column(String, index=True)
-    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
@@ -272,7 +286,8 @@ class Claim(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     title: Mapped[str] = mapped_column(String)
     description: Mapped[str] = mapped_column(Text)
-    approval: Mapped[bool] = mapped_column(Boolean, default=True)
+    approval: Mapped[bool] = mapped_column(Boolean, default=True)  # Kept for backward compatibility
+    status: Mapped[str] = mapped_column(String, default=ClaimStatus.PENDING.value, nullable=False)
     user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
     user: Mapped[Optional["User"]] = relationship("User", back_populates="claims")
     item_id: Mapped[Optional[str]] = mapped_column(ForeignKey("item.id"), nullable=True)
@@ -351,7 +366,6 @@ class MissingItem(Base):
     item_type: Mapped[Optional["ItemType"]] = relationship("ItemType", back_populates="missing_items")
     user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
     user: Mapped[Optional["User"]] = relationship("User", back_populates="missing_items")
-    addresses: Mapped[List["Address"]] = relationship("Address", back_populates="missing_item")
     assigned_found_items: Mapped[List["MissingItemFoundItem"]] = relationship(
         "MissingItemFoundItem",
         back_populates="missing_item",

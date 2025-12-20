@@ -47,6 +47,9 @@ class ItemService:
         # Handle status field
         status_value = item_data.status.value if hasattr(item_data.status, 'value') else item_data.status
         
+        # Handle is_hidden field - use value from request or default to False
+        is_hidden_value = item_data.is_hidden if item_data.is_hidden is not None else False
+        
         new_item = Item(
             id=str(uuid.uuid4()),
             title=item_data.title,
@@ -55,6 +58,7 @@ class ItemService:
             item_type_id=item_data.item_type_id,
             status=status_value,
             temporary_deletion=item_data.temporary_deletion,
+            is_hidden=is_hidden_value,
             claims_count=0,
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc)
@@ -516,11 +520,14 @@ class ItemService:
         
         return self._item_to_response(item)
     
-    def patch_item(self, item_id: str, update_data: dict) -> Optional[ItemResponse]:
+    def patch_item(self, item_id: str, update_data: dict, user_id: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> Optional[ItemResponse]:
         """Patch an item with location history tracking"""
         item = self.get_item_by_id(item_id)
         if not item:
             raise ValueError("Item not found")
+        
+        # Track old status for audit logging
+        old_status = item.status
         
         # Check if location is being changed
         location_changed = update_data.get('locationChanged', False)
@@ -538,6 +545,9 @@ class ItemService:
             # Validate status value
             if status_value in [ItemStatus.PENDING.value, ItemStatus.APPROVED.value, ItemStatus.CANCELLED.value]:
                 item.status = status_value
+                # Clear approved_claim_id when changing from approved to pending
+                if old_status == ItemStatus.APPROVED.value and status_value == ItemStatus.PENDING.value:
+                    item.approved_claim_id = None
             else:
                 raise ValueError(f"Invalid status: {status_value}")
         
@@ -607,8 +617,27 @@ class ItemService:
         
         item.updated_at = datetime.now(timezone.utc)
         
+        # Track if status changed for audit logging
+        status_changed = 'status' in update_data and old_status != item.status
+        
         self.db.commit()
         self.db.refresh(item)
+        
+        # Log the status change if user_id is provided and status actually changed
+        if status_changed and user_id:
+            try:
+                from app.services.auditLogService import AuditLogService
+                audit_service = AuditLogService(self.db)
+                audit_service.create_item_status_change_log(
+                    item_id=item_id,
+                    old_status=old_status,
+                    new_status=item.status,
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+            except Exception as e:
+                logger.error(f"Failed to create audit log for item status change in patch_item: {e}")
         
         return self._item_to_response(item)
     
@@ -646,19 +675,30 @@ class ItemService:
                 Image.imageable_id == item_id
             ).delete()
             
-            # 2. Delete all claims associated with this item
+            # 2. Get all claim IDs for this item before deletion
+            claim_ids = [claim.id for claim in self.db.query(Claim).filter(Claim.item_id == item_id).all()]
+            
+            # 3. Clear approved_claim_id references from ALL items (including this one) that reference these claims
+            # This prevents foreign key constraint violations when deleting claims
+            if claim_ids:
+                self.db.query(Item).filter(Item.approved_claim_id.in_(claim_ids)).update(
+                    {Item.approved_claim_id: None},
+                    synchronize_session=False
+                )
+            
+            # 4. Delete all claims associated with this item
             self.db.query(Claim).filter(Claim.item_id == item_id).delete()
             
-            # 3. Delete all addresses associated with this item
+            # 5. Delete all addresses associated with this item
             self.db.query(Address).filter(Address.item_id == item_id).delete()
             
-            # 4. Delete all branch transfer requests for this item
+            # 6. Delete all branch transfer requests for this item
             from app.models import BranchTransferRequest
             self.db.query(BranchTransferRequest).filter(
                 BranchTransferRequest.item_id == item_id
             ).delete()
             
-            # 5. Finally, delete the item itself
+            # 7. Finally, delete the item itself
             self.db.delete(item)
         else:
             item.temporary_deletion = True
@@ -1253,6 +1293,7 @@ class ItemService:
                 claims_count=item.claims_count or 0,
                 temporary_deletion=item.temporary_deletion if item.temporary_deletion is not None else False,
                 status=item.status if item.status else ItemStatus.PENDING.value,
+                is_hidden=item.is_hidden if item.is_hidden is not None else False,
                 approved_claim_id=str(item.approved_claim_id) if item.approved_claim_id else None,
                 item_type_id=str(item.item_type_id) if item.item_type_id else None,
                 user_id=str(item.user_id) if item.user_id else None,
@@ -1333,6 +1374,7 @@ class ItemService:
             claims_count=item.claims_count,
             temporary_deletion=item.temporary_deletion,
             status=item.status if item.status else ItemStatus.PENDING.value,
+            is_hidden=item.is_hidden if item.is_hidden is not None else False,
             approved_claim_id=item.approved_claim_id,
             item_type_id=item.item_type_id,
             user_id=item.user_id,
