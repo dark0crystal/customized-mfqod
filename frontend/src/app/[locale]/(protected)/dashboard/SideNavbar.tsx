@@ -170,7 +170,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
           label: t('reportFoundItem'),
           icon: <PlusCircle size={16} />,
           href: '/dashboard/report-found-item',
-          requiredPermissions: []
+          requiredPermissions: ['can_manage_items']
         },
         {
           id: 'report-missing-item',
