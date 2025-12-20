@@ -167,6 +167,7 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
         console.warn(`[PERMISSIONS] 1. The role has no permissions assigned in the database`);
         console.warn(`[PERMISSIONS] 2. The role_id doesn't match any role in the database`);
         console.warn(`[PERMISSIONS] 3. There's an issue with the database query`);
+        return []; // Return empty array instead of error
       }
 
       // Map API response to your Permission type
@@ -175,7 +176,15 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
           console.log(`[PERMISSIONS] Mapping permission:`, perm);
           // Handle both object with name property and string format
           if (typeof perm === 'string') return perm as Permission;
-          if (perm && typeof perm === 'object' && 'name' in perm) return (perm as any).name as Permission;
+          if (perm && typeof perm === 'object' && 'name' in perm) {
+            const permObj = perm as PermissionResponse;
+            return permObj.name as Permission;
+          }
+          // Also check for id field if name is not present (some schemas might use id)
+          if (perm && typeof perm === 'object' && 'id' in perm && !('name' in perm)) {
+            console.warn(`[PERMISSIONS] Permission object has id but no name:`, perm);
+            return undefined as unknown as Permission;
+          }
           return undefined as unknown as Permission;
         })
         .filter(perm => perm !== undefined && perm !== null);
@@ -184,8 +193,10 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
       console.log(`[PERMISSIONS] Total mapped permissions: ${mappedPermissions.length}`);
       if (mappedPermissions.length > 0) {
         console.log('[PERMISSIONS] Permission names:', mappedPermissions.join(', '));
-      } else {
+      } else if (permissionsData.length > 0) {
+        // Only log error if we received permissions but couldn't map them
         console.error('[PERMISSIONS] ERROR: No permissions were successfully mapped!');
+        console.error('[PERMISSIONS] Received permissions data:', permissionsData);
       }
       return mappedPermissions;
     } catch (error) {
