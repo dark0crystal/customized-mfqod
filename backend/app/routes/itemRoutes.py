@@ -105,7 +105,7 @@ async def get_public_items(
             item_type_id=item_type_id
         )
         
-        items, total = item_service.get_items(filters)
+        items, total = item_service.get_items(filters, user_id=None)
         
         return ItemListResponse(
             items=items,
@@ -431,7 +431,8 @@ async def get_public_item(
         item_service = ItemService(db)
         
         # Get item detail with approved_only=True and include_deleted=False
-        item = item_service.get_item_detail_by_id(item_id, include_deleted=False)
+        # Pass None as user_id for public access (no permission check)
+        item = item_service.get_item_detail_by_id(item_id, include_deleted=False, user_id=None)
         
         if not item:
             raise HTTPException(status_code=404, detail="Item not found or not approved for public viewing")
@@ -460,7 +461,7 @@ async def get_item(
     Requires: Authentication (user must be logged in)
     """
     try:
-        item = item_service.get_item_detail_by_id(item_id, include_deleted)
+        item = item_service.get_item_detail_by_id(item_id, include_deleted, user_id=str(current_user.id))
         if not item:
             raise HTTPException(status_code=404, detail="Item not found")
         return item
@@ -561,7 +562,6 @@ async def toggle_item_hidden_status(
 @require_permission("can_manage_items")
 async def set_item_hidden_status(
     item_id: str,
-    is_hidden: bool,
     request: Request,
     db: Session = Depends(get_session),
     item_service: ItemService = Depends(get_item_service),
@@ -570,12 +570,22 @@ async def set_item_hidden_status(
     """
     Set the hidden status of an item (controls visibility of all images)
     Requires: can_manage_items permission
+    Expects JSON body: {"is_hidden": bool}
     """
     try:
+        body = await request.json()
+        is_hidden = body.get("is_hidden")
+        if is_hidden is None:
+            raise HTTPException(status_code=400, detail="is_hidden field is required in request body")
+        if not isinstance(is_hidden, bool):
+            raise HTTPException(status_code=400, detail="is_hidden must be a boolean value")
+        
         item = item_service.set_item_hidden_status(item_id, is_hidden)
         return item
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error setting hidden status: {str(e)}")
 

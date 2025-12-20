@@ -13,7 +13,6 @@ from app.models import (
     Item,
     MissingItemFoundItem,
     User,
-    Address,
     Branch,
     Organization,
     Image,
@@ -94,7 +93,6 @@ class MissingItemService:
         query = self.db.query(MissingItem).options(
             joinedload(MissingItem.item_type),
             joinedload(MissingItem.user),
-            joinedload(MissingItem.addresses).joinedload(Address.branch).joinedload(Branch.organization),
             joinedload(MissingItem.assigned_found_items).joinedload(MissingItemFoundItem.item),
             joinedload(MissingItem.assigned_found_items).joinedload(MissingItemFoundItem.branch),
         ).filter(MissingItem.id == missing_item_id)
@@ -113,8 +111,7 @@ class MissingItemService:
         """Get missing items with filtering and pagination"""
         query = self.db.query(MissingItem).options(
             joinedload(MissingItem.item_type),
-            joinedload(MissingItem.user),
-            joinedload(MissingItem.addresses).joinedload(Address.branch).joinedload(Branch.organization)
+            joinedload(MissingItem.user)
         )
         
         # Apply filters
@@ -167,8 +164,7 @@ class MissingItemService:
         """Search missing items by title or description"""
         query = self.db.query(MissingItem).options(
             joinedload(MissingItem.item_type),
-            joinedload(MissingItem.user),
-            joinedload(MissingItem.addresses).joinedload(Address.branch).joinedload(Branch.organization)
+            joinedload(MissingItem.user)
         ).filter(
             or_(
                 MissingItem.title.ilike(f"%{search_term}%"),
@@ -271,38 +267,9 @@ class MissingItemService:
             logger.info(f"User with full access {user_id} - returning all pending missing items count")
             return query.count()
         
-        # Check if user is a branch manager - branch managers see pending missing items in their managed branches
-        is_bm = is_branch_manager(user_id, self.db)
-        
-        if is_bm:
-            # Get user's managed branches
-            managed_branch_ids = [
-                row[0] for row in self.db.query(UserBranchManager.branch_id).filter(
-                    UserBranchManager.user_id == user_id
-                ).all()
-            ]
-            
-            if managed_branch_ids:
-                # Get missing items in managed branches
-                missing_item_ids_in_branches = [
-                    row[0] for row in self.db.query(Address.missing_item_id).filter(
-                        Address.branch_id.in_(managed_branch_ids),
-                        Address.is_current == True,
-                        Address.missing_item_id.isnot(None)
-                    ).distinct().all()
-                ]
-                
-                if missing_item_ids_in_branches:
-                    # Filter to only pending missing items in managed branches
-                    count = query.filter(MissingItem.id.in_(missing_item_ids_in_branches)).count()
-                    logger.info(f"Branch manager {user_id} - returning {count} pending missing items from managed branches")
-                    return count
-                else:
-                    logger.info(f"Branch manager {user_id} - no missing items in managed branches")
-                    return 0
-            else:
-                logger.info(f"Branch manager {user_id} - no managed branches")
-                return 0
+        # Missing items no longer have branch associations, so branch managers see all pending items
+        # (or we can return 0 if branch managers shouldn't see missing items)
+        # For now, branch managers will see all pending missing items
         
         # Regular users see only their own pending missing items
         count = query.filter(MissingItem.user_id == user_id).count()
@@ -575,8 +542,6 @@ class MissingItemService:
             raise ValueError("Missing item not found")
         
         if permanent:
-            # Delete associated addresses
-            self.db.query(Address).filter(Address.missing_item_id == missing_item_id).delete()
             # Delete associated images
             self.db.query(Image).filter(
                 Image.imageable_type == "missingitem",
@@ -711,19 +676,64 @@ class MissingItemService:
             return
 
         email_service = EmailNotificationService()
+        
+        # Get frontend base URL for generating links
+        from app.config.email_config import email_settings
+        frontend_base_url = email_settings.FRONTEND_BASE_URL.rstrip('/')
+        
+        # Build item information with links
         item_titles = ", ".join([itm.title for itm in items]) if items else "items"
+        item_links_text = []
+        item_links_html = []
+        
+        for item in items:
+            item_url = f"{frontend_base_url}/dashboard/items/{item.id}"
+            item_links_text.append(f"- {item.title}: {item_url}")
+            item_links_html.append(f'<li><a href="{item_url}" style="color: #667eea; text-decoration: none;">{item.title}</a></li>')
 
+        branch_name = branch.branch_name_en or branch.branch_name_ar or 'branch'
+        user_name = missing_item.user.first_name or "User"
+        
         subject = f"Update on your missing item: {missing_item.title}"
+        
+        # Text version with item links
         text_body = (
-            f"Hello {missing_item.user.first_name},\n\n"
-            f"We have identified possible matches for your reported missing item \"{missing_item.title}\".\n"
-            f"Branch to visit: {branch.branch_name_en or branch.branch_name_ar or 'branch'}\n"
-            f"Items: {item_titles}\n"
-            f"Note: {note or 'No additional note provided.'}\n\n"
-            "Please visit the branch with proof of ownership.\n"
-            "This is an automated message."
+            f"Hello {user_name},\n\n"
+            f"We have identified possible matches for your reported missing item \"{missing_item.title}\".\n\n"
+            f"Branch to visit: {branch_name}\n\n"
+            f"Items to review:\n"
+            + "\n".join(item_links_text) + "\n\n"
+            + f"Note: {note or 'No additional note provided.'}\n\n"
+            + "Please visit the branch with proof of ownership.\n\n"
+            + "This is an automated message."
         )
-        html_body = text_body.replace("\n", "<br/>")
+        
+        # HTML version with clickable links
+        html_body = f"""
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333;">
+            <h2>Update on your missing item</h2>
+            <p>Hello {user_name},</p>
+            
+            <p>We have identified possible matches for your reported missing item <strong>"{missing_item.title}"</strong>.</p>
+            
+            <div style="background-color: #e8f4fd; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0;">
+                <strong>Branch to visit:</strong> {branch_name}
+            </div>
+            
+            <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                <strong>Items to review:</strong>
+                <ul style="margin-top: 10px;">
+                    {''.join(item_links_html)}
+                </ul>
+            </div>
+            
+            {f'<div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;"><strong>Note:</strong> {note}</div>' if note else ''}
+            
+            <p>Please visit the branch with proof of ownership.</p>
+            
+            <p style="color: #666; font-size: 12px; margin-top: 30px;">This is an automated message.</p>
+        </div>
+        """
 
         await email_service.send_email(
             to_email=missing_item.user.email,
@@ -781,20 +791,18 @@ class MissingItemService:
     
     def _missing_item_to_response(self, missing_item: MissingItem) -> MissingItemResponse:
         """Convert MissingItem model to MissingItemResponse"""
-        # Get location information
+        # Location is no longer stored for missing items
         location = None
-        if missing_item.addresses:
-            current_address = next((addr for addr in missing_item.addresses if addr.is_current), None)
-            if current_address and current_address.branch:
-                location = LocationResponse(
-                    organization_name=current_address.branch.organization.name_en if current_address.branch.organization else None,
-                    branch_name=current_address.branch.branch_name_en if current_address.branch else None,
-                    full_location=current_address.full_location
-                )
         
-        # Get images
+        # Get images directly from database using polymorphic relationship
         images = []
-        if hasattr(missing_item, 'images') and missing_item.images:
+        from app.models import Image
+        missing_item_images = self.db.query(Image).filter(
+            Image.imageable_type == "missingitem",
+            Image.imageable_id == missing_item.id
+        ).all()
+        
+        if missing_item_images:
             images = [
                 {
                     "id": img.id,
@@ -803,7 +811,7 @@ class MissingItemService:
                     "created_at": img.created_at,
                     "updated_at": img.updated_at
                 }
-                for img in missing_item.images
+                for img in missing_item_images
             ]
         
         return MissingItemResponse(
@@ -848,27 +856,8 @@ class MissingItemService:
                 "last_name": missing_item.user.last_name
             }
         
-        # Get addresses information
+        # Addresses are no longer associated with missing items
         addresses = []
-        if missing_item.addresses:
-            addresses = [
-                {
-                    "id": addr.id,
-                    "is_current": addr.is_current,
-                    "branch": {
-                        "id": addr.branch.id,
-                        "branch_name": addr.branch.branch_name_en,
-                        "branch_name_ar": addr.branch.branch_name_ar,
-                        "organization": {
-                            "id": addr.branch.organization.id,
-                            "name": addr.branch.organization.name_en if addr.branch.organization else None,
-                            "name_ar": addr.branch.organization.name_ar if addr.branch.organization else None,
-                            "name_en": addr.branch.organization.name_en if addr.branch.organization else None
-                        } if addr.branch.organization else None
-                    } if addr.branch else None
-                }
-                for addr in missing_item.addresses
-            ]
 
         assigned_found_items = []
         if hasattr(missing_item, "assigned_found_items") and missing_item.assigned_found_items:
