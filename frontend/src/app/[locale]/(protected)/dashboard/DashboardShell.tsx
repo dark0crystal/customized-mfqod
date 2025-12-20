@@ -4,8 +4,6 @@ import React, { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import SideNavbar from "./SideNavbar";
 import Brand from "@/components/navbar/Brand";
-import { useDirection } from "@/components/DirectionProvider";
-import { tokenManager } from '@/utils/tokenManager';
 import { usePermissions } from '@/PermissionsContext';
 
 interface DashboardShellProps {
@@ -14,36 +12,27 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({ children, initialDirection }: DashboardShellProps) {
-  const { direction } = useDirection();
   const { permissions, userRole, roleId, isAuthenticated, isLoading: permissionsLoading } = usePermissions();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [resolvedDirection, setResolvedDirection] = useState<'ltr' | 'rtl'>(() => {
-    if (initialDirection) return initialDirection;
-    if (typeof document !== "undefined" && (document.dir === "rtl" || document.dir === "ltr")) {
-      return document.dir as 'ltr' | 'rtl';
-    }
-    return direction;
-  });
+
+  // Use initialDirection directly - no state or syncing needed
+  const resolvedDirection = initialDirection || 'ltr';
+  const effectiveIsRTL = resolvedDirection === "rtl";
 
   // Log when DashboardShell mounts
   useEffect(() => {
     console.log('[DASHBOARD_SHELL] Component mounted');
+    console.log('[DASHBOARD_SHELL] Initial direction:', initialDirection);
+    console.log('[DASHBOARD_SHELL] Resolved direction:', resolvedDirection);
+    console.log('[DASHBOARD_SHELL] Is RTL:', effectiveIsRTL);
     console.log('[DASHBOARD_SHELL] Permissions loading:', permissionsLoading);
     console.log('[DASHBOARD_SHELL] Is authenticated:', isAuthenticated);
     console.log('[DASHBOARD_SHELL] User role:', userRole);
     console.log('[DASHBOARD_SHELL] Role ID:', roleId);
     console.log('[DASHBOARD_SHELL] Permissions count:', permissions.length);
-  }, [permissionsLoading, isAuthenticated, userRole, roleId, permissions.length]);
+  }, [initialDirection, resolvedDirection, effectiveIsRTL, permissionsLoading, isAuthenticated, userRole, roleId, permissions.length]);
 
-  // Sync with direction after hydration to avoid initial LTR flash for RTL locales
-  React.useEffect(() => {
-    if (!direction) return;
-    if (direction !== resolvedDirection) {
-      setResolvedDirection(direction);
-    }
-  }, [direction, resolvedDirection]);
 
-  const effectiveIsRTL = resolvedDirection === "rtl";
 
   const toggleMobile = () => setIsMobileOpen((prev) => !prev);
   const closeMobile = () => setIsMobileOpen(false);
@@ -88,15 +77,13 @@ export default function DashboardShell({ children, initialDirection }: Dashboard
       <div className="lg:hidden">
         <div
           onClick={closeMobile}
-          className={`fixed inset-0 z-30 bg-black/40 transition-opacity duration-200 ${
-            isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-          }`}
+          className={`fixed inset-0 z-30 bg-black/40 transition-opacity duration-200 ${isMobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+            }`}
         />
 
         <div
-          className={`fixed top-0 bottom-0 z-40 w-72 max-w-[80vw] bg-white shadow-lg border border-gray-200 transition-transform duration-300 transform-gpu ${sidebarPositionClass} ${
-            isMobileOpen ? "translate-x-0 opacity-100" : `${sidebarTranslateClosed} opacity-0 pointer-events-none`
-          }`}
+          className={`fixed top-0 bottom-0 z-40 w-72 max-w-[80vw] bg-white shadow-lg border border-gray-200 transition-transform duration-300 transform-gpu ${sidebarPositionClass} ${isMobileOpen ? "translate-x-0 opacity-100" : `${sidebarTranslateClosed} opacity-0 pointer-events-none`
+            }`}
           aria-hidden={!isMobileOpen}
         >
           <SideNavbar className="h-full" onClose={closeMobile} showCollapseToggle={false} />
