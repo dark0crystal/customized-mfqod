@@ -6,7 +6,6 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import ReactConfetti from 'react-confetti';
 import CompressorFileInput from "@/components/forms/CompressorFileInput";
-import Image from 'next/image';
 import LocationTracking from "@/components/LocationTracking";
 import Footer from "@/components/Footer";
 import { Link } from '@/i18n/navigation';
@@ -82,12 +81,6 @@ interface Location {
   full_location?: string;
 }
 
-enum ItemStatus {
-  CANCELLED = "cancelled",
-  APPROVED = "approved",
-  PENDING = "pending"
-}
-
 interface ItemData {
   id: string;
   title: string;
@@ -98,6 +91,7 @@ interface ItemData {
   temporary_deletion: boolean;
   status?: string;  // Item status: cancelled, approved, pending
   approval: boolean;  // DEPRECATED: kept for backward compatibility
+  is_hidden?: boolean;  // Whether item images are hidden from regular users
   item_type_id?: string;
   user_id?: string;
   item_type?: ItemType;
