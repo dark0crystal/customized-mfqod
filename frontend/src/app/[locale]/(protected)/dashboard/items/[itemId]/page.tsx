@@ -8,6 +8,7 @@ import LocationTracking from "@/components/LocationTracking";
 import { tokenManager } from '@/utils/tokenManager';
 import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
+import { usePermissions } from '@/PermissionsContext';
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import HydrationSafeWrapper from '@/components/HydrationSafeWrapper';
 import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
@@ -83,6 +84,7 @@ interface ItemData {
   status?: string;  // Item status: cancelled, approved, pending
   approval: boolean;  // DEPRECATED: kept for backward compatibility
   temporary_deletion: boolean;
+  is_hidden?: boolean;  // Whether item images are hidden from regular users
   approved_claim_id?: string | null;  // ID of the approved claim
   created_at: string;
   updated_at: string;
@@ -162,6 +164,9 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const t = useTranslations('dashboard.items.detail');
   const tEdit = useTranslations('editPost');
   const locale = useLocale();
+  const { hasPermission } = usePermissions();
+  const canManageItems = hasPermission('can_manage_items');
+  const canManageTransferRequests = hasPermission('can_manage_transfer_requests');
   const [item, setItem] = useState<ItemData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -185,6 +190,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const [imageVisibility, setImageVisibility] = useState<string>('show');
   const [showImageVisibilityModal, setShowImageVisibilityModal] = useState(false);
   const [pendingImageVisibility, setPendingImageVisibility] = useState<string | null>(null);
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
 
   // Helper to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -212,6 +218,8 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
         setItem(data);
         // Set status from data.status or fallback to approved/pending based on approval
         setStatus(data.status || (data.approval ? 'approved' : 'pending'));
+        // Set image visibility from is_hidden
+        setImageVisibility(data.is_hidden ? 'hide' : 'show');
       } catch (err) {
         console.error('Error fetching item:', err);
         setError(err instanceof Error ? err.message : "Error fetching item details.");
@@ -644,30 +652,34 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           <div className="flex items-center justify-between">
             <span className="text-gray-600">{t('created')} {formatDate(item.created_at)}</span>
             {showEditForm ? (
-              <div className="flex gap-3">
+              canManageItems && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowEditForm(false)}
+                    className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium transition-colors hover:bg-gray-50"
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button
+                    id="save-changes-button"
+                    type="button"
+                    className="px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+                    style={{ backgroundColor: '#3277AE' }}
+                  >
+                    {t('save') || 'Save Changes'}
+                  </button>
+                </div>
+              )
+            ) : (
+              canManageItems && (
                 <button
-                  onClick={() => setShowEditForm(false)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium transition-colors hover:bg-gray-50"
-                >
-                  {t('cancel')}
-                </button>
-                <button
-                  id="save-changes-button"
-                  type="button"
-                  className="px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+                  onClick={() => setShowEditForm(!showEditForm)}
+                  className="px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90"
                   style={{ backgroundColor: '#3277AE' }}
                 >
-                  {t('save') || 'Save Changes'}
+                  {t('editItem')}
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowEditForm(!showEditForm)}
-                className="px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90"
-                style={{ backgroundColor: '#3277AE' }}
-              >
-                {t('editItem')}
-              </button>
+              )
             )}
           </div>
         </div>
@@ -685,7 +697,6 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                   setShowEditForm(false);
                 }}
                 onCancel={() => setShowEditForm(false)}
-                hideNewImages={imageVisibility === 'hide'}
               />
             ) : (
               /* Read-only Item Information Section */
@@ -761,14 +772,6 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                         )}
                       </div>
                     )}
-
-                  {/* Location History */}
-                  {item.addresses && item.addresses.length > 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500 mb-3">{t('locationHistory')}</label>
-                      <LocationTracking addresses={item.addresses} />
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -833,49 +836,70 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
 
           {/* Right Column - Sidebar */}
           <div className="space-y-6">
-            {/* Approval Status Card */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">{t('itemStatus')}</h3>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
-                    item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
-                      item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
-                        item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
-                  }`}>
-                  {item.status === ItemStatus.APPROVED ? t('approved') :
-                        item.status === ItemStatus.CANCELLED ? t('cancelled') :
-                          item.status === ItemStatus.PENDING ? (t('pending') || 'Pending') :
-                            item.approval ? t('approved') : t('pending')}
-                </span>
-              </div>
+            {/* Approval Status Card - Only show if user has can_manage_items permission */}
+            {canManageItems && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">{t('itemStatus')}</h3>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
+                      item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
+                        item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
+                          item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                    }`}>
+                    {item.status === ItemStatus.APPROVED ? t('approved') :
+                          item.status === ItemStatus.CANCELLED ? t('cancelled') :
+                            item.status === ItemStatus.PENDING ? (t('pending') || 'Pending') :
+                              item.approval ? t('approved') : t('pending')}
+                  </span>
+                </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('selectNewStatus')}
-                </label>
-                <HydrationSafeWrapper fallback={<div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>}>
-                  <CustomDropdown
-                    options={[
-                      { value: 'cancelled', label: t('status.cancelled') || t('cancelled') },
-                      { value: 'approved', label: t('status.approved') || t('approved') },
-                      { value: 'pending', label: t('status.pending') || 'Pending' }
-                    ]}
-                    value={pendingStatusChange && !selectedClaimId ? previousStatus : status}
-                    onChange={handleStatusChange}
-                    placeholder={t('selectStatus')}
-                    className="w-full"
-                  />
-                </HydrationSafeWrapper>
-              </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('selectNewStatus')}
+                  </label>
+                  <HydrationSafeWrapper fallback={<div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>}>
+                    <CustomDropdown
+                      options={[
+                        { value: 'cancelled', label: t('status.cancelled') || t('cancelled') },
+                        { value: 'approved', label: t('status.approved') || t('approved') },
+                        { value: 'pending', label: t('status.pending') || 'Pending' }
+                      ]}
+                      value={pendingStatusChange && !selectedClaimId ? previousStatus : status}
+                      onChange={handleStatusChange}
+                      placeholder={t('selectStatus')}
+                      className="w-full"
+                    />
+                  </HydrationSafeWrapper>
+                </div>
 
-              <button
-                onClick={handleStatusUpdate}
-                disabled={isUpdating || status === (item.status || (item.approval ? 'approved' : 'pending'))}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
-              >
-                {isUpdating ? t('updating') : t('update')}
-              </button>
-            </div>
+                <button
+                  onClick={handleStatusUpdate}
+                  disabled={isUpdating || status === (item.status || (item.approval ? 'approved' : 'pending'))}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
+                >
+                  {isUpdating ? t('updating') : t('update')}
+                </button>
+              </div>
+            )}
+            
+            {/* Status Display Only (for users without manage permission) */}
+            {!canManageItems && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">{t('itemStatus')}</h3>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
+                      item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
+                        item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
+                          item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                    }`}>
+                    {item.status === ItemStatus.APPROVED ? t('approved') :
+                          item.status === ItemStatus.CANCELLED ? t('cancelled') :
+                            item.status === ItemStatus.PENDING ? (t('pending') || 'Pending') :
+                              item.approval ? t('approved') : t('pending')}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Created By Card */}
             <div className="bg-white rounded-lg shadow-sm p-6">
@@ -902,47 +926,51 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
               </div>
             </div>
 
-            {/* Image Visibility Card */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">{tEdit('imageVisibility')}</h3>
-              <div className="mb-2">
-                <HydrationSafeWrapper fallback={<div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>}>
-                  <CustomDropdown
-                    options={[
-                      { value: 'show', label: tEdit('show') },
-                      { value: 'hide', label: tEdit('hide') }
-                    ]}
-                    value={imageVisibility}
-                    onChange={(value) => {
-                      if (value !== imageVisibility) {
-                        setPendingImageVisibility(value);
-                        setShowImageVisibilityModal(true);
-                      }
-                    }}
-                    placeholder={tEdit('imageVisibility')}
-                    className="w-full"
-                  />
-                </HydrationSafeWrapper>
+            {/* Image Visibility Card - Only show if user has can_manage_items permission */}
+            {canManageItems && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{tEdit('imageVisibility')}</h3>
+                <div className="mb-2">
+                  <HydrationSafeWrapper fallback={<div className="w-full h-10 bg-gray-100 rounded-lg animate-pulse"></div>}>
+                    <CustomDropdown
+                      options={[
+                        { value: 'show', label: tEdit('show') },
+                        { value: 'hide', label: tEdit('hide') }
+                      ]}
+                      value={imageVisibility}
+                      onChange={(value) => {
+                        if (value !== imageVisibility) {
+                          setPendingImageVisibility(value);
+                          setShowImageVisibilityModal(true);
+                        }
+                      }}
+                      placeholder={tEdit('imageVisibility')}
+                      className="w-full"
+                    />
+                  </HydrationSafeWrapper>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {tEdit('hideNewImagesDescription')}
+                </p>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {tEdit('hideNewImagesDescription')}
-              </p>
-            </div>
+            )}
 
             {/* Location Card */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">{t('location')}</h3>
-                <button
-                  onClick={() => setShowTransferModal(true)}
-                  className="px-3 py-1.5 text-sm rounded-lg font-medium transition-colors flex items-center gap-2"
-                  style={{ backgroundColor: '#3277AE', color: 'white' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
-                >
-                  <ArrowRight className="w-4 h-4" />
-                  {t('requestTransfer')}
-                </button>
+                {canManageTransferRequests && (
+                  <button
+                    onClick={() => setShowTransferModal(true)}
+                    className="px-3 py-1.5 text-sm rounded-lg font-medium transition-colors flex items-center gap-2"
+                    style={{ backgroundColor: '#3277AE', color: 'white' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                    {t('requestTransfer')}
+                  </button>
+                )}
               </div>
               {item.location?.full_location || (item.addresses && item.addresses.length > 0) ? (
                 <div className="space-y-3">
@@ -976,25 +1004,27 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
               )}
             </div>
 
-            {/* Delete Item Card */}
-            <div className="bg-white rounded-lg shadow-sm p-6 border-2 border-red-200">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Trash2 className="w-5 h-5 text-red-600" />
-                  <h3 className="text-lg font-semibold text-red-900">{t('deleteItem')}</h3>
+            {/* Delete Item Card - Only show if user has can_manage_items permission */}
+            {canManageItems && (
+              <div className="bg-white rounded-lg shadow-sm p-6 border-2 border-red-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Trash2 className="w-5 h-5 text-red-600" />
+                    <h3 className="text-lg font-semibold text-red-900">{t('deleteItem')}</h3>
+                  </div>
                 </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  {t('deleteItemWarning')}
+                </p>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {t('deletePermanently')}
+                </button>
               </div>
-              <p className="text-sm text-gray-600 mb-4">
-                {t('deleteItemWarning')}
-              </p>
-              <button
-                onClick={() => setShowDeleteModal(true)}
-                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                {t('deletePermanently')}
-              </button>
-            </div>
+            )}
 
             {/* Transfer Request Modal */}
             {showTransferModal && (
@@ -1283,14 +1313,39 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                       {tEdit('cancel')}
                     </button>
                     <button
-                      onClick={() => {
-                        setImageVisibility(pendingImageVisibility);
-                        setShowImageVisibilityModal(false);
-                        setPendingImageVisibility(null);
+                      onClick={async () => {
+                        if (!item || !pendingImageVisibility) return;
+                        
+                        setIsUpdatingVisibility(true);
+                        try {
+                          const isHidden = pendingImageVisibility === 'hide';
+                          const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}/set-hidden/`, {
+                            method: 'PATCH',
+                            headers: getAuthHeaders(),
+                            body: JSON.stringify({ is_hidden: isHidden }),
+                          });
+                          
+                          if (response.ok) {
+                            const updatedItem = await response.json();
+                            setItem(updatedItem);
+                            setImageVisibility(pendingImageVisibility);
+                            setShowImageVisibilityModal(false);
+                            setPendingImageVisibility(null);
+                          } else {
+                            const errorData = await response.json().catch(() => ({}));
+                            alert(errorData.detail || tEdit('updateError') || 'Failed to update image visibility');
+                          }
+                        } catch (error) {
+                          console.error('Error updating image visibility:', error);
+                          alert(tEdit('updateError') || 'Failed to update image visibility');
+                        } finally {
+                          setIsUpdatingVisibility(false);
+                        }
                       }}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      disabled={isUpdatingVisibility}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
-                      {tEdit('saveChanges')}
+                      {isUpdatingVisibility ? (tEdit('updating') || 'Updating...') : tEdit('saveChanges')}
                     </button>
                   </div>
                 </div>

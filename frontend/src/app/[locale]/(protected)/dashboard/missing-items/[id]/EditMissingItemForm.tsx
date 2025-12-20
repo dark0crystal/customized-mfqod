@@ -13,6 +13,7 @@ import { Link } from '@/i18n/navigation';
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import Image from "next/image";
 import ImageCarousel, { CarouselImage } from "@/components/ImageCarousel";
+import { usePermissions } from "@/PermissionsContext";
 
 // Zod schema for form validation
 const missingItemFormSchema = z.object({
@@ -111,6 +112,7 @@ interface EditMissingItemFormProps {
 export default function EditMissingItemForm({ missingItemId }: EditMissingItemFormProps) {
   const locale = useLocale();
   const router = useRouter();
+  const { hasPermission } = usePermissions();
 
   // API configuration
   const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
@@ -128,6 +130,12 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
   const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
 
   const c = useTranslations("report-missing");
+  
+  // Check if user can edit this missing item
+  const hasManageMissingItemsPermission = hasPermission("can_manage_missing_items");
+  const canEdit = missingItem 
+    ? (missingItem.status !== "approved" || hasManageMissingItemsPermission)
+    : true;
 
   // Helper function to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -355,6 +363,34 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
       <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
         <div className="flex justify-center items-center h-64 flex-col">
           <div className="text-lg text-red-600 mb-4">{c('missingItemNotFound')}</div>
+          <Link
+            href="/dashboard/missing-items"
+            className="px-4 py-2 text-white rounded-lg transition-colors"
+            style={{
+              backgroundColor: '#3277AE'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#2a5f94';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#3277AE';
+            }}
+          >
+            {c('backToMissingItems')}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // If item is approved and user doesn't have permission, show message
+  if (!canEdit) {
+    return (
+      <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
+        <div className="flex justify-center items-center h-64 flex-col">
+          <div className="text-lg text-red-600 mb-4">
+            {c('cannotEditApproved') || "Cannot edit approved missing items without permission"}
+          </div>
           <Link
             href="/dashboard/missing-items"
             className="px-4 py-2 text-white rounded-lg transition-colors"
