@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
-import { CheckCircle, XCircle, Clock, MapPin, Package, User, ArrowRight } from "lucide-react";
+import { CheckCircle, XCircle, MapPin, Package, User, ArrowRight } from "lucide-react";
 import { tokenManager } from '@/utils/tokenManager';
 import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';

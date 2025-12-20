@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getPendingItemsCount } from '@/services/itemsService';
+import { usePermissions } from '@/PermissionsContext';
 
 /**
  * Hook to fetch and manage pending items count
  * Automatically refreshes on mount and can be manually refreshed
+ * Only fetches if user has can_manage_items permission
  */
 export function usePendingItemsCount() {
   const [count, setCount] = useState<number>(0);
@@ -11,8 +13,20 @@ export function usePendingItemsCount() {
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef<number>(0);
   const isMountedRef = useRef<boolean>(true);
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const hasManageItemsPermission = hasPermission('can_manage_items');
 
   const fetchCount = useCallback(async () => {
+    // Don't fetch if user doesn't have permission
+    if (!hasManageItemsPermission) {
+      if (isMountedRef.current) {
+        setCount(0);
+        setLoading(false);
+        setError(null);
+      }
+      return;
+    }
+
     // Increment request ID to track the current request
     const currentRequestId = ++requestIdRef.current;
     
@@ -40,22 +54,36 @@ export function usePendingItemsCount() {
         setLoading(false);
       }
     }
-  }, []);
+  }, [hasManageItemsPermission]);
 
   useEffect(() => {
     isMountedRef.current = true;
-    fetchCount();
     
-    // Optionally refresh count periodically (every 30 seconds)
-    const interval = setInterval(() => {
+    // Wait for permissions to load before fetching
+    if (!permissionsLoading) {
       fetchCount();
-    }, 30000);
+      
+      // Only set up interval if user has permission
+      if (hasManageItemsPermission) {
+        // Optionally refresh count periodically (every 30 seconds)
+        const interval = setInterval(() => {
+          fetchCount();
+        }, 30000);
+
+        return () => {
+          isMountedRef.current = false;
+          clearInterval(interval);
+        };
+      } else {
+        // If no permission, just set loading to false
+        setLoading(false);
+      }
+    }
 
     return () => {
       isMountedRef.current = false;
-      clearInterval(interval);
     };
-  }, [fetchCount]);
+  }, [fetchCount, permissionsLoading, hasManageItemsPermission]);
 
   return {
     count,
