@@ -275,6 +275,47 @@ export default function EditPost({ params, onSave }: EditPostProps) {
     }
   }, [watchedOrganization, fetchBranches, setValue]);
 
+  const handleDeleteImage = async (imageId: string) => {
+    if (confirm(t('confirmDeleteImage') || 'Are you sure you want to delete this image?')) {
+      setDeletingImages(prev => new Set(prev).add(imageId));
+      try {
+        await imageUploadService.deleteImage(imageId);
+        // Remove image from local state
+        setItem(prev => prev ? {
+          ...prev,
+          images: prev.images?.filter(img => img.id !== imageId) || []
+        } : null);
+        // Refresh item data to ensure consistency
+        const itemResponse = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+          headers: getAuthHeaders(),
+        });
+        if (itemResponse.ok) {
+          const updatedItem = await itemResponse.json();
+          try {
+            const imagesResponse = await fetch(`${API_BASE_URL}/api/images/items/${params.itemId}/images/`, {
+              headers: getAuthHeaders(),
+            });
+            if (imagesResponse.ok) {
+              const imagesData = await imagesResponse.json();
+              updatedItem.images = imagesData;
+            }
+          } catch (error) {
+            console.error('Error fetching images:', error);
+          }
+          setItem(updatedItem);
+        }
+      } catch (error) {
+        console.error('Error deleting image:', error);
+        alert(t('deleteImageError') || 'Failed to delete image. Please try again.');
+      } finally {
+        setDeletingImages(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(imageId);
+          return newSet;
+        });
+      }
+    }
+  };
 
   const onSubmit: SubmitHandler<ItemFormFields> = async (data) => {
     setSubmitting(true);
@@ -556,50 +597,11 @@ export default function EditPost({ params, onSave }: EditPostProps) {
                     />
                     <button
                       type="button"
-                      onClick={async () => {
-                        if (confirm(t('confirmDeleteImage') || 'Are you sure you want to delete this image?'))) {
-                          setDeletingImages(prev => new Set(prev).add(image.id));
-                          try {
-                            await imageUploadService.deleteImage(image.id);
-                            // Remove image from local state
-                            setItem(prev => prev ? {
-                              ...prev,
-                              images: prev.images?.filter(img => img.id !== image.id) || []
-                            } : null);
-                            // Refresh item data to ensure consistency
-                            const itemResponse = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
-                              headers: getAuthHeaders(),
-                            });
-                            if (itemResponse.ok) {
-                              const updatedItem = await itemResponse.json();
-                              try {
-                                const imagesResponse = await fetch(`${API_BASE_URL}/api/images/items/${params.itemId}/images/`, {
-                                  headers: getAuthHeaders(),
-                                });
-                                if (imagesResponse.ok) {
-                                  const imagesData = await imagesResponse.json();
-                                  updatedItem.images = imagesData;
-                                }
-                              } catch (error) {
-                                console.error('Error fetching images:', error);
-                              }
-                              setItem(updatedItem);
-                            }
-                          } catch (error) {
-                            console.error('Error deleting image:', error);
-                            alert(t('deleteImageError') || 'Failed to delete image. Please try again.');
-                          } finally {
-                            setDeletingImages(prev => {
-                              const newSet = new Set(prev);
-                              newSet.delete(image.id);
-                              return newSet;
-                            });
-                          }
-                        }
-                      }}
+                      onClick={() => handleDeleteImage(image.id)}
                       disabled={deletingImages.has(image.id)}
-                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 shadow-lg opacity-90 hover:opacity-100 transition-opacity hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed z-10"
                       title={t('deleteImage') || 'Delete image'}
+                      aria-label={t('deleteImage') || 'Delete image'}
                     >
                       {deletingImages.has(image.id) ? (
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
