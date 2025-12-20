@@ -67,7 +67,7 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
   }
 
   return (
-    <div className="bg-gray-50 rounded-2xl p-6">
+    <div className="bg-gray-50 rounded-2xl p-2 sm:p-6">
       <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
         <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#3277AE' }}>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -85,9 +85,9 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
           return (
             <div
               key={address.id}
-              className={`relative p-4 rounded-xl border-2 transition-all duration-200 ${isCurrent
-                  ? 'bg-green-50 border-green-200 shadow-md'
-                  : 'bg-red-50 border-red-200 opacity-75'
+              className={`relative p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 bg-white ${isCurrent
+                ? 'border-green-500 shadow-md'
+                : 'border-red-500 opacity-75'
                 }`}
             >
               {/* Status Indicator */}
@@ -125,8 +125,8 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
                       </svg>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm text-gray-500">{t('location')}</p>
-                      <p className={`font-medium ${isCurrent ? 'text-gray-900' : 'text-gray-600'
+                      <p className="text-xs text-gray-500">{t('location')}</p>
+                      <p className={`text-sm font-medium ${isCurrent ? 'text-gray-900' : 'text-gray-600'
                         }`}>
                         {(() => {
                           const orgName = organization
@@ -136,15 +136,15 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
                             ? getLocalizedName(branch.branch_name_ar, branch.branch_name_en)
                             : '';
 
-                          // Format: "organization name, branch name"
-                          if (orgName && branchName) {
-                            return `${orgName}, ${branchName}`;
-                          } else if (orgName) {
-                            return orgName;
+                          // Format: "branch name, organization name"
+                          if (branchName && orgName) {
+                            return `${branchName}, ${orgName}`;
                           } else if (branchName) {
                             return branchName;
+                          } else if (orgName) {
+                            return orgName;
                           }
-                          return t('noLocationInfo');
+                          return '';
                         })()}
                       </p>
                     </div>
@@ -163,8 +163,8 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">{t('address')}</p>
-                      <p className={`font-medium ${isCurrent ? 'text-gray-900' : 'text-gray-600'
+                      <p className="text-xs text-gray-500">{t('address')}</p>
+                      <p className={`text-sm font-medium ${isCurrent ? 'text-gray-900' : 'text-gray-600'
                         }`}>
                         {address.full_location}
                       </p>
