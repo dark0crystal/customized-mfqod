@@ -8,6 +8,7 @@ import LocationTracking from '@/components/LocationTracking';
 import { useTranslations, useLocale } from 'next-intl';
 import CompressorFileInput from '@/components/forms/CompressorFileInput';
 import imageUploadService, { UploadProgress, UploadError } from '@/services/imageUploadService';
+import { X } from 'lucide-react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -128,6 +129,7 @@ export default function EditPost({ params, onSave }: EditPostProps) {
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [deletingImages, setDeletingImages] = useState<Set<string>>(new Set());
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ItemFormFields>();
   const formRef = useRef<HTMLFormElement>(null);
@@ -540,56 +542,71 @@ export default function EditPost({ params, onSave }: EditPostProps) {
         <section>
           <h2 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">{t('itemImages') || 'Images'}</h2>
 
-          {/* Item Hidden Status Toggle */}
-          <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="itemHiddenStatus"
-                checked={item?.is_hidden || false}
-                onChange={async (e) => {
-                  try {
-                    const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}/set-hidden/`, {
-                      method: 'PATCH',
-                      headers: {
-                        'Authorization': getAuthHeaders().Authorization || '',
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({ is_hidden: e.target.checked }),
-                    });
-                    if (response.ok) {
-                      const updatedItem = await response.json();
-                      setItem(prev => prev ? { ...prev, is_hidden: updatedItem.is_hidden } : prev);
-                    } else {
-                      console.error('Failed to update item hidden status');
-                    }
-                  } catch (error) {
-                    console.error('Error updating item hidden status:', error);
-                  }
-                }}
-                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-              />
-              <label htmlFor="itemHiddenStatus" className="ml-3 text-sm text-gray-700 cursor-pointer">
-                <span className="font-semibold">{t('hideImages') || 'Hide images from regular users'}</span>
-                <p className="text-xs text-gray-500 mt-1">
-                  {t('hideImagesDescription') || 'Only branch managers and admins will be able to see these images. This helps prevent false claims.'}
-                </p>
-              </label>
-            </div>
-          </div>
-
           {/* Existing Images */}
           {item.images && item.images.length > 0 && (
             <div className="mb-6">
               <h3 className="text-md font-medium text-gray-700 mb-3">{t('existingImages') || 'Existing Images'}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {item.images.map((image) => (
-                  <div key={image.id} className="relative border border-gray-200 rounded-lg overflow-hidden">
+                  <div key={image.id} className="relative border border-gray-200 rounded-lg overflow-hidden group">
                     <img
                       src={`${API_BASE_URL}${image.url}`}
                       alt={image.description || 'Item image'}
                       className="w-full h-32 object-cover"
                     />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (confirm(t('confirmDeleteImage') || 'Are you sure you want to delete this image?'))) {
+                          setDeletingImages(prev => new Set(prev).add(image.id));
+                          try {
+                            await imageUploadService.deleteImage(image.id);
+                            // Remove image from local state
+                            setItem(prev => prev ? {
+                              ...prev,
+                              images: prev.images?.filter(img => img.id !== image.id) || []
+                            } : null);
+                            // Refresh item data to ensure consistency
+                            const itemResponse = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
+                              headers: getAuthHeaders(),
+                            });
+                            if (itemResponse.ok) {
+                              const updatedItem = await itemResponse.json();
+                              try {
+                                const imagesResponse = await fetch(`${API_BASE_URL}/api/images/items/${params.itemId}/images/`, {
+                                  headers: getAuthHeaders(),
+                                });
+                                if (imagesResponse.ok) {
+                                  const imagesData = await imagesResponse.json();
+                                  updatedItem.images = imagesData;
+                                }
+                              } catch (error) {
+                                console.error('Error fetching images:', error);
+                              }
+                              setItem(updatedItem);
+                            }
+                          } catch (error) {
+                            console.error('Error deleting image:', error);
+                            alert(t('deleteImageError') || 'Failed to delete image. Please try again.');
+                          } finally {
+                            setDeletingImages(prev => {
+                              const newSet = new Set(prev);
+                              newSet.delete(image.id);
+                              return newSet;
+                            });
+                          }
+                        }
+                      }}
+                      disabled={deletingImages.has(image.id)}
+                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={t('deleteImage') || 'Delete image'}
+                    >
+                      {deletingImages.has(image.id) ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <X className="w-4 h-4" />
+                      )}
+                    </button>
                   </div>
                 ))}
               </div>
