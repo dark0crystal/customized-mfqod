@@ -412,9 +412,10 @@ async def upload_multiple_images(
         logging.error(f"Upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
-@router.delete("/images/{image_id}")
+@router.delete("/{image_id}")
 async def delete_image(
     image_id: str,
+    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_session),
     image_service: ImageService = Depends(get_image_service)
 ):

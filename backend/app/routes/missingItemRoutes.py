@@ -282,7 +282,6 @@ async def get_missing_item_statistics(
         raise HTTPException(status_code=500, detail=f"Error retrieving statistics: {str(e)}")
 
 @router.get("/pending-count", response_model=dict)
-@require_permission("can_manage_missing_items")
 async def get_pending_missing_items_count(
     request: Request,
     db: Session = Depends(get_session),
@@ -291,7 +290,8 @@ async def get_pending_missing_items_count(
 ):
     """
     Get count of pending missing items (approval == False) accessible to the current user based on branch assignments
-    Requires: can_manage_missing_items permission
+    Users can always view their own pending missing items count. Admins see all pending missing items.
+    Access control is handled by the service layer.
     """
     try:
         count = missing_item_service.get_pending_missing_items_count(current_user.id)
