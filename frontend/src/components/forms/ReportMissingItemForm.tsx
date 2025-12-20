@@ -302,30 +302,7 @@ export default function ReportMissingItem() {
         setUploadProgress(null);
       }
 
-      // STEP 3: Create the address
-      const addressPayload = {
-        missing_item_id: missingItemId,
-        is_current: true
-      };
-
-      const addressResponse = await fetch(`${API_BASE_URL}/api/addresses`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(addressPayload),
-      });
-
-      if (!addressResponse.ok) {
-        let errorMessage = c("addressCreationFailed");
-        try {
-          const errorData = await addressResponse.json();
-          errorMessage = errorData.detail || errorMessage;
-        } catch {
-          console.error('Could not parse error response');
-        }
-        throw new Error(errorMessage);
-      }
-
-      console.log("Missing item, images, and address uploaded successfully");
+      console.log("Missing item and images uploaded successfully");
       setConfetti(true);
       reset();
       setCompressedFiles([]);
