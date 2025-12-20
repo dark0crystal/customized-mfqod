@@ -274,15 +274,6 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                     onClick={() => setExpandedItemId(null)}
                   >
                     <div className="relative w-full h-full flex justify-center items-center">
-                      {/* Close button */}
-                      <button
-                        title={t("close")}
-                        onClick={() => setExpandedItemId(null)}
-                        className="absolute top-4 right-4 p-3 bg-white z-30 text-black text-xl rounded-full hover:bg-gray-200 transition-colors shadow-md"
-                      >
-                        ×
-                      </button>
-
                       {/* Go to details */}
                       <button
                         title={t("goToDetails")}

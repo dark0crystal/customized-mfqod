@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import Image from "next/image";
+import { Mail } from "lucide-react";
 import { tokenManager } from "@/utils/tokenManager";
 import { usePermissions } from "@/PermissionsContext";
 import EditMissingItemForm from "./EditMissingItemForm";
 import ItemDropdown from "@/components/ui/ItemDropdown";
 import MultiSelectItemDropdown from "@/components/ui/MultiSelectItemDropdown";
+import ImageCarousel, { CarouselImage } from "@/components/ImageCarousel";
+import { formatDate } from "@/utils/dateFormatter";
 
 type MissingItemDetail = {
   id: string;
@@ -21,6 +24,24 @@ type MissingItemDetail = {
   user_id?: string;
   created_at: string;
   updated_at: string;
+  images?: Array<{
+    id: string;
+    url: string;
+    description?: string;
+    created_at: string;
+    updated_at: string;
+  }>;
+  item_type?: {
+    id: string;
+    name_ar?: string;
+    name_en?: string;
+  };
+  user?: {
+    id: string;
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
   assigned_found_items?: Array<{
     id: string;
     item_id: string;
@@ -125,7 +146,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
   const [connectedItems, setConnectedItems] = useState<Record<string, ConnectedItemDetail>>({});
   const [loadingConnectedItems, setLoadingConnectedItems] = useState(false);
   
-  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const { hasPermission } = usePermissions();
   const hasManageMissingItemsPermission = hasPermission("can_manage_missing_items");
 
   useEffect(() => {
@@ -173,7 +194,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
           );
           setFoundItems(filteredList.map((itm: FoundItem & { description?: string; status?: string; item_type?: { id: string; name_ar?: string; name_en?: string }; images?: Array<{ id: string; url: string }> }) => ({ 
             id: itm.id, 
-            title: itm.title || "Untitled",
+            title: itm.title || t("untitled"),
             description: itm.description,
             status: itm.status,
             item_type: itm.item_type,
@@ -190,7 +211,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
           );
           setPendingItems(filteredList.map((itm: PendingItem & { description?: string; item_type?: { id: string; name_ar?: string; name_en?: string }; images?: Array<{ id: string; url: string }>; status?: string }) => ({ 
             id: itm.id, 
-            title: itm.title || "Untitled",
+            title: itm.title || t("untitled"),
             description: itm.description,
             status: itm.status,
             item_type: itm.item_type,
@@ -205,9 +226,9 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
     };
 
     fetchData();
-  }, [isAuthenticated, resolvedParams.id]);
+  }, [isAuthenticated, resolvedParams.id, t]);
 
-  const fetchConnectedItemsDetails = async (assignedItems: Array<{ item_id: string }>) => {
+  const fetchConnectedItemsDetails = useCallback(async (assignedItems: Array<{ item_id: string }>) => {
     if (assignedItems.length === 0) return;
     
     setLoadingConnectedItems(true);
@@ -241,7 +262,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
         if (result && result.data) {
           itemsMap[result.itemId] = {
             id: result.data.id,
-            title: result.data.title || "Untitled",
+            title: result.data.title || t("untitled"),
             description: result.data.description || "",
             item_type: result.data.item_type,
             images: result.data.images || [],
@@ -256,7 +277,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
     } finally {
       setLoadingConnectedItems(false);
     }
-  };
+  }, [t]);
 
   // Fetch connected items when missingItem changes
   useEffect(() => {
@@ -265,7 +286,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
     } else {
       setConnectedItems({});
     }
-  }, [missingItem?.assigned_found_items]);
+  }, [missingItem?.assigned_found_items, fetchConnectedItemsDetails]);
 
   const refreshDetail = async () => {
     try {
@@ -463,45 +484,142 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
     );
   }
 
+  // Helper to get initials
+  const getInitials = (name?: string): string => {
+    if (!name) return "?";
+    const parts = name.trim().split(" ");
+    if (parts.length === 1) return parts[0][0]?.toUpperCase() || "?";
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const userName = missingItem?.user 
+    ? (missingItem.user.first_name && missingItem.user.last_name
+        ? `${missingItem.user.first_name} ${missingItem.user.last_name}`
+        : missingItem.user.first_name || missingItem.user.email || t("unknownUser") || "Unknown User")
+    : t("unknownUser") || "Unknown User";
+
+  const userInitial = getInitials(userName);
+  const userEmail = missingItem?.user?.email || '';
+  const shortItemId = missingItem?.id.substring(0, 8).toUpperCase() || '';
+
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header Section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl font-bold text-gray-900">
+              {t("missingItemNumber") || "Missing Item"} {shortItemId}
+            </h1>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-600">
+              {t("created") || "Created"} {missingItem ? formatDate(missingItem.created_at) : ''}
+            </span>
+          </div>
+        </div>
+
+        {/* Main Content Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Missing Item Information Card */}
       {missingItem && (
-        <div className="bg-white rounded-xl shadow p-4 space-y-3">
-          <div className="flex items-start justify-between gap-4">
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">{t("missingItemInformation") || "Missing Item Information"}</h2>
+                <div className="space-y-6">
+                  {/* Title */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">{t("title") || "Title"}</label>
+                    <p className="text-base text-gray-900">{missingItem.title || t("notAvailable") || "Not Available"}</p>
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">{t("description") || "Description"}</label>
+                    <p className="text-base text-gray-900 whitespace-pre-wrap">{missingItem.description || t("noDescription") || "No description"}</p>
+                  </div>
+
+                  {/* Item Type */}
+                  {missingItem.item_type && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">{t("itemType") || "Item Type"}</label>
+                      <p className="text-base text-gray-900">
+                        {getLocalizedName(missingItem.item_type.name_ar, missingItem.item_type.name_en)}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Approval Status */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">{t("approvalStatus") || "Approval Status"}</label>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                      missingItem.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {missingItem.approval ? t("approved") || "Approved" : t("pending") || "Pending"}
+                    </span>
+                  </div>
+
+                  {/* Temporary Deletion Status */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">{t("deletionStatus") || "Deletion Status"}</label>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                      missingItem.temporary_deletion
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {missingItem.temporary_deletion ? t("markedForDeletion") || "Marked for Deletion" : t("active") || "Active"}
+                    </span>
+                  </div>
+
+                  {/* Created and Updated Dates */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">{t("created") || "Created"}</label>
+                      <p className="text-base text-gray-900">{formatDate(missingItem.created_at)}</p>
+                    </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">{missingItem.title}</h2>
-              <p className="text-gray-700 mt-1">{missingItem.description}</p>
-              <div className="mt-2 text-sm text-gray-600">
-                {t("status")}: <span className="font-semibold capitalize">{tStatus(missingItem.status)}</span>
-              </div>
-            </div>
-            {hasManageMissingItemsPermission && (
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-medium text-gray-700">{t("changeStatus")}</label>
-                <select
-                  className="border rounded px-3 py-2"
-                  value={missingItem.status}
-                  disabled={statusSaving}
-                  onChange={(e) => handleStatusChange(e.target.value)}
-                >
-                  <option value="pending">{tStatus("pending")}</option>
-                  <option value="approved">{tStatus("approved")}</option>
-                  <option value="cancelled">{tStatus("cancelled")}</option>
-                  <option value="visit">{tStatus("visit")}</option>
-                </select>
-                <button
-                  className="mt-2 px-3 py-2 rounded bg-blue-100 text-blue-800 hover:bg-blue-200"
-                  onClick={() => setAssignModalOpen(true)}
-                >
-                  {t("assignFoundItems")}
-                </button>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">{t("lastUpdated") || "Last Updated"}</label>
+                      <p className="text-base text-gray-900">{formatDate(missingItem.updated_at)}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
-          </div>
 
-          {missingItem.assigned_found_items && missingItem.assigned_found_items.length > 0 && (
-            <div className="mt-6 border-t border-gray-200 pt-4">
-              <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">{t("assignedFoundItems")}</h4>
+            {/* Missing Item Images Carousel */}
+            {missingItem && missingItem.images && missingItem.images.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">{t("images") || "Images"}</h2>
+                  <span className="text-sm text-gray-600">
+                    {missingItem.images.length} {missingItem.images.length === 1 ? t("image") || "image" : t("images") || "images"}
+                  </span>
+            </div>
+                <div className="w-full" style={{ minHeight: '400px' }}>
+                  <ImageCarousel
+                    images={missingItem.images.map((img): CarouselImage => {
+                      const imageUrl = getImageUrl(img.url);
+                      return {
+                        id: img.id,
+                        url: imageUrl || '',
+                        alt: img.description || missingItem.title,
+                        description: img.description,
+                      };
+                    })}
+                    isModal={false}
+                    showCounter={true}
+                    showDots={true}
+                    className="rounded-lg"
+                  />
+            </div>
+          </div>
+            )}
+
+            {/* Assigned Found Items Section */}
+            {missingItem && missingItem.assigned_found_items && missingItem.assigned_found_items.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">{t("assignedFoundItems")}</h2>
               {loadingConnectedItems ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -528,7 +646,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
                           {itemImage ? (
                             <Image
                               src={itemImage}
-                              alt={itemDetail?.title || "Item"}
+                                alt={itemDetail?.title || t("item")}
                               fill
                               className="object-cover rounded-md border border-gray-300"
                               sizes="(max-width: 640px) 64px, 80px"
@@ -566,15 +684,20 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
                                   ? 'bg-purple-100 text-purple-800'
                                   : 'bg-gray-100 text-gray-800'
                               }`}>
-                                {itemDetail.status.charAt(0).toUpperCase() + itemDetail.status.slice(1)}
+                                  {tStatus(itemDetail.status)}
                               </span>
                             )}
                             {link.branch_name && (
                               <span className="text-xs text-gray-500">
                                 {t("branch")}: {link.branch_name}
                               </span>
+                              )}
+                            </div>
+                            {link.note && (
+                              <p className="text-xs text-gray-600 mt-2 italic">
+                                {t("note") || "Note"}: {link.note}
+                              </p>
                             )}
-                          </div>
                         </div>
                       </div>
                     );
@@ -583,10 +706,118 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
               )}
             </div>
           )}
+
+            {/* Edit Form Section */}
+            <EditMissingItemForm missingItemId={resolvedParams.id} />
+          </div>
+
+          {/* Right Column - Sidebar */}
+          <div className="space-y-6">
+            {/* Status Management Card */}
+            {missingItem && hasManageMissingItemsPermission && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">{t("itemStatus") || "Item Status"}</h3>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                    missingItem.status === 'approved' ? 'bg-green-100 text-green-800' :
+                    missingItem.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                    missingItem.status === 'visit' ? 'bg-purple-100 text-purple-800' :
+                    'bg-orange-100 text-orange-800'
+                  }`}>
+                    {tStatus(missingItem.status)}
+                  </span>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t("selectNewStatus") || "Select New Status"}
+                  </label>
+                  <select
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    value={missingItem.status}
+                    disabled={statusSaving}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                  >
+                    <option value="pending">{tStatus("pending")}</option>
+                    <option value="approved">{tStatus("approved")}</option>
+                    <option value="cancelled">{tStatus("cancelled")}</option>
+                    <option value="visit">{tStatus("visit")}</option>
+                  </select>
+                </div>
+
+                <button
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium mb-3"
+                  onClick={() => setAssignModalOpen(true)}
+                >
+                  {t("assignFoundItems")}
+                </button>
+              </div>
+            )}
+
+            {/* Created By Card */}
+            {missingItem && missingItem.user && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("createdBy") || "Created By"}</h3>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                    {userInitial}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900">{userName}</p>
+                    {userEmail && (
+                      <div className="flex items-center gap-1.5 mt-1 text-sm text-gray-600">
+                        <Mail className="w-3.5 h-3.5" />
+                        <span className="truncate">{userEmail}</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-3">
+                      {t("createdOn") || "Created on"} {formatDate(missingItem.created_at)}
+                    </p>
+                  </div>
+                </div>
         </div>
       )}
 
-      <EditMissingItemForm missingItemId={resolvedParams.id} />
+            {/* Missing Item Summary Card */}
+            {missingItem && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("missingItemSummary") || "Missing Item Summary"}</h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">{t("missingItemId") || "Missing Item ID"}</span>
+                    <span className="font-medium text-gray-900 text-xs">{missingItem.id}</span>
+                  </div>
+                  {missingItem.item_type && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">{t("itemType") || "Item Type"}</span>
+                      <span className="font-medium text-gray-900 text-sm">
+                        {getLocalizedName(missingItem.item_type.name_ar, missingItem.item_type.name_en)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">{t("status") || "Status"}</span>
+                    <span className={`font-medium text-xs px-2 py-1 rounded-full ${
+                      missingItem.status === 'approved' ? 'bg-green-100 text-green-800' :
+                      missingItem.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                      missingItem.status === 'visit' ? 'bg-purple-100 text-purple-800' :
+                      'bg-orange-100 text-orange-800'
+                    }`}>
+                      {tStatus(missingItem.status)}
+                    </span>
+                  </div>
+                  {missingItem.assigned_found_items && missingItem.assigned_found_items.length > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">{t("assignedItems") || "Assigned Items"}</span>
+                      <span className="font-medium text-gray-900">{missingItem.assigned_found_items.length}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {assignModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center px-4">
