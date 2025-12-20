@@ -72,14 +72,6 @@ export default function ClaimsPage() {
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [filters, setFilters] = useState<ClaimFilters>({});
   const [searchTerm, setSearchTerm] = useState('');
-  const [showDisclaimer, setShowDisclaimer] = useState(false);
-  const [pendingClaimId, setPendingClaimId] = useState<string | null>(null);
-  const [existingClaimInfo, setExistingClaimInfo] = useState<{
-    has_existing: boolean;
-    claim_id?: string;
-    claim_title?: string;
-    claimer_name?: string;
-  } | null>(null);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
@@ -138,109 +130,6 @@ export default function ClaimsPage() {
     }
   };
 
-  // Check for existing approved claim (admin only)
-  const checkExistingApprovedClaim = async (claimId: string): Promise<boolean> => {
-    // Only allow this check if user has manage claims permission
-    if (!hasManageClaimsPermission) {
-      return false;
-    }
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/claims/${claimId}/check-existing-approved`, {
-        headers: getAuthHeaders()
-      });
-      
-      if (!response.ok) {
-        return false;
-      }
-      
-      const data = await response.json();
-      if (data.has_existing) {
-        setExistingClaimInfo(data);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Error checking existing approved claim:', error);
-      return false;
-    }
-  };
-
-  // Proceed with approval/rejection (admin only)
-  const proceedWithApproval = async (claimId: string, approval: boolean) => {
-    // Only allow approval/rejection if user has manage claims permission
-    if (!hasManageClaimsPermission) {
-      setError(t('noPermission') || 'You do not have permission to approve or reject claims');
-      return;
-    }
-    
-    try {
-      const endpoint = approval 
-        ? `${API_BASE_URL}/api/claims/${claimId}/approve`
-        : `${API_BASE_URL}/api/claims/${claimId}/reject`;
-      
-      const response = await fetch(endpoint, {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({}),
-      });
-
-      if (response.ok) {
-        // Update the claim in the local state
-        setClaims(prevClaims => 
-          prevClaims.map(claim => 
-            claim.id === claimId ? { ...claim, approval } : claim
-          )
-        );
-        setFilteredClaims(prevClaims => 
-          prevClaims.map(claim => 
-            claim.id === claimId ? { ...claim, approval } : claim
-          )
-        );
-        if (selectedClaim?.id === claimId) {
-          setSelectedClaim(prev => prev ? { ...prev, approval } : null);
-        }
-        setShowDisclaimer(false);
-        setPendingClaimId(null);
-        setExistingClaimInfo(null);
-      } else {
-        throw new Error('Failed to update claim status');
-      }
-    } catch (error) {
-      console.error('Error updating claim approval:', error);
-      alert(t('updateStatusError'));
-    }
-  };
-
-  // Handle claim approval/rejection
-  const handleClaimApproval = async (claimId: string, approval: boolean) => {
-    // If rejecting, proceed directly
-    if (!approval) {
-      await proceedWithApproval(claimId, approval);
-      return;
-    }
-
-    // If approving, check for existing approved claim
-    const hasExisting = await checkExistingApprovedClaim(claimId);
-    if (hasExisting) {
-      setPendingClaimId(claimId);
-      setShowDisclaimer(true);
-    } else {
-      await proceedWithApproval(claimId, approval);
-    }
-  };
-
-  function handleDisclaimerConfirm() {
-    if (pendingClaimId) {
-      proceedWithApproval(pendingClaimId, true);
-    }
-  }
-
-  function handleDisclaimerCancel() {
-    setShowDisclaimer(false);
-    setPendingClaimId(null);
-    setExistingClaimInfo(null);
-  };
 
   // Filter claims based on search and filters
   useEffect(() => {
@@ -304,45 +193,6 @@ export default function ClaimsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      {/* Disclaimer Modal */}
-      {showDisclaimer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {t('disclaimerTitle') || 'Existing Approved Claim'}
-            </h3>
-            <p className="text-gray-700 mb-4">
-              {t('disclaimerMessage') || 'There is already an approved claim for this post. Approving this claim will unapprove the previous claim. Do you want to continue?'}
-            </p>
-            {existingClaimInfo && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-                <p className="text-sm text-gray-700">
-                  <strong>{t('currentApprovedClaim') || 'Current approved claim:'}</strong> {existingClaimInfo.claim_title || 'N/A'}
-                </p>
-                {existingClaimInfo.claimer_name && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    {t('claimer') || 'Claimer:'} {existingClaimInfo.claimer_name}
-                  </p>
-                )}
-              </div>
-            )}
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={handleDisclaimerCancel}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                {t('cancel') || 'Cancel'}
-              </button>
-              <button
-                onClick={handleDisclaimerConfirm}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                {t('confirm') || 'Continue'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
@@ -500,27 +350,6 @@ export default function ClaimsPage() {
                   >
                     {t('viewDetails')}
                   </Link>
-                  {/* Admin-only approval/rejection buttons */}
-                  {hasManageClaimsPermission && (
-                    <>
-                      {!claim.approval && (
-                        <button
-                          onClick={() => handleClaimApproval(claim.id, true)}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                        >
-                          {t('approve')}
-                        </button>
-                      )}
-                      {claim.approval && (
-                        <button
-                          onClick={() => handleClaimApproval(claim.id, false)}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                        >
-                          {t('reject')}
-                        </button>
-                      )}
-                    </>
-                  )}
                 </div>
               </div>
             </div>
@@ -633,33 +462,6 @@ export default function ClaimsPage() {
                   >
                     {t('close')}
                   </button>
-                  {/* Admin-only approval/rejection buttons */}
-                  {hasManageClaimsPermission && (
-                    <>
-                      {!selectedClaim.approval && (
-                        <button
-                          onClick={() => {
-                            handleClaimApproval(selectedClaim.id, true);
-                            setSelectedClaim(null);
-                          }}
-                          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                        >
-                          {t('approveClaim')}
-                        </button>
-                      )}
-                      {selectedClaim.approval && (
-                        <button
-                          onClick={() => {
-                            handleClaimApproval(selectedClaim.id, false);
-                            setSelectedClaim(null);
-                          }}
-                          className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                        >
-                          {t('rejectClaim')}
-                        </button>
-                      )}
-                    </>
-                  )}
                 </div>
               </div>
             </div>
