@@ -21,6 +21,12 @@ export async function getPendingTransferRequestsCount(): Promise<number> {
       }
     );
 
+    // Handle 403 Forbidden - user doesn't have permission to view transfer requests
+    if (response.status === 403) {
+      console.log("User does not have permission to view transfer requests");
+      return 0;
+    }
+
     if (!response.ok) {
       throw new Error(`Failed to fetch pending transfer requests count: ${response.statusText}`);
     }
@@ -29,6 +35,11 @@ export async function getPendingTransferRequestsCount(): Promise<number> {
     // The API returns an array of transfer requests, so we count them
     return Array.isArray(data) ? data.length : 0;
   } catch (error) {
+    // Silently handle permission errors - user just doesn't have access
+    if (error instanceof Error && error.message.includes('Forbidden')) {
+      console.log("User does not have permission to view transfer requests");
+      return 0;
+    }
     console.error("Error fetching pending transfer requests count:", error);
     return 0;
   }
