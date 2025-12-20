@@ -32,12 +32,12 @@ export const routePermissions: Record<string, RoutePermissionConfig> = {
   
   // Missing items management
   '/dashboard/missing-items': {
-    permission: 'can_manage_missing_items',
-    description: 'View and manage missing items',
+    permission: [],
+    description: 'View and manage missing items - accessible to all authenticated users (users see their own missing items, admins see all)',
   },
   '/dashboard/missing-items/': {
-    permission: 'can_manage_missing_items',
-    description: 'View and manage missing items',
+    permission: [],
+    description: 'View and manage missing items - accessible to all authenticated users (users see their own missing items, admins see all)',
   },
   '/dashboard/report-missing-item': {
     permission: [],
@@ -46,12 +46,12 @@ export const routePermissions: Record<string, RoutePermissionConfig> = {
   
   // Claims management
   '/dashboard/claims': {
-    permission: 'can_manage_claims',
-    description: 'View and manage claims',
+    permission: [],
+    description: 'View and manage claims - accessible to all authenticated users (users see their own claims, admins see all)',
   },
   '/dashboard/claims/': {
-    permission: 'can_manage_claims',
-    description: 'View and manage claims',
+    permission: [],
+    description: 'View and manage claims - accessible to all authenticated users (users see their own claims, admins see all)',
   },
   
   // Item types management
@@ -100,10 +100,10 @@ export const routePermissions: Record<string, RoutePermissionConfig> = {
     description: 'View analytics',
   },
   
-  // Report found item (accessible to all authenticated users)
+  // Report found item (requires can_manage_items permission)
   '/dashboard/report-found-item': {
-    permission: [],
-    description: 'Report found items - accessible to all authenticated users',
+    permission: 'can_manage_items',
+    description: 'Report found items - requires can_manage_items permission',
   },
 };
 

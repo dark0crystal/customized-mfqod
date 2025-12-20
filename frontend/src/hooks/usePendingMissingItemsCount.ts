@@ -4,6 +4,8 @@ import { getPendingMissingItemsCount } from '@/services/itemsService';
 /**
  * Hook to fetch and manage pending missing items count
  * Automatically refreshes on mount and can be manually refreshed
+ * All authenticated users can fetch their own pending missing items count
+ * (Admins see all pending items, regular users see only their own)
  */
 export function usePendingMissingItemsCount() {
   const [count, setCount] = useState<number>(0);
@@ -44,9 +46,10 @@ export function usePendingMissingItemsCount() {
 
   useEffect(() => {
     isMountedRef.current = true;
+    
     fetchCount();
     
-    // Optionally refresh count periodically (every 30 seconds)
+    // Refresh count periodically (every 30 seconds)
     const interval = setInterval(() => {
       fetchCount();
     }, 30000);
