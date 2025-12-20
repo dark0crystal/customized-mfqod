@@ -73,7 +73,7 @@ class ItemService:
         
         # Get the full item with relationships for response
         full_item = self.get_item_by_id(new_item.id)
-        return self._item_to_response(full_item) if full_item else self._item_to_response(new_item)
+        return self._item_to_response(full_item, item_data.user_id) if full_item else self._item_to_response(new_item, item_data.user_id)
     
     # =========================== 
     # Read Operations
@@ -92,10 +92,10 @@ class ItemService:
         
         return query.first()
     
-    def get_item_detail_by_id(self, item_id: str, include_deleted: bool = False) -> Optional[ItemDetailResponse]:
+    def get_item_detail_by_id(self, item_id: str, include_deleted: bool = False, user_id: Optional[str] = None) -> Optional[ItemDetailResponse]:
         """Get a single item by ID with full details for API response"""
         item = self.get_item_by_id(item_id, include_deleted)
-        return self._item_to_detail_response(item) if item else None
+        return self._item_to_detail_response(item, user_id) if item else None
     
     def get_items(self, filters: ItemFilterRequest, user_id: Optional[str] = None) -> Tuple[List[ItemResponse], int]:
         """Get items with filtering and pagination"""
@@ -186,7 +186,7 @@ class ItemService:
         item_responses = []
         for item in items:
             try:
-                item_response = self._item_to_response(item)
+                item_response = self._item_to_response(item, user_id)
                 item_responses.append(item_response)
             except Exception as e:
                 logger.warning(f"Error converting item {item.id if item else 'unknown'} to response: {e}")
@@ -231,7 +231,7 @@ class ItemService:
             item_responses = []
             for item in items:
                 try:
-                    item_response = self._item_to_response(item)
+                    item_response = self._item_to_response(item, user_id)
                     item_responses.append(item_response)
                 except Exception as e:
                     logger.warning(f"Error converting item {item.id if item else 'unknown'} to response: {e}")
@@ -323,7 +323,7 @@ class ItemService:
         items = query.offset(filters.skip).limit(filters.limit).all()
         
         # Convert to response objects with location data
-        item_responses = [self._item_to_response(item) for item in items]
+        item_responses = [self._item_to_response(item, user_id) for item in items]
         
         return item_responses, total
     
@@ -361,15 +361,19 @@ class ItemService:
         
         return self._item_to_response(item)
     
-    def toggle_approval(self, item_id: str) -> Optional[ItemResponse]:
+    def toggle_approval(self, item_id: str, user_id: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> Optional[ItemResponse]:
         """Toggle the approval status of an item (toggles between approved and pending)"""
         item = self.get_item_by_id(item_id)
         if not item:
             raise ValueError("Item not found")
         
+        old_status = item.status
+        
         # Toggle between approved and pending (don't change cancelled)
         if item.status == ItemStatus.APPROVED.value:
             item.status = ItemStatus.PENDING.value
+            # Clear approved_claim_id when changing from approved to pending
+            item.approved_claim_id = None
         elif item.status == ItemStatus.PENDING.value:
             item.status = ItemStatus.APPROVED.value
         # If status is cancelled, don't change it
@@ -378,6 +382,22 @@ class ItemService:
         
         self.db.commit()
         self.db.refresh(item)
+        
+        # Log the status change if user_id is provided and status actually changed
+        if user_id and old_status != item.status:
+            try:
+                from app.services.auditLogService import AuditLogService
+                audit_service = AuditLogService(self.db)
+                audit_service.create_item_status_change_log(
+                    item_id=item_id,
+                    old_status=old_status,
+                    new_status=item.status,
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+            except Exception as e:
+                logger.error(f"Failed to create audit log for item status change: {e}")
         
         return self._item_to_response(item)
     
@@ -391,10 +411,14 @@ class ItemService:
         item.status = new_status.value
         item.updated_at = datetime.now(timezone.utc)
         
+        # Clear approved_claim_id when changing from approved to pending
+        if old_status == ItemStatus.APPROVED.value and new_status == ItemStatus.PENDING:
+            item.approved_claim_id = None
+        
         self.db.commit()
         self.db.refresh(item)
         
-        # Log the status change if user_id is provided
+        # Log the status change if user_id is provided and status actually changed
         if user_id and old_status != new_status.value:
             try:
                 from app.services.auditLogService import AuditLogService
@@ -413,7 +437,7 @@ class ItemService:
         
         return self._item_to_response(item)
     
-    def approve_item(self, item_id: str) -> ItemResponse:
+    def approve_item(self, item_id: str, user_id: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> ItemResponse:
         """Approve an item (change status from pending to approved)
         Requires: item status must be 'pending' and item must have an approved claim
         """
@@ -429,6 +453,8 @@ class ItemService:
         if not item.approved_claim_id:
             raise ValueError("Item must have an approved claim before it can be approved")
         
+        old_status = item.status
+        
         # Change status to approved
         item.status = ItemStatus.APPROVED.value
         item.updated_at = datetime.now(timezone.utc)
@@ -436,7 +462,57 @@ class ItemService:
         self.db.commit()
         self.db.refresh(item)
         
+        # Log the status change if user_id is provided
+        if user_id:
+            try:
+                from app.services.auditLogService import AuditLogService
+                audit_service = AuditLogService(self.db)
+                audit_service.create_item_status_change_log(
+                    item_id=item_id,
+                    old_status=old_status,
+                    new_status=item.status,
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+            except Exception as e:
+                logger.error(f"Failed to create audit log for item approval: {e}")
+        
         logger.info(f"Item {item_id} approved (status changed from pending to approved)")
+        
+        return self._item_to_response(item)
+    
+    def toggle_item_hidden_status(self, item_id: str) -> Optional[ItemResponse]:
+        """Toggle the hidden status of an item (controls visibility of all images)"""
+        item = self.get_item_by_id(item_id)
+        if not item:
+            raise ValueError("Item not found")
+        
+        # Toggle is_hidden
+        item.is_hidden = not item.is_hidden
+        item.updated_at = datetime.now(timezone.utc)
+        
+        self.db.commit()
+        self.db.refresh(item)
+        
+        logger.info(f"Item {item_id} hidden status toggled to {item.is_hidden}")
+        
+        return self._item_to_response(item)
+    
+    def set_item_hidden_status(self, item_id: str, is_hidden: bool) -> Optional[ItemResponse]:
+        """Set the hidden status of an item (controls visibility of all images)"""
+        item = self.get_item_by_id(item_id)
+        if not item:
+            raise ValueError("Item not found")
+        
+        # Set is_hidden
+        item.is_hidden = is_hidden
+        item.updated_at = datetime.now(timezone.utc)
+        
+        self.db.commit()
+        self.db.refresh(item)
+        
+        logger.info(f"Item {item_id} hidden status set to {is_hidden}")
         
         return self._item_to_response(item)
     
@@ -1106,7 +1182,7 @@ class ItemService:
             logger.warning(f"Error building location info for item {item.id if item else 'unknown'}: {e}")
             return None
     
-    def _item_to_response(self, item: Item) -> ItemResponse:
+    def _item_to_response(self, item: Item, user_id: Optional[str] = None) -> ItemResponse:
         """Convert Item model to ItemResponse with location data and images"""
         from app.schemas.item_schema import ImageResponse
         
@@ -1117,7 +1193,7 @@ class ItemService:
             location = None
         
         # Get images for this item
-        images = []
+        all_images = []
         try:
             # Access images property safely - ensure we're not triggering lazy loading issues
             # The images property uses object_session which might fail if session is detached
@@ -1127,7 +1203,7 @@ class ItemService:
                     item_images = item.images
                     if item_images is not None:
                         item_images = list(item_images) if item_images else []
-                        images = [
+                        all_images = [
                             ImageResponse(
                                 id=img.id,
                                 url=img.url,
@@ -1147,7 +1223,7 @@ class ItemService:
                             Image.imageable_type == "item",
                             Image.imageable_id == item.id
                         ).all()
-                        images = [
+                        all_images = [
                             ImageResponse(
                                 id=img.id,
                                 url=img.url,
@@ -1160,11 +1236,14 @@ class ItemService:
                         ]
                     except Exception as query_error:
                         logger.warning(f"Error querying images directly for item {item.id if item else 'unknown'}: {query_error}")
-                        images = []
+                        all_images = []
         except Exception as e:
             # If there's an error getting images, just continue with empty list
             logger.warning(f"Error getting images for item {item.id if item else 'unknown'}: {e}")
-            images = []
+            all_images = []
+        
+        # Filter images based on is_hidden and user permissions
+        images = self._filter_images_by_permission(item, all_images, user_id)
         
         try:
             return ItemResponse(
@@ -1186,17 +1265,38 @@ class ItemService:
             logger.error(f"Error creating ItemResponse for item {item.id if item else 'unknown'}: {e}")
             raise
     
-    def _item_to_detail_response(self, item: Item) -> ItemDetailResponse:
+    def _filter_images_by_permission(self, item: Item, all_images: List, user_id: Optional[str] = None) -> List:
+        """Filter images based on is_hidden and user permissions"""
+        from app.schemas.item_schema import ImageResponse
+        
+        # If item is not hidden, return all images
+        if not item.is_hidden:
+            return all_images
+        
+        # If item is hidden, check user permissions
+        if user_id:
+            # Check if user has can_manage_items permission
+            has_permission = permissionServices.check_user_permission(
+                self.db, user_id, "can_manage_items"
+            ) or permissionServices.has_full_access(self.db, user_id)
+            
+            if has_permission:
+                return all_images  # User with permission sees all images
+        
+        # User without permission and item is hidden - return empty list
+        return []
+    
+    def _item_to_detail_response(self, item: Item, user_id: Optional[str] = None) -> ItemDetailResponse:
         """Convert Item model to ItemDetailResponse with all related data"""
         from app.schemas.item_schema import ImageResponse
         
         location = self._build_location_info(item)
         
         # Get images for this item
-        images = []
+        all_images = []
         try:
             item_images = item.images  # Using the property we added to the model
-            images = [
+            all_images = [
                 ImageResponse(
                     id=img.id,
                     url=img.url,
@@ -1208,7 +1308,10 @@ class ItemService:
             ]
         except Exception as e:
             # If there's an error getting images, just continue with empty list
-            images = []
+            all_images = []
+        
+        # Filter images based on is_hidden and user permissions
+        images = self._filter_images_by_permission(item, all_images, user_id)
         
         # Get item type information
         item_type = None

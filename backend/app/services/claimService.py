@@ -692,7 +692,7 @@ class ClaimService:
             # Don't raise exception as this is a secondary operation
 
     async def _send_new_claim_notification(self, claim: Claim) -> None:
-        """Send notification to moderators about new claim"""
+        """Send notification to moderators and branch managers about new claim"""
         try:
             # Get claim details with related data
             claim_with_details = self.db.query(Claim).options(
@@ -705,7 +705,7 @@ class ClaimService:
                 return
             
             # Get moderator emails (users with can_manage_claims permission or full access)
-            from app.models import Role, Permission, RolePermissions
+            from app.models import Role, Permission, RolePermissions, Address, UserBranchManager
             
             # Get users with can_manage_claims permission
             moderators = self.db.query(User).join(
@@ -720,31 +720,64 @@ class ClaimService:
             
             # Also include users with full access (all permissions)
             all_users = self.db.query(User).all()
+            moderator_ids = {m.id for m in moderators}
             for user in all_users:
-                if user.id not in [m.id for m in moderators]:
+                if user.id not in moderator_ids:
                     from app.services import permissionServices
                     if permissionServices.has_full_access(self.db, user.id):
                         moderators.append(user)
+                        moderator_ids.add(user.id)
             
-            moderator_emails = [mod.email for mod in moderators if mod.email]
+            # Get branch managers for the item's branch(es)
+            item_branches = self.db.query(Address.branch_id).filter(
+                Address.item_id == claim_with_details.item.id,
+                Address.is_current == True
+            ).distinct().all()
             
-            if not moderator_emails:
-                logger.warning("No moderator emails found for new claim notification")
+            branch_manager_ids = set()
+            branch_managers = []
+            if item_branches:
+                branch_ids = [branch[0] for branch in item_branches if branch[0]]
+                if branch_ids:
+                    # Get branch managers for these branches
+                    branch_managers_query = self.db.query(User).join(
+                        UserBranchManager, User.id == UserBranchManager.user_id
+                    ).filter(
+                        UserBranchManager.branch_id.in_(branch_ids)
+                    ).distinct().all()
+                    
+                    for manager in branch_managers_query:
+                        if manager.id not in moderator_ids and manager.id not in branch_manager_ids:
+                            branch_managers.append(manager)
+                            branch_manager_ids.add(manager.id)
+            
+            # Combine moderators and branch managers, avoiding duplicates
+            all_recipients = moderators + branch_managers
+            recipient_emails = [recipient.email for recipient in all_recipients if recipient.email]
+            
+            if not recipient_emails:
+                logger.warning("No recipient emails found for new claim notification")
                 return
+            
+            # Get frontend base URL from email config (which reads from environment)
+            from app.config.email_config import email_settings
+            frontend_base_url = email_settings.FRONTEND_BASE_URL.rstrip("/") if email_settings.FRONTEND_BASE_URL else ""
+            claim_url = f"{frontend_base_url}/dashboard/claims/{claim_with_details.id}" if frontend_base_url else f"/dashboard/claims/{claim_with_details.id}"
+            item_url = f"{frontend_base_url}/dashboard/items/{claim_with_details.item.id}" if frontend_base_url else f"/dashboard/items/{claim_with_details.item.id}"
             
             # Send notification
             await send_new_claim_alert(
-                moderator_emails=moderator_emails,
+                moderator_emails=recipient_emails,
                 claim_title=claim_with_details.title,
                 claim_description=claim_with_details.description,
                 item_title=claim_with_details.item.title,
                 claimer_name=f"{claim_with_details.user.first_name} {claim_with_details.user.last_name}",
                 claimer_email=claim_with_details.user.email,
-                claim_url=f"/dashboard/claims/{claim_with_details.id}",
-                item_url=f"/dashboard/items/{claim_with_details.item.id}"
+                claim_url=claim_url,
+                item_url=item_url
             )
             
-            logger.info(f"New claim notification sent to {len(moderator_emails)} moderators")
+            logger.info(f"New claim notification sent to {len(recipient_emails)} recipients ({len(moderators)} moderators, {len(branch_managers)} branch managers)")
             
         except Exception as e:
             logger.error(f"Error in _send_new_claim_notification: {e}")
