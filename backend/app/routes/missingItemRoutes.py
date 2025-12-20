@@ -29,6 +29,7 @@ from app.utils.permission_decorator import (
     require_all_permissions
 )
 from app.middleware.auth_middleware import get_current_user_required
+from app.models import User
 
 router = APIRouter()
 
@@ -111,7 +112,6 @@ async def get_public_missing_items(
         raise HTTPException(status_code=500, detail=f"Error retrieving public missing items: {str(e)}")
 
 @router.get("/", response_model=MissingItemListResponse)
-@require_permission("can_manage_missing_items")
 async def get_missing_items(
     request: Request,
     skip: int = Query(0, ge=0, description="Number of missing items to skip"),
@@ -122,13 +122,27 @@ async def get_missing_items(
     item_type_id: Optional[str] = Query(None, description="Filter by item type"),
     status: Optional[str] = Query(None, description="Filter by status"),
     db: Session = Depends(get_session),
-    missing_item_service: MissingItemService = Depends(get_missing_item_service)
+    missing_item_service: MissingItemService = Depends(get_missing_item_service),
+    current_user: User = Depends(get_current_user_required)
 ):
     """
     Get missing items with filtering and pagination
-    Requires: can_manage_missing_items permission
+    Users can always view their own missing items. Viewing all missing items requires can_manage_missing_items permission.
     """
     try:
+        # Check if user has permission to view all missing items
+        from app.services import permissionServices
+        has_permission = permissionServices.has_full_access(db, current_user.id) or \
+                        permissionServices.check_user_permission(db, current_user.id, "can_manage_missing_items")
+        
+        # If user doesn't have permission and no user_id filter is provided, filter to their own items
+        if not has_permission and user_id is None:
+            user_id = current_user.id
+        
+        # If user doesn't have permission and tries to filter by another user's ID, restrict to their own
+        if not has_permission and user_id != current_user.id:
+            user_id = current_user.id
+        
         filters = MissingItemFilterRequest(
             skip=skip,
             limit=limit,
@@ -152,7 +166,6 @@ async def get_missing_items(
         raise HTTPException(status_code=500, detail=f"Error retrieving missing items: {str(e)}")
 
 @router.get("/search/", response_model=MissingItemListResponse)
-@require_permission("can_manage_missing_items")
 async def search_missing_items(
     request: Request,
     q: str = Query(..., description="Search term"),
@@ -164,13 +177,27 @@ async def search_missing_items(
     item_type_id: Optional[str] = Query(None, description="Filter by item type"),
     status: Optional[str] = Query(None, description="Filter by status"),
     db: Session = Depends(get_session),
-    missing_item_service: MissingItemService = Depends(get_missing_item_service)
+    missing_item_service: MissingItemService = Depends(get_missing_item_service),
+    current_user: User = Depends(get_current_user_required)
 ):
     """
     Search missing items by title or description
-    Requires: can_manage_missing_items permission
+    Users can always search their own missing items. Searching all missing items requires can_manage_missing_items permission.
     """
     try:
+        # Check if user has permission to search all missing items
+        from app.services import permissionServices
+        has_permission = permissionServices.has_full_access(db, current_user.id) or \
+                        permissionServices.check_user_permission(db, current_user.id, "can_manage_missing_items")
+        
+        # If user doesn't have permission and no user_id filter is provided, filter to their own items
+        if not has_permission and user_id is None:
+            user_id = current_user.id
+        
+        # If user doesn't have permission and tries to filter by another user's ID, restrict to their own
+        if not has_permission and user_id != current_user.id:
+            user_id = current_user.id
+        
         filters = MissingItemFilterRequest(
             skip=skip,
             limit=limit,
@@ -194,7 +221,6 @@ async def search_missing_items(
         raise HTTPException(status_code=500, detail=f"Error searching missing items: {str(e)}")
 
 @router.get("/users/{user_id}/missing-items", response_model=MissingItemListResponse)
-@require_permission("can_manage_missing_items")
 async def get_user_missing_items(
     user_id: str,
     request: Request,
@@ -202,13 +228,25 @@ async def get_user_missing_items(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of missing items to return"),
     include_deleted: bool = Query(False, description="Include soft-deleted missing items"),
     db: Session = Depends(get_session),
-    missing_item_service: MissingItemService = Depends(get_missing_item_service)
+    missing_item_service: MissingItemService = Depends(get_missing_item_service),
+    current_user: User = Depends(get_current_user_required)
 ):
     """
     Get all missing items for a specific user
-    Requires: can_manage_missing_items permission (users can always view their own missing items)
+    Users can always view their own missing items. Viewing other users' missing items requires can_manage_missing_items permission.
     """
     try:
+        # Check if user is viewing their own missing items
+        if user_id != current_user.id:
+            # User is trying to view another user's missing items - require permission
+            from app.services import permissionServices
+            if not permissionServices.has_full_access(db, current_user.id):
+                if not permissionServices.check_user_permission(db, current_user.id, "can_manage_missing_items"):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Permission 'can_manage_missing_items' is required to view other users' missing items"
+                    )
+        
         missing_items, total = missing_item_service.get_missing_items_by_user(user_id, include_deleted, skip, limit)
         
         return MissingItemListResponse(
@@ -218,6 +256,8 @@ async def get_user_missing_items(
             limit=limit,
             has_more=(skip + limit) < total
         )
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -260,23 +300,37 @@ async def get_pending_missing_items_count(
         raise HTTPException(status_code=500, detail=f"Error retrieving pending missing items count: {str(e)}")
 
 @router.get("/{missing_item_id}", response_model=MissingItemDetailResponse)
-@require_permission("can_manage_missing_items")
 async def get_missing_item(
     missing_item_id: str,
     request: Request,
     include_deleted: bool = Query(False, description="Include soft-deleted missing items"),
     db: Session = Depends(get_session),
-    missing_item_service: MissingItemService = Depends(get_missing_item_service)
+    missing_item_service: MissingItemService = Depends(get_missing_item_service),
+    current_user: User = Depends(get_current_user_required)
 ):
     """
     Get a single missing item by ID with related data
-    Requires: can_manage_missing_items permission
+    Users can always view their own missing items. Viewing other users' missing items requires can_manage_missing_items permission.
     """
     try:
         missing_item = missing_item_service.get_missing_item_detail_by_id(missing_item_id, include_deleted)
         if not missing_item:
             raise HTTPException(status_code=404, detail="Missing item not found")
+        
+        # Check if user is viewing their own missing item
+        if missing_item.user_id != current_user.id:
+            # User is trying to view another user's missing item - require permission
+            from app.services import permissionServices
+            if not permissionServices.has_full_access(db, current_user.id):
+                if not permissionServices.check_user_permission(db, current_user.id, "can_manage_missing_items"):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Permission 'can_manage_missing_items' is required to view other users' missing items"
+                    )
+        
         return missing_item
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving missing item: {str(e)}")
 
@@ -285,21 +339,59 @@ async def get_missing_item(
 # ===========================
 
 @router.put("/{missing_item_id}", response_model=MissingItemResponse)
-@require_permission("can_manage_missing_items")
 async def update_missing_item(
     missing_item_id: str,
     update_data: UpdateMissingItemRequest,
     request: Request,
     db: Session = Depends(get_session),
-    missing_item_service: MissingItemService = Depends(get_missing_item_service)
+    missing_item_service: MissingItemService = Depends(get_missing_item_service),
+    current_user: User = Depends(get_current_user_required)
 ):
     """
     Update an existing missing item
-    Requires: can_manage_missing_items permission
+    Users can edit their own missing items, but cannot edit approved items without can_manage_missing_items permission.
     """
     try:
+        # Get the existing missing item to check ownership and status
+        existing_item = missing_item_service.get_missing_item_by_id(missing_item_id)
+        if not existing_item:
+            raise HTTPException(status_code=404, detail="Missing item not found")
+        
+        # Check if user is the owner
+        is_owner = existing_item.user_id == current_user.id
+        
+        # Check if user has permission
+        from app.services import permissionServices
+        has_permission = permissionServices.has_full_access(db, current_user.id) or \
+                        permissionServices.check_user_permission(db, current_user.id, "can_manage_missing_items")
+        
+        # If item is approved and user doesn't have permission, deny edit
+        if existing_item.status == "approved" and not has_permission:
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot edit approved missing items without 'can_manage_missing_items' permission"
+            )
+        
+        # If user is not the owner and doesn't have permission, deny edit
+        if not is_owner and not has_permission:
+            raise HTTPException(
+                status_code=403,
+                detail="Permission 'can_manage_missing_items' is required to edit other users' missing items"
+            )
+        
+        # Prevent status changes by non-permissioned users
+        if not has_permission:
+            # Remove status from update_data if user doesn't have permission
+            update_dict = update_data.dict(exclude_unset=True)
+            if "status" in update_dict:
+                update_dict.pop("status")
+                # Create a new UpdateMissingItemRequest without status
+                update_data = UpdateMissingItemRequest(**update_dict)
+        
         missing_item = missing_item_service.update_missing_item(missing_item_id, update_data)
         return missing_item
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

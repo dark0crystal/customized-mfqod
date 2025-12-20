@@ -26,6 +26,9 @@ class EmailSettings:
         # Templates
         self.TEMPLATE_DIR: str = os.getenv("EMAIL_TEMPLATE_DIR", "app/templates/email")
         
+        # Frontend URL for generating links in emails
+        self.FRONTEND_BASE_URL: str = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+        
         # Feature flags
         self.EMAIL_ENABLED: bool = os.getenv("EMAIL_ENABLED", "true").lower() == "true"
 
