@@ -28,7 +28,11 @@ const getAuthHeaders = (): HeadersInit => {
 
 interface LocationData {
   organization_name?: string;
+  organization_name_ar?: string;
+  organization_name_en?: string;
   branch_name?: string;
+  branch_name_ar?: string;
+  branch_name_en?: string;
   full_location?: string;
 }
 
@@ -115,6 +119,32 @@ export default function EditPost({ params, onSave }: EditPostProps) {
     if (locale === 'ar' && nameAr) return nameAr;
     if (locale === 'en' && nameEn) return nameEn;
     return nameAr || nameEn || '';
+  }, [locale]);
+
+  // Helper function to build localized location string
+  const getLocalizedLocation = useCallback((location?: LocationData): string => {
+    if (!location) return '';
+    
+    // Build location from organization and branch names based on locale
+    const orgName = locale === 'ar' 
+      ? (location.organization_name_ar || location.organization_name)
+      : (location.organization_name_en || location.organization_name);
+    
+    const branchName = locale === 'ar'
+      ? (location.branch_name_ar || location.branch_name)
+      : (location.branch_name_en || location.branch_name);
+    
+    // Build full location string
+    if (branchName && orgName) {
+      return `${branchName}, ${orgName}`;
+    } else if (branchName) {
+      return branchName;
+    } else if (orgName) {
+      return orgName;
+    }
+    
+    // Fallback to full_location if available
+    return location.full_location || '';
   }, [locale]);
 
   const [item, setItem] = useState<ItemData | null>(null);
@@ -230,7 +260,9 @@ export default function EditPost({ params, onSave }: EditPostProps) {
           // Set form values
           setValue('title', data.title);
           setValue('description', data.description || data.content || '');
-          setValue('location', data.location?.full_location || '');
+          // Set location with localized version
+          const localizedLocation = getLocalizedLocation(data.location);
+          setValue('location', localizedLocation);
           setValue('approval', data.approval ?? true); // Keep for form compatibility
           setValue('temporary_deletion', data.temporary_deletion ?? false);
 
@@ -264,7 +296,7 @@ export default function EditPost({ params, onSave }: EditPostProps) {
 
     fetchItem();
     fetchOrganizations();
-  }, [params.itemId, setValue, fetchOrganizations, fetchBranches]);
+  }, [params.itemId, setValue, fetchOrganizations, fetchBranches, getLocalizedLocation]);
 
   useEffect(() => {
     if (watchedOrganization) {

@@ -217,7 +217,10 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
         }
         setItem(data);
         // Set status from data.status or fallback to approved/pending based on approval
-        setStatus(data.status || (data.approval ? 'approved' : 'pending'));
+        const initialStatus = data.status || (data.approval ? 'approved' : 'pending');
+        setStatus(initialStatus);
+        // Set previousStatus to match the current status so status change detection works correctly
+        setPreviousStatus(initialStatus);
         // Set image visibility from is_hidden
         setImageVisibility(data.is_hidden ? 'hide' : 'show');
       } catch (err) {
@@ -312,8 +315,11 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   };
 
   const handleStatusChange = async (newStatus: string) => {
+    // Get the current status (use item.status if available, otherwise use the status state)
+    const currentStatus = item?.status || status;
+    
     // If changing from approved to pending, check if there's a connected claim
-    if (previousStatus === 'approved' && newStatus === 'pending') {
+    if (currentStatus === 'approved' && newStatus === 'pending') {
       // Check if item has an approved claim connected
       if (item?.approved_claim_id) {
         // Show disclaimer modal
@@ -324,7 +330,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     }
     // If changing from pending to approved, check if claim is needed
     if (
-      previousStatus === ("pending" as string) &&
+      currentStatus === ("pending" as string) &&
       newStatus === ("approved" as string)
     ) {
       // Check if item already has an approved claim
