@@ -523,6 +523,7 @@ async def toggle_item_approval(
     request: Request,
     db: Session = Depends(get_session),
     item_service: ItemService = Depends(get_item_service),
+    current_user: User = Depends(get_current_user_required),
     _: None = Depends(require_branch_access())
 ):
     """
@@ -530,7 +531,11 @@ async def toggle_item_approval(
     Requires: can_manage_items permission
     """
     try:
-        item = item_service.toggle_approval(item_id)
+        # Get request info for audit logging
+        auth_service = AuthService()
+        ip_address = auth_service._get_client_ip(request)
+        user_agent = request.headers.get("user-agent", "")
+        item = item_service.toggle_approval(item_id, current_user.id, ip_address, user_agent)
         return item
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -626,6 +631,7 @@ async def approve_item(
     request: Request,
     db: Session = Depends(get_session),
     item_service: ItemService = Depends(get_item_service),
+    current_user: User = Depends(get_current_user_required),
     _: None = Depends(require_branch_access())
 ):
     """
@@ -634,7 +640,11 @@ async def approve_item(
     Requires: can_manage_items permission
     """
     try:
-        item = item_service.approve_item(item_id)
+        # Get request info for audit logging
+        auth_service = AuthService()
+        ip_address = auth_service._get_client_ip(request)
+        user_agent = request.headers.get("user-agent", "")
+        item = item_service.approve_item(item_id, current_user.id, ip_address, user_agent)
         return item
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

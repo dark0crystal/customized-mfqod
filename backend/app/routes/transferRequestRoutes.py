@@ -11,6 +11,7 @@ from app.schemas.transfer_request_schema import (
 from app.middleware.auth_middleware import get_current_user_required
 from app.models import User
 from app.services.auth_service import AuthService
+from app.utils.permission_decorator import require_permission
 
 router = APIRouter()
 
@@ -58,6 +59,7 @@ async def get_transfer_requests(
         raise HTTPException(status_code=500, detail=f"Error retrieving transfer requests: {str(e)}")
 
 @router.get("/incoming/", response_model=List[TransferRequestResponse])
+@require_permission("can_manage_transfer_requests")
 async def get_incoming_transfer_requests(
     request: Request,
     current_user: User = Depends(get_current_user_required),
@@ -129,6 +131,7 @@ async def get_transfer_request(
         raise HTTPException(status_code=500, detail=f"Error retrieving transfer request: {str(e)}")
 
 @router.post("/{request_id}/approve", response_model=TransferRequestResponse)
+@require_permission("can_manage_transfer_requests")
 async def approve_transfer_request(
     request_id: str,
     request: Request,
@@ -155,8 +158,10 @@ async def approve_transfer_request(
         raise HTTPException(status_code=500, detail=f"Error approving transfer request: {str(e)}")
 
 @router.post("/{request_id}/reject", response_model=TransferRequestResponse)
+@require_permission("can_manage_transfer_requests")
 async def reject_transfer_request(
     request_id: str,
+    request: Request,
     rejection_data: Optional[TransferRequestUpdate] = None,
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_session),

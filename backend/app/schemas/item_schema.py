@@ -31,6 +31,7 @@ class CreateItemRequest(BaseModel):
     item_type_id: Optional[str] = Field(None, description="ID of the item type")
     status: ItemStatus = Field(default=ItemStatus.PENDING, description="Item status")
     temporary_deletion: bool = Field(default=False, description="Whether the item is marked for deletion")
+    is_hidden: Optional[bool] = Field(default=False, description="Whether the item's images should be hidden from regular users")
 
     class Config:
         json_schema_extra = {
@@ -50,6 +51,7 @@ class UpdateItemRequest(BaseModel):
     item_type_id: Optional[str] = Field(None, description="ID of the item type")
     status: Optional[ItemStatus] = Field(None, description="Item status")
     temporary_deletion: Optional[bool] = Field(None, description="Whether the item is marked for deletion")
+    is_hidden: Optional[bool] = Field(None, description="Whether the item's images should be hidden from regular users")
 
     class Config:
         json_schema_extra = {
@@ -102,7 +104,6 @@ class ImageResponse(BaseModel):
     id: str
     url: str
     description: Optional[str] = None
-    is_hidden: bool = False
     created_at: datetime
     updated_at: datetime
     
@@ -148,6 +149,7 @@ class ItemResponse(BaseModel):
     claims_count: int
     temporary_deletion: bool
     status: str
+    is_hidden: bool = False
     approved_claim_id: Optional[str] = None
     item_type_id: Optional[str]
     user_id: Optional[str]
