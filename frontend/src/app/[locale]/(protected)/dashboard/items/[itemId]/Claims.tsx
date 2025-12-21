@@ -124,66 +124,92 @@ export default function Claims({ postId }: { postId: string }) {
         <>
           {claims.length > 0 ? (
             <div className="space-y-4">
-              {claims.map((claim) => (
-                <div 
-                  key={claim.id} 
-                  className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden"
-                >
-                  <div className="p-6">
-                    {/* Header Section */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {claim.title}
-                          </h3>
-                          <button
-                            onClick={() => router.push(`/dashboard/claims/${claim.id}`)}
-                            className="p-1.5 text-gray-500 hover:text-[#3277AE] hover:bg-blue-50 rounded-lg transition-colors duration-200"
-                            title={t('viewClaimDetails') || 'View Claim Details'}
-                            aria-label={t('viewClaimDetails') || 'View Claim Details'}
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-2 mb-3 flex-wrap">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                            claim.approval 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {claim.approval ? t('approved') : t('notApproved')}
-                          </span>
-                          {claim.is_assigned && (
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {t('assigned') || 'Assigned'}
-                            </span>
-                          )}
-                          {claim.item_status && (
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                              claim.item_status === 'approved' 
-                                ? 'bg-green-100 text-green-800' 
-                                : claim.item_status === 'cancelled'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-orange-100 text-orange-800'
+              {claims.map((claim) => {
+                // Check if item is approved to disable claims
+                const isItemApproved = claim.item_status === 'approved';
+                
+                return (
+                  <div 
+                    key={claim.id} 
+                    className={`rounded-xl overflow-hidden transition-shadow duration-200 ${
+                      isItemApproved
+                        ? 'bg-gray-100 border border-gray-300 shadow-sm'
+                        : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
+                    }`}
+                  >
+                    <div className="p-6">
+                      {/* Header Section */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className={`text-lg font-semibold ${
+                              isItemApproved ? 'text-gray-500' : 'text-gray-900'
                             }`}>
-                              {t('itemStatus') || 'Item Status'}: {
-                                claim.item_status === 'approved' ? (t('approved') || 'Approved') :
-                                claim.item_status === 'cancelled' ? (t('cancelled') || 'Cancelled') :
-                                (t('pending') || 'Pending')
-                              }
+                              {claim.title}
+                            </h3>
+                            <button
+                              onClick={() => router.push(`/dashboard/claims/${claim.id}`)}
+                              className={`p-1.5 rounded-lg transition-colors duration-200 ${
+                                isItemApproved
+                                  ? 'text-[#3277AE] cursor-pointer hover:bg-blue-50'
+                                  : 'text-gray-500 hover:text-[#3277AE] hover:bg-blue-50'
+                              }`}
+                              title={t('viewClaimDetails') || 'View Claim Details'}
+                              aria-label={t('viewClaimDetails') || 'View Claim Details'}
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2 mb-3 flex-wrap">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              isItemApproved
+                                ? claim.approval
+                                  ? 'bg-gray-200 text-gray-500'
+                                  : 'bg-gray-200 text-gray-500'
+                                : claim.approval
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {claim.approval ? t('approved') : t('notApproved')}
                             </span>
-                          )}
+                            {claim.is_assigned && (
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                isItemApproved
+                                  ? 'bg-gray-200 text-gray-500'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}>
+                                {t('assigned') || 'Assigned'}
+                              </span>
+                            )}
+                            {claim.item_status && (
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                isItemApproved
+                                  ? 'bg-gray-200 text-gray-500'
+                                  : claim.item_status === 'approved'
+                                  ? 'bg-green-100 text-green-800'
+                                  : claim.item_status === 'cancelled'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-orange-100 text-orange-800'
+                              }`}>
+                                {t('itemStatus') || 'Item Status'}: {
+                                  claim.item_status === 'approved' ? (t('approved') || 'Approved') :
+                                  claim.item_status === 'cancelled' ? (t('cancelled') || 'Cancelled') :
+                                  (t('pending') || 'Pending')
+                                }
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Description */}
-                    <div className="mb-4">
-                      <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
-                        {claim.description}
-                      </p>
-                    </div>
+                      {/* Description */}
+                      <div className="mb-4">
+                        <p className={`text-sm leading-relaxed whitespace-pre-wrap ${
+                          isItemApproved ? 'text-gray-500' : 'text-gray-700'
+                        }`}>
+                          {claim.description}
+                        </p>
+                      </div>
 
                     {/* Images Section */}
                     <div className="mb-4">
@@ -197,19 +223,27 @@ export default function Claims({ postId }: { postId: string }) {
                             return (
                               <div
                                 key={image.id}
-                                className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200"
+                                className={`relative aspect-square rounded-lg overflow-hidden ${
+                                  isItemApproved
+                                    ? 'bg-gray-200 border border-gray-300'
+                                    : 'bg-gray-100 border border-gray-200'
+                                }`}
                               >
                                 {imageUrl && !hasFailed ? (
                                   <img
                                     src={imageUrl}
                                     alt={`Claim image ${image.id}`}
-                                    className="w-full h-full object-cover"
+                                    className={`w-full h-full object-cover ${
+                                      isItemApproved ? 'opacity-60' : ''
+                                    }`}
                                     onError={() => {
                                       setFailedImages(prev => new Set(prev).add(imageKey));
                                     }}
                                   />
                                 ) : (
-                                  <div className="flex items-center justify-center w-full h-full text-gray-400 text-xs text-center p-2">
+                                  <div className={`flex items-center justify-center w-full h-full text-xs text-center p-2 ${
+                                    isItemApproved ? 'text-gray-400' : 'text-gray-400'
+                                  }`}>
                                     {t('imageNotFound') || 'Image not found'}
                                   </div>
                                 )}
@@ -218,9 +252,17 @@ export default function Claims({ postId }: { postId: string }) {
                           })}
                         </div>
                       ) : (
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
-                          <div className="text-gray-400 text-2xl mb-2">🖼️</div>
-                          <p className="text-gray-500 text-sm">
+                        <div className={`rounded-lg p-6 text-center ${
+                          isItemApproved
+                            ? 'bg-gray-200 border border-gray-300'
+                            : 'bg-gray-50 border border-gray-200'
+                        }`}>
+                          <div className={`text-2xl mb-2 ${
+                            isItemApproved ? 'text-gray-400' : 'text-gray-400'
+                          }`}>🖼️</div>
+                          <p className={`text-sm ${
+                            isItemApproved ? 'text-gray-500' : 'text-gray-500'
+                          }`}>
                             {t('noImagesAvailable') || 'No images available'}
                           </p>
                         </div>
@@ -228,32 +270,47 @@ export default function Claims({ postId }: { postId: string }) {
                     </div>
 
                     {/* Divider */}
-                    <div className="border-t border-gray-200 my-4"></div>
+                    <div className={`border-t my-4 ${
+                      isItemApproved ? 'border-gray-300' : 'border-gray-200'
+                    }`}></div>
 
                     {/* Claim Details */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div>
-                        <p className="text-xs font-medium text-gray-500 mb-1">{t('claimDate')}</p>
-                        <p className="text-sm text-gray-900">
+                        <p className={`text-xs font-medium mb-1 ${
+                          isItemApproved ? 'text-gray-400' : 'text-gray-500'
+                        }`}>{t('claimDate')}</p>
+                        <p className={`text-sm ${
+                          isItemApproved ? 'text-gray-500' : 'text-gray-900'
+                        }`}>
                           {claim.created_at ? formatDateOnly(claim.created_at) : 'N/A'}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs font-medium text-gray-500 mb-1">{t('claimUserName')}</p>
-                        <p className="text-sm text-gray-900">
+                        <p className={`text-xs font-medium mb-1 ${
+                          isItemApproved ? 'text-gray-400' : 'text-gray-500'
+                        }`}>{t('claimUserName')}</p>
+                        <p className={`text-sm ${
+                          isItemApproved ? 'text-gray-500' : 'text-gray-900'
+                        }`}>
                           {claim.user_name || 'N/A'}
                         </p>
                       </div>
                       <div className="md:col-span-2">
-                        <p className="text-xs font-medium text-gray-500 mb-1">{t('claimEmail')}</p>
-                        <p className="text-sm text-gray-900 break-all">
+                        <p className={`text-xs font-medium mb-1 ${
+                          isItemApproved ? 'text-gray-400' : 'text-gray-500'
+                        }`}>{t('claimEmail')}</p>
+                        <p className={`text-sm break-all ${
+                          isItemApproved ? 'text-gray-500' : 'text-gray-900'
+                        }`}>
                           {claim.user_email || 'N/A'}
                         </p>
                       </div>
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
