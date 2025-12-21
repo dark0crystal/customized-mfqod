@@ -120,3 +120,6 @@ class SendOTPRequest(BaseModel):
 class VerifyOTPRequest(BaseModel):
     email: EmailStr = Field(..., description="Email address")
     otp_code: str = Field(..., min_length=6, max_length=6, description="6-digit OTP code")
+
+class ADDiagnosticRequest(BaseModel):
+    username: Optional[str] = Field(None, description="Optional username to test lookup and authentication")
