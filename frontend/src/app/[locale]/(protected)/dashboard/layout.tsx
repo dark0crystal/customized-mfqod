@@ -4,6 +4,8 @@ import { hasLocale } from "next-intl";
 import "./globals.css"
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
+import { getMessages } from "next-intl/server";
+import { NextIntlClientProvider } from "next-intl";
 import { PermissionsProvider } from "@/PermissionsContext";
 import DashboardShell from "./DashboardShell";
 
@@ -26,11 +28,16 @@ export default async function AdminLayout({
     notFound();
   }
 
+  // Load messages for this locale
+  const messages = await getMessages();
+
   return (
-    <PermissionsProvider>
-      <DashboardShell initialDirection={initialDirection}>
-        {children}
-      </DashboardShell>
-    </PermissionsProvider>
+    <NextIntlClientProvider messages={messages}>
+      <PermissionsProvider>
+        <DashboardShell initialDirection={initialDirection}>
+          {children}
+        </DashboardShell>
+      </PermissionsProvider>
+    </NextIntlClientProvider>
   );
 }

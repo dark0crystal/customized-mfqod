@@ -115,12 +115,9 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
     return parts.length > 0 ? parts.join(', ') : t("location-not-specified");
   };
 
-  const getImageUrl = (itemId: string, isHidden?: boolean) => {
-    // If item is hidden, don't show images in search page
-    if (isHidden) {
-      return null;
-    }
-    
+  const getImageUrl = (itemId: string) => {
+    // Backend already filters images based on user permissions and is_hidden status
+    // If images are returned, user has permission to see them
     const itemImages = images?.[itemId] && images[itemId].length > 0 ? images[itemId] : null;
     if (itemImages && itemImages[0]?.url) {
       // If the url is already absolute, use as is
@@ -147,7 +144,7 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 [@media(min-width:1150px)]:grid-cols-3 gap-6 justify-items-center">
         {items.length > 0 ? (
           items.map((item, index) => {
-            const imageUrl = getImageUrl(item.id, item.is_hidden);
+            const imageUrl = getImageUrl(item.id);
             const isExpanded = expandedItemId === item.id;
 
             return (
