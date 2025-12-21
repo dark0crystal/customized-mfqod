@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Alexandria } from "next/font/google";
-import { NextIntlClientProvider } from "next-intl";
-import { getMessages, getLocale } from "next-intl/server";
+import { getLocale } from "next-intl/server";
 import "leaflet/dist/leaflet.css";
 
 const alexandria = Alexandria({
@@ -20,7 +19,6 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const locale = await getLocale();
-  const messages = await getMessages();
   
   // Determine direction based on locale
   const direction = locale === 'ar' ? 'rtl' : 'ltr';
@@ -31,9 +29,7 @@ export default async function RootLayout({
         className={`${alexandria.className} antialiased ${direction === 'rtl' ? 'rtl' : 'ltr'}`}
         suppressHydrationWarning
       >
-        <NextIntlClientProvider messages={messages}>
-          {children}
-        </NextIntlClientProvider>
+        {children}
       </body>
     </html>
   );
