@@ -24,18 +24,6 @@ const getAuthHeaders = (): HeadersInit => {
 
 import { formatDate } from '@/utils/dateFormatter';
 
-// Helper to get image URL
-const getImageUrl = (imageUrl: string): string => {
-  if (!imageUrl) return '';
-  if (/^https?:\/\//.test(imageUrl)) return imageUrl;
-  let processedUrl = imageUrl.replace('/uploads/images/', '/static/images/');
-  if (!processedUrl.startsWith('/')) {
-    processedUrl = '/' + processedUrl;
-  }
-  const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
-  return `${baseUrl}${processedUrl}`;
-};
-
 interface TransferRequest {
   id: string;
   item_id: string;
@@ -194,7 +182,7 @@ export default function TransferRequestsPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#3277AE' }}></div>
           <p className="text-gray-500">{t('loading')}</p>
         </div>
       </div>
@@ -217,9 +205,20 @@ export default function TransferRequestsPage() {
               onClick={() => setFilterStatus('pending')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 filterStatus === 'pending'
-                  ? 'bg-blue-600 text-white'
+                  ? 'text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
+              style={filterStatus === 'pending' ? { backgroundColor: '#3277AE' } : {}}
+              onMouseEnter={(e) => {
+                if (filterStatus === 'pending') {
+                  e.currentTarget.style.opacity = '0.9';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (filterStatus === 'pending') {
+                  e.currentTarget.style.opacity = '1';
+                }
+              }}
             >
               {t('pending')}
             </button>
@@ -227,9 +226,20 @@ export default function TransferRequestsPage() {
               onClick={() => setFilterStatus('approved')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 filterStatus === 'approved'
-                  ? 'bg-blue-600 text-white'
+                  ? 'text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
+              style={filterStatus === 'approved' ? { backgroundColor: '#3277AE' } : {}}
+              onMouseEnter={(e) => {
+                if (filterStatus === 'approved') {
+                  e.currentTarget.style.opacity = '0.9';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (filterStatus === 'approved') {
+                  e.currentTarget.style.opacity = '1';
+                }
+              }}
             >
               {t('approved')}
             </button>
@@ -237,9 +247,20 @@ export default function TransferRequestsPage() {
               onClick={() => setFilterStatus('rejected')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 filterStatus === 'rejected'
-                  ? 'bg-blue-600 text-white'
+                  ? 'text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
+              style={filterStatus === 'rejected' ? { backgroundColor: '#3277AE' } : {}}
+              onMouseEnter={(e) => {
+                if (filterStatus === 'rejected') {
+                  e.currentTarget.style.opacity = '0.9';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (filterStatus === 'rejected') {
+                  e.currentTarget.style.opacity = '1';
+                }
+              }}
             >
               {t('rejected')}
             </button>
@@ -247,9 +268,20 @@ export default function TransferRequestsPage() {
               onClick={() => setFilterStatus('')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 filterStatus === ''
-                  ? 'bg-blue-600 text-white'
+                  ? 'text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
+              style={filterStatus === '' ? { backgroundColor: '#3277AE' } : {}}
+              onMouseEnter={(e) => {
+                if (filterStatus === '') {
+                  e.currentTarget.style.opacity = '0.9';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (filterStatus === '') {
+                  e.currentTarget.style.opacity = '1';
+                }
+              }}
             >
               {t('all')}
             </button>
@@ -322,7 +354,8 @@ export default function TransferRequestsPage() {
                         <p className="text-sm text-gray-600 line-clamp-2">{request.item.description}</p>
                         <button
                           onClick={() => router.push(`/dashboard/items/${request.item_id}`)}
-                          className="text-sm text-blue-600 hover:text-blue-800 font-medium mt-2"
+                          className="text-sm font-medium mt-2 hover:opacity-80 transition-opacity"
+                          style={{ color: '#3277AE' }}
                         >
                           {t('viewItemDetails')} →
                         </button>

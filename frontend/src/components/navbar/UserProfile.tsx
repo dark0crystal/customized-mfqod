@@ -70,11 +70,18 @@ export default function UserProfile() {
       {/* User Profile Button - Compact version with just image and arrow */}
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="flex items-center space-x-1 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        className="flex items-center space-x-1 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
+        style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { '--tw-ring-color': string }}
+        onFocus={(e) => {
+          e.currentTarget.style.boxShadow = '0 0 0 2px rgba(50, 119, 174, 0.2)';
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.boxShadow = '';
+        }}
         aria-label="User menu"
       >
         {/* Profile Image */}
-        <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-gray-300 hover:border-gray-400 transition-colors">
+        <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 transition-colors" style={{ borderColor: '#3277AE', backgroundColor: '#3277AE' }}>
           {userImage ? (
             <img
               src={userImage}
@@ -114,7 +121,7 @@ export default function UserProfile() {
             {/* Header with Profile Info */}
             <div className="px-4 py-4 border-b border-gray-200 bg-gray-50">
               <div className="flex items-center space-x-3">
-                <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-gray-300 flex-shrink-0">
+                <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 flex-shrink-0" style={{ borderColor: '#3277AE', backgroundColor: '#3277AE' }}>
                   {userImage ? (
                     <img
                       src={userImage}
