@@ -558,6 +558,15 @@ class ItemService:
         # Handle approved_claim_id
         if 'approved_claim_id' in update_data:
             approved_claim_id = update_data['approved_claim_id']
+            
+            # If there was a previous approved claim, unapprove it
+            if item.approved_claim_id and item.approved_claim_id != approved_claim_id:
+                previous_claim = self.db.query(Claim).filter(Claim.id == item.approved_claim_id).first()
+                if previous_claim:
+                    previous_claim.approval = False
+                    previous_claim.updated_at = datetime.now(timezone.utc)
+                    logger.info(f"Unapproved previous claim {previous_claim.id} for item {item_id}")
+            
             # Validate that the claim exists and belongs to this item
             if approved_claim_id:
                 claim = self.db.query(Claim).filter(Claim.id == approved_claim_id).first()
@@ -565,6 +574,12 @@ class ItemService:
                     raise ValueError(f"Claim {approved_claim_id} not found")
                 if claim.item_id != item_id:
                     raise ValueError(f"Claim {approved_claim_id} does not belong to item {item_id}")
+                
+                # Update the claim approval to True when it's connected to the item
+                claim.approval = True
+                claim.updated_at = datetime.now(timezone.utc)
+                logger.info(f"Approved claim {approved_claim_id} for item {item_id}")
+            
             item.approved_claim_id = approved_claim_id
         
         # Handle location update with history tracking
