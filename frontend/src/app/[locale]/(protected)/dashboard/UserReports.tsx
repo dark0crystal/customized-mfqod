@@ -38,8 +38,7 @@ interface Claim {
   id: string;
   title: string;
   description: string;
-  approval: boolean;  // Kept for backward compatibility
-  status?: string;  // Claim status: pending, approved, or rejected
+  approval: boolean
   created_at: string;
   updated_at: string;
   is_assigned?: boolean;  // Whether this claim is assigned as the correct claim for the item
@@ -107,15 +106,15 @@ export default function UserReports() {
 
   // Navigation functions
   const handleEditMissingItem = (itemId: string) => {
-    router.push('/dashboard/missing-items');
+    router.push(`/dashboard/missing-items/${itemId}`);
   };
 
   const handleEditFoundItem = (itemId: string) => {
-    router.push('/dashboard/items');
+    router.push(`/dashboard/items/${itemId}`);
   };
 
   const handleEditClaim = (claimId: string) => {
-    router.push('/dashboard/claims');
+    router.push(`/dashboard/claims/${claimId}`);
   };
 
   useEffect(() => {
@@ -197,7 +196,7 @@ export default function UserReports() {
             approvedMissingItems: missingItemsList.filter((item: MissingItem) => item.approval).length,
             approvedFoundItems: foundItemsList.filter((item: FoundItem) => item.approval).length,
             approvedClaims: userClaims.filter((claim: Claim) => 
-              claim.status === 'approved' || (claim.status === undefined && claim.approval)
+              claim.approval
             ).length,
           },
         };
@@ -509,18 +508,15 @@ export default function UserReports() {
                           {t('claim')}
                         </span>
                         {(() => {
-                          const isApproved = claim.status === 'approved' || (claim.status === undefined && claim.approval);
-                          const isRejected = claim.status === 'rejected';
+                          const isApproved = claim.approval;
                           return (
                             <>
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                 isApproved
                                   ? 'bg-green-100 text-green-800'
-                                  : isRejected
-                                  ? 'bg-red-100 text-red-800'
                                   : 'bg-yellow-100 text-yellow-800'
                               }`}>
-                                {isApproved ? t('approved') : isRejected ? (t('rejected') || 'Rejected') : t('pending')}
+                                {isApproved ? t('approved') : t('pending')}
                               </span>
                               {claim.is_assigned && (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">

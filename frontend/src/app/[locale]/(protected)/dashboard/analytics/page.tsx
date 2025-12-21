@@ -134,6 +134,16 @@ export default function AnalyticsPage() {
   const t = useTranslations('dashboard.analytics');
   const locale = useLocale();
 
+  // Helper function to translate period labels
+  const getPeriodTranslation = (period: string): string => {
+    const periodMap: Record<string, string> = {
+      'This Week': t('thisWeek'),
+      'This Month': t('thisMonth'),
+      'Last Month': t('lastMonth')
+    };
+    return periodMap[period] || period;
+  };
+
   // Load analytics data and item types
   useEffect(() => {
     const loadData = async () => {
@@ -365,25 +375,29 @@ export default function AnalyticsPage() {
 
       {/* Date Range Selector */}
       <div className="bg-white p-4 rounded-lg shadow">
-        <div className="flex items-center space-x-4">
-          <Calendar size={20} className="text-blue-600" />
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700">{t('from')}:</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700">{t('to')}:</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+        <div className="flex items-start gap-3">
+          <Calendar size={20} className="text-blue-600 flex-shrink-0 mt-1" />
+          <div className="flex flex-col gap-3 flex-1 min-w-0">
+            {/* From Date - Top */}
+            <div className="flex items-center gap-2 w-full">
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap min-w-[60px]">{t('from')}:</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full min-w-0"
+              />
+            </div>
+            {/* To Date - Bottom */}
+            <div className="flex items-center gap-2 w-full">
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap min-w-[60px]">{t('to')}:</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full min-w-0"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -512,7 +526,7 @@ export default function AnalyticsPage() {
             return (
               <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
-                  <p className="font-medium text-gray-900">{stat.period}</p>
+                  <p className="font-medium text-gray-900">{getPeriodTranslation(stat.period)}</p>
                   <p className="text-sm text-gray-600">{stat.returned} {t('of')} {stat.total} {t('itemsReturned')}</p>
                 </div>
                 <div className="text-right">
