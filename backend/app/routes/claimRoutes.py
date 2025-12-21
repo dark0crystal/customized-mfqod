@@ -175,7 +175,7 @@ async def get_claim(
             from app.services import permissionServices
             if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
                 has_access = True
-            elif permissionServices.has_full_access(db, current_user.id):
+            elif permissionServices.is_super_admin(db, current_user.id):
                 has_access = True
         
         if not has_access:
@@ -515,7 +515,7 @@ async def get_claim_images(
             from app.services import permissionServices
             if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
                 has_access = True
-            elif permissionServices.has_full_access(db, current_user.id):
+            elif permissionServices.is_super_admin(db, current_user.id):
                 has_access = True
         
         if not has_access:
@@ -624,7 +624,7 @@ async def send_visit_notification(
         has_access = False
         if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
             has_access = True
-        elif permissionServices.has_full_access(db, current_user.id):
+        elif permissionServices.is_super_admin(db, current_user.id):
             has_access = True
         
         if not has_access:
@@ -672,7 +672,6 @@ async def send_visit_notification(
         
         # Get item title
         item_title = claim.item.title if claim.item else "the item"
-        item_id = claim.item_id if claim.item else None
         
         # Build reminder message
         reminder_message_parts = [
@@ -689,10 +688,6 @@ async def send_visit_notification(
         
         reminder_message = "\n".join(reminder_message_parts)
         
-        # Get frontend base URL for generating links
-        from app.config.email_config import email_settings
-        frontend_base_url = email_settings.FRONTEND_BASE_URL.rstrip('/')
-        
         # Prepare template data for email
         template_data = {
             "user_name": user_name,
@@ -705,8 +700,7 @@ async def send_visit_notification(
             "item_title": item_title,
             "claim_title": claim.title,
             "note": notification_request.note,
-            "claim_url": f"{frontend_base_url}/dashboard/claims/{claim_id}",
-            "item_url": f"{frontend_base_url}/dashboard/items/{item_id}" if item_id else None
+            "claim_url": f"/dashboard/claims/{claim_id}"
         }
         
         # Send email using notification service
