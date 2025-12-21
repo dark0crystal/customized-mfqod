@@ -171,8 +171,16 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to assign user as branch manager");
+        const errorData = await response.json().catch(() => ({}));
+        const errorDetail = errorData.detail || "";
+        
+        // Check if it's a permission error (403) or if the error message mentions permission
+        if (response.status === 403 || errorDetail.toLowerCase().includes("permission")) {
+          setErrorMessage(t('branchAssignmentPermissionDenied'));
+          return;
+        } else {
+          throw new Error(errorDetail || t('failedToAssignBranch'));
+        }
       }
 
       setSuccessMessage(t('userSuccessfullyAssigned'));
