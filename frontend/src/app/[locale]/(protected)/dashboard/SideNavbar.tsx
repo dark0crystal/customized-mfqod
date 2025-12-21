@@ -20,7 +20,8 @@ import {
   Loader2,
   ArrowRightLeft,
   ClipboardList,
-  FileSearch
+  FileSearch,
+  HelpCircle
 } from 'lucide-react';
 import Brand from '@/components/navbar/Brand';
 import { Link } from '@/i18n/navigation';
@@ -256,6 +257,13 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
       icon: <TrendingUp size={20} />,
       href: '/dashboard/analytics',
       requiredPermissions: ['can_view_analytics']
+    },
+    {
+      id: 'help',
+      label: t('help'),
+      icon: <HelpCircle size={20} />,
+      href: '/dashboard/help',
+      requiredPermissions: ['can_manage_items']
     }
   ];
 
