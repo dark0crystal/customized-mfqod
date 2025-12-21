@@ -617,6 +617,36 @@ class ClaimService:
                 is_assigned = False
                 item_status = None
             
+            # Extract user details
+            user_name = None
+            user_email = None
+            try:
+                user = getattr(claim, 'user', None)
+                if user is not None:
+                    if hasattr(user, 'first_name') and hasattr(user, 'last_name'):
+                        if user.first_name and user.last_name:
+                            user_name = f"{user.first_name} {user.last_name}".strip()
+                        elif user.first_name:
+                            user_name = user.first_name
+                        elif hasattr(user, 'email') and user.email:
+                            user_name = user.email.split('@')[0]
+                    elif hasattr(user, 'first_name') and user.first_name:
+                        user_name = user.first_name
+                    elif hasattr(user, 'email') and user.email:
+                        user_name = user.email.split('@')[0]
+                    
+                    if hasattr(user, 'email'):
+                        user_email = user.email
+            except (AttributeError, TypeError, ValueError) as user_error:
+                # If accessing user fails, just set user_name and user_email to None
+                logger.warning(f"Error accessing user for claim {claim.id if claim else 'unknown'}: {user_error}")
+                user_name = None
+                user_email = None
+            except Exception as user_error:
+                # Catch any other unexpected errors
+                logger.warning(f"Unexpected error accessing user for claim {claim.id if claim else 'unknown'}: {user_error}")
+                user_name = None
+                user_email = None
             
             # Ensure all required fields are present and valid
             return ClaimResponse(
@@ -629,12 +659,32 @@ class ClaimService:
                 created_at=claim.created_at if claim.created_at else datetime.now(timezone.utc),
                 updated_at=claim.updated_at if claim.updated_at else datetime.now(timezone.utc),
                 is_assigned=is_assigned,
-                item_status=item_status
+                item_status=item_status,
+                user_name=user_name,
+                user_email=user_email
             )
         except Exception as e:
             logger.error(f"Error converting claim to response: {e}")
             # Return basic response if conversion fails
             try:
+                # Try to extract user info even in fallback
+                user_name = None
+                user_email = None
+                try:
+                    user = getattr(claim, 'user', None) if claim else None
+                    if user:
+                        if hasattr(user, 'first_name') and hasattr(user, 'last_name'):
+                            if user.first_name and user.last_name:
+                                user_name = f"{user.first_name} {user.last_name}".strip()
+                            elif user.first_name:
+                                user_name = user.first_name
+                        elif hasattr(user, 'first_name') and user.first_name:
+                            user_name = user.first_name
+                        if hasattr(user, 'email'):
+                            user_email = user.email
+                except:
+                    pass
+                
                 return ClaimResponse(
                     id=str(claim.id) if claim and claim.id else "",
                     title=claim.title if claim and claim.title else "",
@@ -644,7 +694,9 @@ class ClaimService:
                     item_id=str(claim.item_id) if claim and claim.item_id else None,
                     created_at=claim.created_at if claim and claim.created_at else datetime.now(timezone.utc),
                     updated_at=claim.updated_at if claim and claim.updated_at else datetime.now(timezone.utc),
-                    is_assigned=False
+                    is_assigned=False,
+                    user_name=user_name,
+                    user_email=user_email
                 )
             except Exception as fallback_error:
                 logger.error(f"Error in fallback claim conversion: {fallback_error}")

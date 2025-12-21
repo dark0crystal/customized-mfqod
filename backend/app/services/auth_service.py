@@ -65,7 +65,7 @@ class AuthService:
                 username = email_or_username.split("@")[0] if "@" in email_or_username else email_or_username
                 
                 try:
-                    is_authenticated, ad_user_data = self.ad_service.authenticate_user(username, password)
+                    is_authenticated, ad_user_data, error_detail = self.ad_service.authenticate_user(username, password)
                     
                     if is_authenticated:
                         # Create new internal user from AD
@@ -74,9 +74,11 @@ class AuthService:
                             await self._handle_successful_login(user, ip_address, user_agent, db)
                             return await self._generate_auth_response(user, ip_address, user_agent, db)
                     
-                    # AD failed - return generic error (security: don't reveal user doesn't exist)
+                    # AD failed - log detailed error but return generic message for security
+                    failure_reason = error_detail or "Invalid credentials"
+                    logger.warning(f"AD authentication failed for {email_or_username}: {failure_reason}")
                     await self._handle_failed_login(None, email_or_username, ip_address, 
-                                                  user_agent, "Invalid credentials", db)
+                                                  user_agent, failure_reason, db)
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="Invalid credentials"
@@ -132,7 +134,7 @@ class AuthService:
             # ALWAYS authenticate against AD first (even if user exists in DB)
             # This ensures user still exists and is active in AD
             try:
-                is_authenticated, ad_user_data = self.ad_service.authenticate_user(username, password)
+                is_authenticated, ad_user_data, error_detail = self.ad_service.authenticate_user(username, password)
             except HTTPException as e:
                 # Re-raise HTTP exceptions (like service unavailable)
                 raise e
@@ -150,10 +152,11 @@ class AuthService:
             
             if not is_authenticated or not ad_user_data:
                 # AD authentication failed - deny access even if user exists in DB
-                # Note: authenticate_user already checks _is_account_active before returning True,
-                # so if authentication fails, it could be due to invalid credentials or inactive account
+                # Log detailed error but return generic message for security
+                failure_reason = error_detail or "Invalid AD credentials or account inactive"
+                logger.warning(f"AD authentication failed for {email_or_username}: {failure_reason}")
                 await self._handle_failed_login(user, email_or_username, ip_address, 
-                                              user_agent, "Invalid AD credentials or account inactive", db)
+                                              user_agent, failure_reason, db)
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid credentials"
@@ -671,6 +674,7 @@ class AuthService:
         user.first_name = ad_data.get('first_name') or user.first_name
         user.last_name = ad_data.get('last_name') or user.last_name
         user.email = ad_data.get('email') or user.email
+        user.phone_number = ad_data.get('phone_number') or user.phone_number
         user.ad_sync_date = datetime.now(timezone.utc)
         user.updated_at = datetime.now(timezone.utc)
         
