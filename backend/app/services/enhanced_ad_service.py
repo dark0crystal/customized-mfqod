@@ -5,9 +5,9 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timezone, timedelta
 from ldap import LDAPError
 from sqlalchemy.orm import Session
-from config.auth_config import ADConfig
-from models import User, UserType, ADSyncLog
-from db.database import get_db
+from app.config.auth_config import ADConfig
+from app.models import User, UserType, ADSyncLog, Role
+from app.db.database import get_session
 from fastapi import HTTPException, status
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -48,64 +48,136 @@ class EnhancedADService:
                 detail="Active Directory service unavailable"
             )
     
-    def authenticate_user(self, username: str, password: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    def authenticate_user(self, username: str, password: str) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
         """
         Authenticate user against Active Directory with enhanced verification
-        Returns: (is_authenticated, user_data)
+        Returns: (is_authenticated, user_data, error_detail)
+        error_detail is None on success, contains diagnostic info on failure
         """
         conn = None
+        error_detail = None
         try:
-            conn = self._get_ldap_connection()
+            # Step 1: Create connection
+            try:
+                conn = self._get_ldap_connection()
+                logger.debug(f"LDAP connection established to {self.config.SERVER}:{self.config.PORT}")
+            except Exception as e:
+                error_detail = f"Connection failed: {str(e)}"
+                logger.error(f"Failed to create LDAP connection: {error_detail}")
+                return False, None, error_detail
             
-            # Bind with service account
-            conn.simple_bind_s(self.config.BIND_USER, self.config.BIND_PASSWORD)
+            # Step 2: Bind with service account
+            try:
+                conn.simple_bind_s(self.config.BIND_USER, self.config.BIND_PASSWORD)
+                logger.debug(f"Service account bind successful: {self.config.BIND_USER}")
+            except ldap.INVALID_CREDENTIALS:
+                error_detail = "Service account credentials invalid"
+                logger.error(f"Service account bind failed: {error_detail}")
+                return False, None, error_detail
+            except Exception as e:
+                error_detail = f"Service account bind error: {str(e)}"
+                logger.error(f"Service account bind failed: {error_detail}")
+                return False, None, error_detail
             
-            # Search for user
-            search_filter = self.config.USER_SEARCH_FILTER.format(username=username)
-            result = conn.search_s(
-                self.config.USER_DN,
-                ldap.SCOPE_SUBTREE,
-                search_filter,
-                self.config.USER_ATTRIBUTES,
-                timeout=self.config.SEARCH_TIMEOUT
-            )
+            # Step 3: Search for user - try multiple search filters for compatibility
+            search_filters = [
+                self.config.USER_SEARCH_FILTER.format(username=username),
+                f"(&(objectClass=person)(uid={username}))",  # For test LDAP
+                f"(&(objectClass=person)(cn={username}))",     # Fallback
+            ]
+            
+            result = None
+            used_filter = None
+            for search_filter in search_filters:
+                try:
+                    logger.debug(f"Trying search filter: {search_filter}")
+                    result = conn.search_s(
+                        self.config.USER_DN,
+                        ldap.SCOPE_SUBTREE,
+                        search_filter,
+                        self.config.USER_ATTRIBUTES
+                    )
+                    if result:
+                        used_filter = search_filter
+                        logger.debug(f"User found using filter: {search_filter}")
+                        break
+                except Exception as e:
+                    logger.debug(f"Search filter failed: {search_filter} - {str(e)}")
+                    continue
             
             if not result:
-                logger.warning(f"User {username} not found in AD")
-                return False, None
+                error_detail = f"User '{username}' not found in AD. Tried filters: {', '.join(search_filters)}"
+                logger.warning(f"User {username} not found in AD. Search base: {self.config.USER_DN}")
+                return False, None, error_detail
             
             user_dn, user_attrs = result[0]
+            logger.debug(f"User found: {user_dn}")
             
-            # Check if account is active and not expired
+            # Step 4: Check if account is active and not expired
             if not self._is_account_active(user_attrs):
-                logger.warning(f"User {username} account is disabled or expired")
-                return False, None
+                uac = user_attrs.get('userAccountControl', [])
+                uac_str = uac[0].decode('utf-8') if uac and isinstance(uac[0], bytes) else str(uac[0]) if uac else "N/A"
+                error_detail = f"Account disabled or expired (userAccountControl: {uac_str})"
+                logger.warning(f"User {username} account is disabled or expired. DN: {user_dn}")
+                return False, None, error_detail
             
-            # Try to authenticate with user credentials
+            # Step 5: Try to authenticate with user credentials
+            user_conn = None
             try:
                 user_conn = self._get_ldap_connection()
                 user_conn.simple_bind_s(user_dn, password)
                 user_conn.unbind_s()
+                logger.debug(f"User credential bind successful for {username}")
             except ldap.INVALID_CREDENTIALS:
-                logger.warning(f"Invalid credentials for user {username}")
-                return False, None
+                error_detail = "Invalid password provided"
+                logger.warning(f"Invalid credentials for user {username} (DN: {user_dn})")
+                return False, None, error_detail
+            except ldap.SERVER_DOWN:
+                error_detail = "LDAP server unavailable during authentication"
+                logger.error(f"LDAP server down during user authentication for {username}")
+                return False, None, error_detail
             except Exception as e:
-                logger.error(f"Authentication error for user {username}: {str(e)}")
-                return False, None
+                error_detail = f"Authentication bind error: {str(e)}"
+                logger.error(f"Authentication error for user {username}: {error_detail}")
+                return False, None, error_detail
+            finally:
+                if user_conn:
+                    try:
+                        user_conn.unbind_s()
+                    except:
+                        pass
             
-            # Process user attributes
-            user_data = self._process_user_attributes(user_attrs)
-            user_data['dn'] = user_dn
+            # Step 6: Process user attributes
+            try:
+                user_data = self._process_user_attributes(user_attrs)
+                user_data['dn'] = user_dn
+                logger.info(f"User {username} authenticated successfully via AD")
+                return True, user_data, None
+            except Exception as e:
+                error_detail = f"Error processing user attributes: {str(e)}"
+                logger.error(f"Error processing attributes for {username}: {error_detail}")
+                return False, None, error_detail
             
-            logger.info(f"User {username} authenticated successfully via AD")
-            return True, user_data
-            
+        except ldap.SERVER_DOWN:
+            error_detail = "LDAP server is down or unreachable"
+            logger.error(f"LDAP server down: {error_detail}")
+            return False, None, error_detail
+        except ldap.INVALID_CREDENTIALS:
+            error_detail = "Service account credentials invalid"
+            logger.error(f"LDAP invalid credentials: {error_detail}")
+            return False, None, error_detail
         except LDAPError as e:
-            logger.error(f"LDAP error during authentication: {str(e)}")
-            return False, None
+            error_detail = f"LDAP error: {str(e)}"
+            logger.error(f"LDAP error during authentication: {error_detail}")
+            import traceback
+            logger.debug(f"LDAP error traceback:\n{traceback.format_exc()}")
+            return False, None, error_detail
         except Exception as e:
-            logger.error(f"Unexpected error during AD authentication: {str(e)}")
-            return False, None
+            error_detail = f"Unexpected error: {str(e)}"
+            logger.error(f"Unexpected error during AD authentication: {error_detail}")
+            import traceback
+            logger.debug(f"Unexpected error traceback:\n{traceback.format_exc()}")
+            return False, None, error_detail
         finally:
             if conn:
                 try:
@@ -168,36 +240,28 @@ class EnhancedADService:
                     result.append(str(value))
             return result
         
-        # Extract groups and roles
+        # Extract groups (for reference only - roles are managed in database)
         member_of = get_attr_list('memberOf')
         groups = []
-        roles = []
         
         for group_dn in member_of:
             if group_dn.startswith('CN='):
                 group_name = group_dn.split(',')[0][3:]  # Remove "CN="
                 groups.append(group_name)
-                
-                # Map to application roles
-                if group_name in self.config.ROLE_MAPPING:
-                    role = self.config.ROLE_MAPPING[group_name]
-                    if role not in roles:
-                        roles.append(role)
         
-        # If no roles found, assign default
-        if not roles:
-            roles.append(self.config.DEFAULT_INTERNAL_ROLE)
+        # Note: Roles are no longer mapped from AD groups
+        # Roles will be assigned based on database configuration
         
         return {
-            'username': get_attr_value('sAMAccountName'),
+            'username': get_attr_value('sAMAccountName') or get_attr_value('uid') or get_attr_value('cn'),
             'email': get_attr_value('mail') or get_attr_value('userPrincipalName'),
             'display_name': get_attr_value('displayName'),
             'first_name': get_attr_value('givenName'),
             'last_name': get_attr_value('sn'),
+            'phone_number': get_attr_value('telephoneNumber'),
             'employee_id': get_attr_value('employeeID'),
             'department': get_attr_value('department'),
             'groups': groups,
-            'roles': roles,
             'user_type': UserType.INTERNAL.value,
             'last_logon': self._parse_ad_timestamp(get_attr_value('lastLogon')),
             'account_control': get_attr_value('userAccountControl')
@@ -237,16 +301,28 @@ class EnhancedADService:
                 (User.email == user_data['email'])
             ).first()
             
+            # Get default 'user' role
+            default_role = db.query(Role).filter(Role.name == "user").first()
+            if not default_role:
+                logger.error("Default 'user' role not found in database")
+                raise Exception("Default 'user' role not found in database. Please ensure roles are initialized.")
+            
             if existing_user:
                 # Update existing user
                 existing_user.first_name = user_data['first_name'] or existing_user.first_name
                 existing_user.last_name = user_data['last_name'] or existing_user.last_name
                 existing_user.email = user_data['email'] or existing_user.email
                 existing_user.username = user_data['username'] or existing_user.username
+                existing_user.phone_number = user_data.get('phone_number') or existing_user.phone_number
                 existing_user.user_type = UserType.INTERNAL
                 existing_user.ad_sync_date = datetime.now(timezone.utc)
                 existing_user.active = True
                 existing_user.updated_at = datetime.now(timezone.utc)
+                
+                # Ensure user has a role (assign default if missing)
+                if not existing_user.role_id:
+                    existing_user.role_id = default_role.id
+                    logger.info(f"Assigned default 'user' role to existing user: {existing_user.email}")
                 
                 db.commit()
                 db.refresh(existing_user)
@@ -258,11 +334,13 @@ class EnhancedADService:
                     email=user_data['email'],
                     first_name=user_data['first_name'] or '',
                     last_name=user_data['last_name'] or '',
+                    phone_number=user_data.get('phone_number'),
                     user_type=UserType.INTERNAL,
                     ad_dn=user_data.get('dn'),
                     ad_sync_date=datetime.now(timezone.utc),
                     active=True,
-                    password=None  # No local password for AD users
+                    password=None,  # No local password for AD users
+                    role_id=default_role.id  # Assign default 'user' role
                 )
                 
                 db.add(new_user)
@@ -287,8 +365,7 @@ class EnhancedADService:
                 self.config.USER_DN,
                 ldap.SCOPE_SUBTREE,
                 search_filter,
-                self.config.USER_ATTRIBUTES,
-                timeout=self.config.SEARCH_TIMEOUT
+                self.config.USER_ATTRIBUTES
             )
             
             if not result:
@@ -364,7 +441,7 @@ class EnhancedADService:
                         
                         if existing_user:
                             # Update existing user
-                            self._update_user_from_ad(existing_user, user_data)
+                            self._update_user_from_ad(existing_user, user_data, db)
                             stats['updated'] += 1
                         else:
                             # Create new user
@@ -415,8 +492,7 @@ class EnhancedADService:
                 self.config.USER_DN,
                 ldap.SCOPE_SUBTREE,
                 search_filter,
-                self.config.USER_ATTRIBUTES,
-                timeout=self.config.SEARCH_TIMEOUT
+                self.config.USER_ATTRIBUTES
             )
             
             users = []
@@ -439,30 +515,48 @@ class EnhancedADService:
                 except:
                     pass
     
-    def _update_user_from_ad(self, user: User, ad_data: Dict[str, Any]):
+    def _update_user_from_ad(self, user: User, ad_data: Dict[str, Any], db: Session):
         """Update existing user with AD data"""
         user.first_name = ad_data.get('first_name') or user.first_name
         user.last_name = ad_data.get('last_name') or user.last_name
         user.email = ad_data.get('email') or user.email
         user.username = ad_data.get('username') or user.username
+        user.phone_number = ad_data.get('phone_number') or user.phone_number
         user.user_type = UserType.INTERNAL
         user.ad_dn = ad_data.get('dn')
         user.ad_sync_date = datetime.now(timezone.utc)
         user.active = True
         user.updated_at = datetime.now(timezone.utc)
+        
+        # Ensure user has a role (assign default 'user' role if missing)
+        if not user.role_id:
+            default_role = db.query(Role).filter(Role.name == "user").first()
+            if default_role:
+                user.role_id = default_role.id
+                logger.info(f"Assigned default 'user' role to user: {user.email}")
+            else:
+                logger.warning(f"Default 'user' role not found - user {user.email} will not have a role")
     
     def _create_user_from_ad(self, ad_data: Dict[str, Any], db: Session):
         """Create new user from AD data"""
+        # Get default 'user' role
+        default_role = db.query(Role).filter(Role.name == "user").first()
+        if not default_role:
+            logger.error("Default 'user' role not found in database")
+            raise Exception("Default 'user' role not found in database. Please ensure roles are initialized.")
+        
         new_user = User(
             username=ad_data.get('username'),
             email=ad_data.get('email'),
             first_name=ad_data.get('first_name') or '',
             last_name=ad_data.get('last_name') or '',
+            phone_number=ad_data.get('phone_number'),
             user_type=UserType.INTERNAL,
             ad_dn=ad_data.get('dn'),
             ad_sync_date=datetime.now(timezone.utc),
             active=True,
-            password=None
+            password=None,
+            role_id=default_role.id  # Assign default 'user' role
         )
         db.add(new_user)
     
@@ -519,8 +613,7 @@ class EnhancedADService:
                 self.config.USER_DN,
                 ldap.SCOPE_BASE,
                 "(objectClass=*)",
-                ["dn"],
-                timeout=10
+                ["dn"]
             )
             
             end_time = datetime.now(timezone.utc)
