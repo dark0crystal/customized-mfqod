@@ -177,9 +177,9 @@ class ItemService:
             # If count fails, try to get items anyway and return 0 for total
             total = 0
         
-        # Apply pagination
+        # Apply ordering (newest first) and pagination
         try:
-            items = query.offset(filters.skip).limit(filters.limit).all()
+            items = query.order_by(Item.created_at.desc()).offset(filters.skip).limit(filters.limit).all()
         except Exception as e:
             logger.error(f"Error fetching items: {e}")
             # If fetching fails, return empty list
@@ -223,9 +223,9 @@ class ItemService:
                 logger.error(f"Error counting items for user {user_id}: {e}")
                 total = 0
             
-            # Apply pagination
+            # Apply ordering (newest first) and pagination
             try:
-                items = query.offset(skip).limit(limit).all()
+                items = query.order_by(Item.created_at.desc()).offset(skip).limit(limit).all()
             except Exception as e:
                 logger.error(f"Error fetching items for user {user_id}: {e}")
                 return [], total if total else 0
@@ -324,7 +324,7 @@ class ItemService:
                 return [], 0
         
         total = query.count()
-        items = query.offset(filters.skip).limit(filters.limit).all()
+        items = query.order_by(Item.created_at.desc()).offset(filters.skip).limit(filters.limit).all()
         
         # Convert to response objects with location data
         item_responses = [self._item_to_response(item, user_id) for item in items]

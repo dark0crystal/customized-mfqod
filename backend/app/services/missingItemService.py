@@ -133,8 +133,8 @@ class MissingItemService:
         # Get total count before pagination
         total = query.count()
         
-        # Apply pagination
-        missing_items = query.offset(filters.skip).limit(filters.limit).all()
+        # Apply ordering (newest first) and pagination
+        missing_items = query.order_by(MissingItem.created_at.desc()).offset(filters.skip).limit(filters.limit).all()
         
         # Convert to response objects with location data
         missing_item_responses = [self._missing_item_to_response(missing_item) for missing_item in missing_items]
@@ -153,7 +153,7 @@ class MissingItemService:
             query = query.filter(MissingItem.temporary_deletion == False)
         
         total = query.count()
-        missing_items = query.offset(skip).limit(limit).all()
+        missing_items = query.order_by(MissingItem.created_at.desc()).offset(skip).limit(limit).all()
         
         # Convert to response objects with location data
         missing_item_responses = [self._missing_item_to_response(missing_item) for missing_item in missing_items]
@@ -191,8 +191,8 @@ class MissingItemService:
         # Get total count before pagination
         total = query.count()
         
-        # Apply pagination
-        missing_items = query.offset(filters.skip).limit(filters.limit).all()
+        # Apply ordering (newest first) and pagination
+        missing_items = query.order_by(MissingItem.created_at.desc()).offset(filters.skip).limit(filters.limit).all()
         
         # Convert to response objects with location data
         missing_item_responses = [self._missing_item_to_response(missing_item) for missing_item in missing_items]
