@@ -19,7 +19,8 @@ from app.schemas.missing_item_schema import (
     BulkUpdateMissingItemRequest,
     BulkApprovalMissingItemRequest,
     AssignFoundItemsRequest,
-    AssignPendingItemRequest
+    AssignPendingItemRequest,
+    MissingItemStatus
 )
 
 # Import permission decorators
@@ -86,6 +87,17 @@ async def get_public_missing_items(
     Only returns approved missing items and excludes deleted missing items
     """
     try:
+        # Parse and validate status if provided
+        status_value = None
+        if status:
+            try:
+                status_value = MissingItemStatus(status.lower()).value
+            except ValueError:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Invalid status: {status}. Valid values are: pending, approved, cancelled, visit"
+                )
+        
         # Create MissingItemService directly to avoid any middleware issues
         missing_item_service = MissingItemService(db)
         
@@ -96,7 +108,7 @@ async def get_public_missing_items(
             approved_only=True,  # Always only approved missing items for public access
             include_deleted=False,  # Never include deleted missing items for public access
             item_type_id=item_type_id,
-            status=status
+            status=status_value
         )
         
         missing_items, total = missing_item_service.get_missing_items(filters)
@@ -143,6 +155,17 @@ async def get_missing_items(
         if not has_permission and user_id != current_user.id:
             user_id = current_user.id
         
+        # Parse and validate status if provided
+        status_value = None
+        if status:
+            try:
+                status_value = MissingItemStatus(status.lower()).value
+            except ValueError:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Invalid status: {status}. Valid values are: pending, approved, cancelled, visit"
+                )
+        
         filters = MissingItemFilterRequest(
             skip=skip,
             limit=limit,
@@ -150,7 +173,7 @@ async def get_missing_items(
             approved_only=approved_only,
             include_deleted=include_deleted,
             item_type_id=item_type_id,
-            status=status
+            status=status_value
         )
         
         missing_items, total = missing_item_service.get_missing_items(filters)
@@ -198,6 +221,17 @@ async def search_missing_items(
         if not has_permission and user_id != current_user.id:
             user_id = current_user.id
         
+        # Parse and validate status if provided
+        status_value = None
+        if status:
+            try:
+                status_value = MissingItemStatus(status.lower()).value
+            except ValueError:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Invalid status: {status}. Valid values are: pending, approved, cancelled, visit"
+                )
+        
         filters = MissingItemFilterRequest(
             skip=skip,
             limit=limit,
@@ -205,7 +239,7 @@ async def search_missing_items(
             approved_only=approved_only,
             include_deleted=include_deleted,
             item_type_id=item_type_id,
-            status=status
+            status=status_value
         )
         
         missing_items, total = missing_item_service.search_missing_items(q, filters)
