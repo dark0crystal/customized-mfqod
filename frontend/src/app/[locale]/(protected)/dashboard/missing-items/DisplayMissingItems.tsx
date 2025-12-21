@@ -41,7 +41,6 @@ interface DisplayMissingItemsProps {
 }
 
 export default function DisplayMissingItems({ missingItems, images }: DisplayMissingItemsProps) {
-  const t = useTranslations("card");
   const tMissing = useTranslations("dashboard.missingItems");
   const tStatus = useTranslations("dashboard.missingItems.status");
   const locale = useLocale();
@@ -78,51 +77,6 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
 
   const handleImageSize = (itemId: string) => {
     setExpandedItemId(expandedItemId === itemId ? null : itemId);
-  };
-
-  // Helper to get localized name based on current locale
-  const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
-    if (locale === 'ar' && nameAr) return nameAr;
-    if (locale === 'en' && nameEn) return nameEn;
-    return nameAr || nameEn || '';
-  };
-
-  // Helper to format location with localized organization and branch names
-  const getLocationDisplay = (location?: LocationData): string => {
-    if (!location) return t("location-not-specified");
-    
-    // For missing items, the API returns full_location that contains both languages
-    // We need to parse it to show only the selected locale
-    if (location.full_location) {
-      // Split by common separators and try to identify language parts
-      const parts = location.full_location.split(/[,،]/).map(part => part.trim()).filter(Boolean);
-      
-      if (locale === 'ar') {
-        // For Arabic locale, prefer Arabic text
-        const arabicParts = parts.filter(part => {
-          // Check if the part contains Arabic characters
-          return /[\u0600-\u06FF]/.test(part);
-        });
-        return arabicParts.length > 0 ? arabicParts.join(', ') : parts[parts.length - 1] || location.full_location;
-      } else {
-        // For English locale, prefer English text
-        const englishParts = parts.filter(part => {
-          // Check if the part contains mostly English characters
-          return !/[\u0600-\u06FF]/.test(part) && /[a-zA-Z]/.test(part);
-        });
-        return englishParts.length > 0 ? englishParts.join(', ') : parts[0] || location.full_location;
-      }
-    }
-    
-    // Fallback to organization and branch names if available
-    const orgName = location.organization_name;
-    const branchName = location.branch_name;
-    
-    const parts = [];
-    if (orgName) parts.push(orgName);
-    if (branchName && branchName !== orgName) parts.push(branchName);
-    
-    return parts.length > 0 ? parts.join(', ') : t("location-not-specified");
   };
 
   // Helper to get status badge styling
@@ -192,14 +146,11 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
                     <p className="text-gray-600 text-sm mt-2 line-clamp-2 overflow-hidden text-ellipsis" title={missingItem.description}>
                       {missingItem.description}
                     </p>
-                    <p className="text-gray-500 text-xs mt-2 truncate" title={getLocationDisplay(missingItem.location)}>
-                      {getLocationDisplay(missingItem.location)}
-                    </p>
                     
                     {/* Status and Approval badges */}
                     <div className="flex justify-between items-center mt-3">
                       <span className={`text-xs px-2 py-1 rounded ${getStatusBadge(missingItem.status)}`}>
-                        {tStatus(missingItem.status.toLowerCase() as any) || missingItem.status.charAt(0).toUpperCase() + missingItem.status.slice(1)}
+                        {tStatus(missingItem.status.toLowerCase() as 'pending' | 'approved' | 'cancelled' | 'visit') || missingItem.status.charAt(0).toUpperCase() + missingItem.status.slice(1)}
                       </span>
                       <span className={`text-xs px-2 py-1 rounded ${missingItem.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                         {missingItem.approval ? tStatus("approved") : tStatus("pending")}
