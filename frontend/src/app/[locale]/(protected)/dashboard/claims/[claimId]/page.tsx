@@ -44,7 +44,7 @@ interface ClaimData {
   id: string;
   title: string;
   description: string;
-  approval: boolean;
+  approval: boolean
   user_id?: string;
   item_id?: string;
   created_at: string;
@@ -311,7 +311,10 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
           <p className="text-red-600 mb-4">{error}</p>
           <button
             onClick={() => router.push('/dashboard/claims')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 text-white rounded-lg"
+            style={{ backgroundColor: '#3277AE' }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
           >
             {t('backToClaims') || 'Back to Claims'}
           </button>
@@ -324,7 +327,8 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
     return null;
   }
 
-  const canEdit = claim.can_edit && !claim.approval;
+  const isApproved = claim.approval;
+  const canEdit = claim.can_edit && !isApproved;
   const carouselImages: CarouselImage[] = (claim.images || []).map(img => ({
     id: img.id,
     url: getImageUrl(img.url),
@@ -373,9 +377,13 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                   )}
                   <div className="flex items-center gap-2">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      claim.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      claim.approval
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {claim.approval ? t('approved') : t('pending')}
+                      {claim.approval
+                        ? t('approved') 
+                        : t('pending')}
                     </span>
                     {claim.is_assigned && (
                       <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
@@ -441,7 +449,7 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                 <h2 className="text-lg font-semibold text-gray-900">
                   {t('supportingImages') || 'Supporting Images'}
                 </h2>
-                {canEdit && (
+                {canEdit && isEditing && (
                   <label className="px-4 py-2 text-white rounded-lg cursor-pointer flex items-center gap-2" style={{ backgroundColor: '#3277AE' }}
                     onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
@@ -473,44 +481,12 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
               )}
 
               {claim.images && claim.images.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {claim.images.map((img) => (
-                    <div key={img.id} className="relative group">
-                      <div className="relative h-48 rounded-lg overflow-hidden bg-gray-100">
-                        <Image
-                          src={getImageUrl(img.url)}
-                          alt={`Claim image ${img.id}`}
-                          fill
-                          className="object-cover"
-                        />
-                        {canEdit && (
-                          <button
-                            onClick={() => handleImageDelete(img.id)}
-                            disabled={deletingImages.includes(img.id)}
-                            className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 disabled:opacity-50"
-                            title={t('deleteImage') || 'Delete Image'}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                        {deletingImages.includes(img.id) && (
-                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                <div className="mt-6">
+                  <ImageCarousel images={carouselImages} />
                 </div>
               ) : (
                 <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                   <p className="text-gray-500">{t('noImages') || 'No images uploaded yet'}</p>
-                </div>
-              )}
-
-              {carouselImages.length > 0 && (
-                <div className="mt-6">
-                  <ImageCarousel images={carouselImages} />
                 </div>
               )}
             </div>
@@ -534,11 +510,15 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                 )}
                 <div>
                   <p className="text-sm text-gray-500 mb-1">{t('status') || 'Status'}</p>
-                  <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
-                    claim.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {claim.approval ? t('approved') : t('pending')}
-                  </span>
+                    <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
+                      claim.approval
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {claim.approval
+                        ? t('approved') 
+                        : t('pending')}
+                    </span>
                 </div>
                 {claim.item_status && (
                   <div>
@@ -554,6 +534,46 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                        claim.item_status === 'cancelled' ? (t('cancelled') || 'Cancelled') :
                        (t('pending') || 'Pending')}
                     </span>
+                  </div>
+                )}
+                
+                {/* Images Grid - Only shown in edit mode */}
+                {isEditing && canEdit && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <p className="text-sm text-gray-500 mb-3">{t('supportingImages') || 'Supporting Images'}</p>
+                    {claim.images && claim.images.length > 0 ? (
+                      <div className="grid grid-cols-3 gap-2">
+                        {claim.images.map((img) => (
+                          <div key={img.id} className="relative group">
+                            <div className="relative h-20 rounded-lg overflow-hidden bg-gray-100">
+                              <Image
+                                src={getImageUrl(img.url)}
+                                alt={`Claim image ${img.id}`}
+                                fill
+                                className="object-cover"
+                              />
+                              <button
+                                onClick={() => handleImageDelete(img.id)}
+                                disabled={deletingImages.includes(img.id)}
+                                className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 disabled:opacity-50"
+                                title={t('deleteImage') || 'Delete Image'}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                              {deletingImages.includes(img.id) && (
+                                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                        <p className="text-xs text-gray-500">{t('noImages') || 'No images uploaded yet'}</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -589,7 +609,8 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                   {claim.item_id && (
                     <Link
                       href={`/dashboard/items/${claim.item_id}`}
-                      className="text-sm text-blue-600 hover:text-blue-700"
+                      className="text-sm hover:opacity-80 transition-opacity"
+                      style={{ color: '#3277AE' }}
                     >
                       {t('viewItem') || 'View Item'} →
                     </Link>
@@ -632,7 +653,18 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                       value={selectedBranchId}
                       onChange={(e) => setSelectedBranchId(e.target.value)}
                       disabled={loadingBranches || sendingEmail}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      style={{ 
+                        '--tw-ring-color': '#3277AE',
+                      } as React.CSSProperties & { '--tw-ring-color': string }}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor = '#3277AE';
+                        e.currentTarget.style.boxShadow = '0 0 0 2px rgba(50, 119, 174, 0.2)';
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor = '#e5e7eb';
+                        e.currentTarget.style.boxShadow = '';
+                      }}
                     >
                       <option value="">{t('generalOffice') || 'General Office'}</option>
                       {branches.map((branch) => (
@@ -654,7 +686,18 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                       disabled={sendingEmail}
                       rows={4}
                       maxLength={1000}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
+                      style={{ 
+                        '--tw-ring-color': '#3277AE',
+                      } as React.CSSProperties & { '--tw-ring-color': string }}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor = '#3277AE';
+                        e.currentTarget.style.boxShadow = '0 0 0 2px rgba(50, 119, 174, 0.2)';
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor = '#e5e7eb';
+                        e.currentTarget.style.boxShadow = '';
+                      }}
                       placeholder={t('addNotePlaceholder') || 'Enter additional notes for the user...'}
                     />
                     <p className="text-xs text-gray-500 mt-1">

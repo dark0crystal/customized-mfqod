@@ -13,7 +13,7 @@ interface Claim {
   id: string;
   title: string;
   description: string;
-  approval: boolean;
+  approval: boolean
   user_id?: string;
   item_id?: string;
   created_at: string;
@@ -275,9 +275,13 @@ export default function ClaimsPage() {
                   </div>
                   <div className="flex flex-col gap-1 items-end">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      claim.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      claim.approval
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {claim.approval ? t('approved') : t('pending')}
+                      {claim.approval
+                        ? t('approved') 
+                        : t('pending')}
                     </span>
                     {claim.is_assigned && (
                       <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
