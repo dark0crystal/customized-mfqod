@@ -286,8 +286,7 @@ class Claim(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     title: Mapped[str] = mapped_column(String)
     description: Mapped[str] = mapped_column(Text)
-    approval: Mapped[bool] = mapped_column(Boolean, default=True)  # Kept for backward compatibility
-    status: Mapped[str] = mapped_column(String, default=ClaimStatus.PENDING.value, nullable=False)
+    approval: Mapped[bool] = mapped_column(Boolean, default=False)
     user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
     user: Mapped[Optional["User"]] = relationship("User", back_populates="claims")
     item_id: Mapped[Optional[str]] = mapped_column(ForeignKey("item.id"), nullable=True)
