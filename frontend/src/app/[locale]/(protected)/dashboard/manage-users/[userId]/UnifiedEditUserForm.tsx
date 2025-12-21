@@ -395,7 +395,6 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                             <div key={branch.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-md border border-gray-200">
                                 <div>
                                     <span className="font-medium text-gray-900">{getLocalizedName(branch.branch_name_ar, branch.branch_name_en)}</span>
-                                    <span className="text-xs text-gray-500 ml-2">({branch.organization?.name})</span>
                                 </div>
                                 <button type="button" onClick={() => handleRemoveBranch(branch.id)} className="text-red-600 hover:text-red-800 text-sm font-medium">{t('remove')}</button>
                             </div>

@@ -12,7 +12,7 @@ interface Claim {
   description: string;
   created_at: string;
   updated_at: string;
-  approval: boolean;
+  approval: boolean
   user_id?: string;
   item_id?: string;
   user_name?: string;
@@ -121,11 +121,13 @@ export default function UserClaims({ userId }: UserClaimsProps) {
                     </h3>
                     <div className="flex items-center gap-2 mb-3">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                        claim.approval 
+                        claim.approval
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {claim.approval ? t('approved') : t('notApproved')}
+                        {claim.approval
+                          ? t('approved') 
+                          : t('notApproved')}
                       </span>
                       {claim.is_assigned && (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
