@@ -248,12 +248,26 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
 
     const handleAssignBranch = async () => {
         if (!selectedBranchId) return;
+        setErrorMessage(null);
+        setSuccessMessage(null);
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/${selectedBranchId}/managers/${userId}`, {
                 method: "POST",
                 headers: getAuthHeaders()
             });
-            if (!res.ok) throw new Error("Failed to assign branch");
+            
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                const errorDetail = errorData.detail || "";
+                
+                // Check if it's a permission error (403) or if the error message mentions permission
+                if (res.status === 403 || errorDetail.toLowerCase().includes("permission")) {
+                    setErrorMessage(t('branchAssignmentPermissionDenied'));
+                } else {
+                    setErrorMessage(errorDetail || t('failedToAssignBranch'));
+                }
+                return;
+            }
 
             // Refresh managed branches
             const managedRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/users/${userId}/managed-branches/`, { headers: getAuthHeaders() });
@@ -262,7 +276,8 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             setSelectedBranchId("");
             setSuccessMessage(t('branchAssignedSuccessfully'));
         } catch (err: any) {
-            setErrorMessage(err.message);
+            // Network errors or other exceptions
+            setErrorMessage(err.message || t('failedToAssignBranch'));
         }
     };
 
