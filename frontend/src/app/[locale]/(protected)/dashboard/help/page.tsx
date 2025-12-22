@@ -2,8 +2,32 @@ import { getTranslations } from 'next-intl/server';
 import Image from 'next/image';
 import QASection from './QASection';
 
+interface QAItem {
+  question: string;
+  answer: string;
+}
+
 export default async function HelpPage() {
   const t = await getTranslations('dashboard.help');
+
+  // Helper function to get Q&A items for a section
+  const getQAItems = (sectionKey: string): QAItem[] => {
+    try {
+      const items = t.raw(`${sectionKey}.qa.items`);
+      if (Array.isArray(items)) {
+        return items as QAItem[];
+      }
+    } catch (error) {
+      // If translation key doesn't exist, return empty array
+      return [];
+    }
+    return [];
+  };
+
+  // Helper function to get Q&A title for a section
+  const getQATitle = (sectionKey: string): string => {
+    return t(`${sectionKey}.qa.title`) || 'Frequently Asked Questions';
+  };
 
   return (
     <div className="space-y-6 px-2 sm:px-4 lg:px-6">
@@ -27,7 +51,7 @@ export default async function HelpPage() {
           <p className="text-gray-700 mb-4 whitespace-pre-line">
             {t('section1.description')}
           </p>
-          {t('section1.image', { defaultValue: '' }) && (
+          {t('section1.image') && (
             <div className="relative w-full h-64 sm:h-96 rounded-lg overflow-hidden bg-gray-100 mb-6">
               <Image
                 src={t('section1.image')}
@@ -38,7 +62,7 @@ export default async function HelpPage() {
               />
             </div>
           )}
-          <QASection sectionKey="section1" />
+          <QASection title={getQATitle('section1')} items={getQAItems('section1')} />
         </div>
 
         {/* Section 2 */}
@@ -49,7 +73,7 @@ export default async function HelpPage() {
           <p className="text-gray-700 mb-4 whitespace-pre-line">
             {t('section2.description')}
           </p>
-          {t('section2.image', { defaultValue: '' }) && (
+          {t('section2.image') && (
             <div className="relative w-full h-64 sm:h-96 rounded-lg overflow-hidden bg-gray-100 mb-6">
               <Image
                 src={t('section2.image')}
@@ -60,7 +84,7 @@ export default async function HelpPage() {
               />
             </div>
           )}
-          <QASection sectionKey="section2" />
+          <QASection title={getQATitle('section2')} items={getQAItems('section2')} />
         </div>
 
         {/* Section 3 */}
@@ -71,7 +95,7 @@ export default async function HelpPage() {
           <p className="text-gray-700 mb-4 whitespace-pre-line">
             {t('section3.description')}
           </p>
-          {t('section3.image', { defaultValue: '' }) && (
+          {t('section3.image') && (
             <div className="relative w-full h-64 sm:h-96 rounded-lg overflow-hidden bg-gray-100 mb-6">
               <Image
                 src={t('section3.image')}
@@ -82,7 +106,7 @@ export default async function HelpPage() {
               />
             </div>
           )}
-          <QASection sectionKey="section3" />
+          <QASection title={getQATitle('section3')} items={getQAItems('section3')} />
         </div>
 
         {/* Section 4 */}
@@ -93,7 +117,7 @@ export default async function HelpPage() {
           <p className="text-gray-700 mb-4 whitespace-pre-line">
             {t('section4.description')}
           </p>
-          {t('section4.image', { defaultValue: '' }) && (
+          {t('section4.image') && (
             <div className="relative w-full h-64 sm:h-96 rounded-lg overflow-hidden bg-gray-100 mb-6">
               <Image
                 src={t('section4.image')}
@@ -104,7 +128,7 @@ export default async function HelpPage() {
               />
             </div>
           )}
-          <QASection sectionKey="section4" />
+          <QASection title={getQATitle('section4')} items={getQAItems('section4')} />
         </div>
       </div>
     </div>

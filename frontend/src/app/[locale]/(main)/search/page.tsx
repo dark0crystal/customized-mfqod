@@ -120,7 +120,7 @@ export default function Search() {
     setLoading(true);
     setError(null);
     try {
-      let url = `${process.env.NEXT_PUBLIC_HOST_NAME}/api/items`;
+      let url = `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/items`;
       const params = new URLSearchParams();
       if (itemTypeId) params.append("item_type_id", itemTypeId);
       if (branchId) params.append("branch_id", branchId);
@@ -181,7 +181,7 @@ export default function Search() {
 
   const fetchBranches = useCallback(async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/`, {
         headers: getAuthHeaders(),
       });
       if (!response.ok) {
