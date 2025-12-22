@@ -61,7 +61,9 @@ export default function AuditLogsPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [hasMore, setHasMore] = useState(false);
 
-  const fetchLogs = useCallback(async (isLoadMore: boolean = false) => {
+  const fetchLogs = useCallback(async (isLoadMore: boolean = false, currentSkip?: number) => {
+    const skipValue = currentSkip !== undefined ? currentSkip : skip;
+    
     if (isLoadMore) {
       setLoadingMore(true);
     } else {
@@ -70,7 +72,7 @@ export default function AuditLogsPage() {
     
     try {
       const params = new URLSearchParams({
-        skip: skip.toString(),
+        skip: skipValue.toString(),
         limit: limit.toString(),
       });
       
@@ -94,7 +96,7 @@ export default function AuditLogsPage() {
         }
         
         setTotal(data.total || 0);
-        setHasMore((skip + limit) < (data.total || 0));
+        setHasMore((skipValue + limit) < (data.total || 0));
       } else {
         console.error('Failed to fetch audit logs:', response.status);
         if (!isLoadMore) {
@@ -113,30 +115,28 @@ export default function AuditLogsPage() {
   }, [skip, limit, searchQuery]);
 
   useEffect(() => {
-    // Only refetch when search query changes, not on skip changes
+    // Only refetch when search query changes, reset skip to 0
     setSkip(0);
-    fetchLogs(false);
+    fetchLogs(false, 0);
   }, [searchQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSkip(0);
     setLogs([]);
-    fetchLogs(false);
+    fetchLogs(false, 0);
   };
 
   const handleRefresh = () => {
     setSkip(0);
     setLogs([]);
-    fetchLogs(false);
+    fetchLogs(false, 0);
   };
 
   const handleLoadMore = () => {
     const newSkip = skip + limit;
     setSkip(newSkip);
-    // fetchLogs will be called via useEffect when skip changes, but we need to call it directly here
-    // Actually, we should call it directly since skip is in the dependency array
-    fetchLogs(true);
+    fetchLogs(true, newSkip);
   };
 
   const getEntityTypeBadgeColor = (entityType: string): string => {

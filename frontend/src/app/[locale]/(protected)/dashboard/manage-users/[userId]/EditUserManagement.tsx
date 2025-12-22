@@ -69,7 +69,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
   useEffect(() => {
     async function fetchOrganizations() {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/organizations/`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/organizations/`, {
           headers: getAuthHeaders()
         });
         if (!response.ok) throw new Error("Failed to fetch organizations");
@@ -93,7 +93,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
   useEffect(() => {
     async function fetchUserManagedBranches() {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/users/${userId}/managed-branches/`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/users/${userId}/managed-branches/`, {
           headers: getAuthHeaders()
         });
         if (!response.ok) throw new Error("Failed to fetch user managed branches");
@@ -136,7 +136,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       }
 
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/public/?organization_id=${selectedOrganization}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/public/?organization_id=${selectedOrganization}`, {
           headers: {
             "Content-Type": "application/json",
           }
@@ -165,7 +165,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
 
     try {
       // Assign user as branch manager
-      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/${data.branch}/managers/${userId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/${data.branch}/managers/${userId}`, {
         method: "POST",
         headers: getAuthHeaders(),
       });
@@ -186,7 +186,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       setSuccessMessage(t('userSuccessfullyAssigned'));
 
       // Refresh user managed branches
-      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}/managed-branches/`, {
+      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}/managed-branches/`, {
         headers: getAuthHeaders()
       });
       if (refreshResponse.ok) {
@@ -213,7 +213,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/${branchId}/managers/${userId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/${branchId}/managers/${userId}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
@@ -226,7 +226,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       setSuccessMessage(t('userSuccessfullyRemoved'));
 
       // Refresh user managed branches
-      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/users/${userId}/managed-branches/`, {
+      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/users/${userId}/managed-branches/`, {
         headers: getAuthHeaders()
       });
       if (refreshResponse.ok) {
@@ -418,7 +418,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
                 onClick={async () => {
                   if (confirm("Are you sure you want to deactivate this user? They will not be able to log in.")) {
                     try {
-                      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}`, {
+                      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}`, {
                         method: "DELETE",
                         headers: getAuthHeaders(),
                       });
@@ -448,7 +448,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
                 onClick={async () => {
                   if (confirm("⚠️ WARNING: This will permanently delete the user account. Their data will be anonymized. This action CANNOT be undone. Are you absolutely sure?")) {
                     try {
-                      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}/permanent`, {
+                      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}/permanent`, {
                         method: "DELETE",
                         headers: getAuthHeaders(),
                       });
