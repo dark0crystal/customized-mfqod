@@ -63,6 +63,7 @@ This document describes the Manage Users page functionality, the related fronten
 
 ## 6. Findings — Unused Functions / Unreferenced Statuses
 
+I scanned both frontend and backend to find unused or dead code related to user management. Findings:
 
 - Frontend:
   - `ManageUsers.tsx` and `EditUserManagement.tsx` are actively used; no obvious unused functions remain in these components.
