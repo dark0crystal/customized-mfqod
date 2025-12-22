@@ -283,11 +283,6 @@ export default function ClaimsPage() {
                         ? t('approved') 
                         : t('pending')}
                     </span>
-                    {claim.is_assigned && (
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        {t('assigned') || 'Assigned'}
-                      </span>
-                    )}
                     {claim.item_status && (
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                         claim.item_status === 'approved' 
@@ -442,11 +437,6 @@ export default function ClaimsPage() {
                     }`}>
                       {selectedClaim.approval ? t('approved') : t('pendingReview')}
                     </span>
-                    {selectedClaim.is_assigned && (
-                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
-                        {t('assigned') || 'Assigned'}
-                      </span>
-                    )}
                   </div>
                 </div>
 

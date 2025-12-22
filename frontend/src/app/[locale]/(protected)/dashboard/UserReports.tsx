@@ -518,11 +518,6 @@ export default function UserReports() {
                               }`}>
                                 {isApproved ? t('approved') : t('pending')}
                               </span>
-                              {claim.is_assigned && (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                  {t('assigned') || 'Assigned'}
-                                </span>
-                              )}
                               <button
                                 onClick={() => handleEditClaim(claim.id)}
                                 disabled={isApproved && claim.is_assigned}
