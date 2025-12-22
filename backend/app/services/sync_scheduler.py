@@ -1,17 +1,17 @@
 import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any
+from typing import Dict, Any, List
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.executors.asyncio import AsyncIOExecutor
 from sqlalchemy.orm import Session
 
-from config.auth_config import ADConfig
-from services.enhanced_ad_service import EnhancedADService
-from services.auth_service import AuthService
-from db.database import get_db, DATABASE_URL
-from models import User, UserSession, LoginAttempt, ADSyncLog
+from app.config.auth_config import ADConfig
+from app.services.enhanced_ad_service import EnhancedADService
+from app.services.auth_service import AuthService
+from app.db.database import get_session, DATABASE_URL
+from app.models import User, UserSession, LoginAttempt, ADSyncLog
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +24,7 @@ class SyncScheduler:
         self._setup_scheduler()
     
     def _setup_scheduler(self):
-        """Initialize the job scheduler with database job store"""
-        jobstores = {
-            'default': SQLAlchemyJobStore(url=DATABASE_URL)
-        }
-        
+        """Initialize the job scheduler with in-memory job store"""
         executors = {
             'default': AsyncIOExecutor()
         }
@@ -40,7 +36,6 @@ class SyncScheduler:
         }
         
         self.scheduler = AsyncIOScheduler(
-            jobstores=jobstores,
             executors=executors,
             job_defaults=job_defaults,
             timezone='UTC'
@@ -137,7 +132,7 @@ class SyncScheduler:
         
         try:
             # Get database session
-            db = next(get_db())
+            db = next(get_session())
             
             try:
                 # Run the sync
@@ -168,7 +163,7 @@ class SyncScheduler:
             
             # Log failure
             try:
-                db = next(get_db())
+                db = next(get_session())
                 sync_log = ADSyncLog(
                     sync_type='scheduled_user_sync',
                     status='failed',
@@ -188,7 +183,7 @@ class SyncScheduler:
         logger.info("Starting session cleanup")
         
         try:
-            db = next(get_db())
+            db = next(get_session())
             
             try:
                 # Find expired sessions
@@ -220,7 +215,7 @@ class SyncScheduler:
         logger.info("Starting login attempt cleanup")
         
         try:
-            db = next(get_db())
+            db = next(get_session())
             
             try:
                 # Delete attempts older than 30 days
@@ -252,7 +247,7 @@ class SyncScheduler:
             
             # Check database connectivity
             try:
-                db = next(get_db())
+                db = next(get_session())
                 db.execute("SELECT 1")
                 db.close()
             except Exception as e:
@@ -271,7 +266,7 @@ class SyncScheduler:
         logger.debug("Checking for expired lockouts")
         
         try:
-            db = next(get_db())
+            db = next(get_session())
             
             try:
                 # Find users with expired lockouts

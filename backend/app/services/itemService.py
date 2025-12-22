@@ -376,6 +376,13 @@ class ItemService:
         # Toggle between approved and pending (don't change cancelled)
         if item.status == ItemStatus.APPROVED.value:
             item.status = ItemStatus.PENDING.value
+            # Update the associated claim's approval status to False when changing from approved to pending
+            if item.approved_claim_id:
+                claim = self.db.query(Claim).filter(Claim.id == item.approved_claim_id).first()
+                if claim:
+                    claim.approval = False
+                    claim.updated_at = datetime.now(timezone.utc)
+                    logger.info(f"Unapproved claim {claim.id} for item {item_id} due to status change from approved to pending")
             # Clear approved_claim_id when changing from approved to pending
             item.approved_claim_id = None
         elif item.status == ItemStatus.PENDING.value:
@@ -415,8 +422,15 @@ class ItemService:
         item.status = new_status.value
         item.updated_at = datetime.now(timezone.utc)
         
-        # Clear approved_claim_id when changing from approved to pending
+        # Update the associated claim's approval status to False when changing from approved to pending
         if old_status == ItemStatus.APPROVED.value and new_status == ItemStatus.PENDING:
+            if item.approved_claim_id:
+                claim = self.db.query(Claim).filter(Claim.id == item.approved_claim_id).first()
+                if claim:
+                    claim.approval = False
+                    claim.updated_at = datetime.now(timezone.utc)
+                    logger.info(f"Unapproved claim {claim.id} for item {item_id} due to status change from approved to pending")
+            # Clear approved_claim_id when changing from approved to pending
             item.approved_claim_id = None
         
         self.db.commit()
@@ -545,8 +559,15 @@ class ItemService:
             # Validate status value
             if status_value in [ItemStatus.PENDING.value, ItemStatus.APPROVED.value, ItemStatus.CANCELLED.value]:
                 item.status = status_value
-                # Clear approved_claim_id when changing from approved to pending
+                # Update the associated claim's approval status to False when changing from approved to pending
                 if old_status == ItemStatus.APPROVED.value and status_value == ItemStatus.PENDING.value:
+                    if item.approved_claim_id:
+                        claim = self.db.query(Claim).filter(Claim.id == item.approved_claim_id).first()
+                        if claim:
+                            claim.approval = False
+                            claim.updated_at = datetime.now(timezone.utc)
+                            logger.info(f"Unapproved claim {claim.id} for item {item_id} due to status change from approved to pending")
+                    # Clear approved_claim_id when changing from approved to pending
                     item.approved_claim_id = None
             else:
                 raise ValueError(f"Invalid status: {status_value}")
