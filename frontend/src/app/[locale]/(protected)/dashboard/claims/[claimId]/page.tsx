@@ -385,11 +385,6 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                         ? t('approved') 
                         : t('pending')}
                     </span>
-                    {claim.is_assigned && (
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        {t('assigned') || 'Assigned'}
-                      </span>
-                    )}
                   </div>
                 </div>
                 {canEdit && !isEditing && (

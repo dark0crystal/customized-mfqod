@@ -129,11 +129,6 @@ export default function UserClaims({ userId }: UserClaimsProps) {
                           ? t('approved') 
                           : t('notApproved')}
                       </span>
-                      {claim.is_assigned && (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {t('assigned') || 'Assigned'}
-                        </span>
-                      )}
                     </div>
                   </div>
                 </div>

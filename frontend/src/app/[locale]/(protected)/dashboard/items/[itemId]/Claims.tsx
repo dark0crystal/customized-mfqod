@@ -172,15 +172,6 @@ export default function Claims({ postId }: { postId: string }) {
                             }`}>
                               {claim.approval ? t('approved') : t('notApproved')}
                             </span>
-                            {claim.is_assigned && (
-                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                isItemApproved
-                                  ? 'bg-gray-200 text-gray-500'
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}>
-                                {t('assigned') || 'Assigned'}
-                              </span>
-                            )}
                             {claim.item_status && (
                               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                                 isItemApproved
