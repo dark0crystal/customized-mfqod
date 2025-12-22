@@ -53,14 +53,21 @@ export default function AuditLogsPage() {
   const locale = useLocale();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [skip, setSkip] = useState(0);
   const [total, setTotal] = useState(0);
-  const [limit] = useState(50);
+  const [limit] = useState(100);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [hasMore, setHasMore] = useState(false);
 
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
+  const fetchLogs = useCallback(async (isLoadMore: boolean = false) => {
+    if (isLoadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+    
     try {
       const params = new URLSearchParams({
         skip: skip.toString(),
@@ -77,17 +84,31 @@ export default function AuditLogsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setLogs(data.logs || []);
+        
+        if (isLoadMore) {
+          // Append new logs to existing ones
+          setLogs(prevLogs => [...prevLogs, ...(data.logs || [])]);
+        } else {
+          // Replace logs for initial load or search
+          setLogs(data.logs || []);
+        }
+        
         setTotal(data.total || 0);
+        setHasMore((skip + limit) < (data.total || 0));
       } else {
         console.error('Failed to fetch audit logs:', response.status);
-        setLogs([]);
+        if (!isLoadMore) {
+          setLogs([]);
+        }
       }
     } catch (err) {
       console.error('Error fetching audit logs:', err);
-      setLogs([]);
+      if (!isLoadMore) {
+        setLogs([]);
+      }
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [skip, limit, searchQuery]);
 
