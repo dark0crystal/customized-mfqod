@@ -83,7 +83,7 @@ export default function MissingItemsPage() {
   const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [selectedStatus, setSelectedStatus] = useState<string>("pending"); // Default to pending
   const [approvalFilter, setApprovalFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -203,7 +203,7 @@ export default function MissingItemsPage() {
         branchId: selectedBranchId || undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
-        status: statusFilter || undefined,
+        status: selectedStatus || undefined,
         approval: approvalFilter || undefined,
       });
 
@@ -371,36 +371,36 @@ export default function MissingItemsPage() {
 
   const handleItemTypeClick = (itemTypeId: string) => {
     setCurrentItemTypeId(itemTypeId);
-    applyFilters({ itemTypeId });
+    applyFilters({ itemTypeId, status: selectedStatus });
   };
 
   const handleShowAll = () => {
     setCurrentItemTypeId("");
-    applyFilters({ itemTypeId: "" });
+    applyFilters({ itemTypeId: "", status: selectedStatus });
   };
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-    applyFilters({ searchQuery: query });
+    applyFilters({ searchQuery: query, status: selectedStatus });
   };
 
   const handleBranchChange = (branchId: string) => {
     setSelectedBranchId(branchId);
-    applyFilters({ branchId });
+    applyFilters({ branchId, status: selectedStatus });
   };
 
   const handleDateFromChange = (date: string) => {
     setDateFrom(date);
-    applyFilters({ dateFrom: date });
+    applyFilters({ dateFrom: date, status: selectedStatus });
   };
 
   const handleDateToChange = (date: string) => {
     setDateTo(date);
-    applyFilters({ dateTo: date });
+    applyFilters({ dateTo: date, status: selectedStatus });
   };
 
   const handleStatusChange = (status: string) => {
-    setStatusFilter(status);
+    setSelectedStatus(status);
     applyFilters({ status });
   };
 
@@ -424,7 +424,7 @@ export default function MissingItemsPage() {
       branchId: newFilters?.branchId !== undefined ? newFilters.branchId : selectedBranchId,
       dateFrom: newFilters?.dateFrom !== undefined ? newFilters.dateFrom : dateFrom,
       dateTo: newFilters?.dateTo !== undefined ? newFilters.dateTo : dateTo,
-      status: newFilters?.status !== undefined ? newFilters.status : statusFilter,
+      status: newFilters?.status !== undefined ? newFilters.status : selectedStatus,
       approval: newFilters?.approval !== undefined ? newFilters.approval : approvalFilter,
     };
     
@@ -437,16 +437,17 @@ export default function MissingItemsPage() {
     setSelectedBranchId("");
     setDateFrom("");
     setDateTo("");
-    setStatusFilter("");
+    setSelectedStatus("pending"); // Reset to pending
     setApprovalFilter("");
-    fetchMissingItems();
+    fetchMissingItems({ status: "pending" });
   };
 
   useEffect(() => {
     if (!permissionsLoading) {
       fetchItemTypes();
       fetchBranches();
-      fetchMissingItems();
+      // Initial load: fetch only pending items by default
+      fetchMissingItems({ status: "pending" });
     }
   }, [permissionsLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -478,8 +479,57 @@ export default function MissingItemsPage() {
             </button>
           </div>
 
+          {/* Status Filter Buttons */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {tFilters("status")}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleStatusChange('pending')}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                  selectedStatus === 'pending'
+                    ? 'bg-[#3277AE] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {tStatus("pending")}
+              </button>
+              <button
+                onClick={() => handleStatusChange('approved')}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                  selectedStatus === 'approved'
+                    ? 'bg-[#3277AE] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {tStatus("approved")}
+              </button>
+              <button
+                onClick={() => handleStatusChange('cancelled')}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                  selectedStatus === 'cancelled'
+                    ? 'bg-[#3277AE] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {tStatus("cancelled")}
+              </button>
+              <button
+                onClick={() => handleStatusChange('visit')}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                  selectedStatus === 'visit'
+                    ? 'bg-[#3277AE] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {tStatus("visit")}
+              </button>
+            </div>
+          </div>
+
           {/* Filters Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Search Input */}
             <div className="lg:col-span-1">
               <label htmlFor="search-input" className="block text-sm font-medium text-gray-700 mb-2">
@@ -543,26 +593,6 @@ export default function MissingItemsPage() {
                     {branch.organization && ` - ${branch.organization.name}`}
                   </option>
                 ))}
-              </select>
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-2">
-                {tFilters("status")}
-              </label>
-              <select
-                id="status-filter"
-                value={statusFilter}
-                onChange={(e) => handleStatusChange(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
-                style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
-              >
-                <option value="">{tFilters("allStatus")}</option>
-                <option value="pending">{tStatus("pending")}</option>
-                <option value="approved">{tStatus("approved")}</option>
-                <option value="cancelled">{tStatus("cancelled")}</option>
-                <option value="visit">{tStatus("visit")}</option>
               </select>
             </div>
 
