@@ -113,17 +113,30 @@ export default function AuditLogsPage() {
   }, [skip, limit, searchQuery]);
 
   useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+    // Only refetch when search query changes, not on skip changes
+    setSkip(0);
+    fetchLogs(false);
+  }, [searchQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSkip(0);
-    fetchLogs();
+    setLogs([]);
+    fetchLogs(false);
   };
 
   const handleRefresh = () => {
-    fetchLogs();
+    setSkip(0);
+    setLogs([]);
+    fetchLogs(false);
+  };
+
+  const handleLoadMore = () => {
+    const newSkip = skip + limit;
+    setSkip(newSkip);
+    // fetchLogs will be called via useEffect when skip changes, but we need to call it directly here
+    // Actually, we should call it directly since skip is in the dependency array
+    fetchLogs(true);
   };
 
   const getEntityTypeBadgeColor = (entityType: string): string => {
@@ -331,30 +344,36 @@ export default function AuditLogsPage() {
             </table>
           </div>
 
-          {/* Pagination */}
-          {total > limit && (
-            <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200">
-              <div className="text-sm text-gray-700">
-                Showing {skip + 1} to {Math.min(skip + limit, total)} of {total} logs
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setSkip(Math.max(0, skip - limit))}
-                  disabled={skip === 0}
-                  className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setSkip(skip + limit)}
-                  disabled={skip + limit >= total}
-                  className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* Load More Button */}
+      {!loading && logs.length > 0 && hasMore && (
+        <div className="flex justify-center py-6">
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+          >
+            {loadingMore ? (
+              <>
+                <RefreshCw size={18} className="animate-spin" />
+                <span>Loading...</span>
+              </>
+            ) : (
+              <>
+                <span>Load More</span>
+                <span className="text-sm opacity-75">({total - logs.length} remaining)</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Results Summary */}
+      {!loading && logs.length > 0 && (
+        <div className="text-center text-sm text-gray-600">
+          Showing {logs.length} of {total} logs
         </div>
       )}
 
