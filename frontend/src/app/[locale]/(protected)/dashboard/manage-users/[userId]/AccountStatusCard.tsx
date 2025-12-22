@@ -19,7 +19,7 @@ export default function AccountStatusCard({ userId }: { userId: string }) {
         async function fetchUserStatus() {
             try {
                 const token = tokenManager.getAccessToken();
-                const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}`, {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -51,7 +51,7 @@ export default function AccountStatusCard({ userId }: { userId: string }) {
         try {
             const token = tokenManager.getAccessToken();
             const action = isActive ? "deactivate" : "activate";
-            const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}/${action}`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}/${action}`, {
                 method: "PUT",
                 headers: {
                     'Authorization': `Bearer ${token}`

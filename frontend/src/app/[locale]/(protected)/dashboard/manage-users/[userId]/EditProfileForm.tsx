@@ -38,7 +38,7 @@ export default function EditProfileForm({ userId }: { userId: string }) {
         async function fetchUser() {
             try {
                 const token = tokenManager.getAccessToken();
-                const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}`, {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -67,7 +67,7 @@ export default function EditProfileForm({ userId }: { userId: string }) {
 
         try {
             const token = tokenManager.getAccessToken();
-            const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}`, {
                 method: "PUT",
                 headers: {
                     'Content-Type': 'application/json',
