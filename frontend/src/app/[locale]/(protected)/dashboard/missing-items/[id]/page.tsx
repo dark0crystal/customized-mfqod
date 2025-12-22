@@ -10,6 +10,7 @@ import { usePermissions } from "@/PermissionsContext";
 import EditMissingItemForm from "./EditMissingItemForm";
 import ItemDropdown from "@/components/ui/ItemDropdown";
 import MultiSelectItemDropdown from "@/components/ui/MultiSelectItemDropdown";
+import CustomDropdown from "@/components/ui/CustomDropdown";
 import ImageCarousel, { CarouselImage } from "@/components/ImageCarousel";
 import { formatDate } from "@/utils/dateFormatter";
 
@@ -732,21 +733,23 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t("selectNewStatus") || "Select New Status"}
                   </label>
-                  <select
-                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                  <CustomDropdown
+                    options={[
+                      { value: "pending", label: tStatus("pending") },
+                      { value: "approved", label: tStatus("approved") },
+                      { value: "cancelled", label: tStatus("cancelled") },
+                      { value: "visit", label: tStatus("visit") }
+                    ]}
                     value={missingItem.status}
+                    onChange={handleStatusChange}
+                    placeholder={t("selectNewStatus") || "Select New Status"}
+                    className="w-full"
                     disabled={statusSaving}
-                    onChange={(e) => handleStatusChange(e.target.value)}
-                  >
-                    <option value="pending">{tStatus("pending")}</option>
-                    <option value="approved">{tStatus("approved")}</option>
-                    <option value="cancelled">{tStatus("cancelled")}</option>
-                    <option value="visit">{tStatus("visit")}</option>
-                  </select>
+                  />
                 </div>
 
                 <button
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium mb-3"
+                  className="w-full px-4 py-2 bg-[#3277AE] hover:bg-[#2a6394] text-white rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium mb-3"
                   onClick={() => setAssignModalOpen(true)}
                 >
                   {t("assignFoundItems")}
@@ -759,7 +762,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("createdBy") || "Created By"}</h3>
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-[#3277AE] flex items-center justify-center text-white font-semibold flex-shrink-0">
                     {userInitial}
                   </div>
                   <div className="flex-1 min-w-0">

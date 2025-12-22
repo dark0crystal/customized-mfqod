@@ -16,6 +16,7 @@ interface CustomDropdownProps {
   placeholder: string;
   className?: string;
   variant?: 'default' | 'light';
+  disabled?: boolean;
 }
 
 export default function CustomDropdown({
@@ -24,7 +25,8 @@ export default function CustomDropdown({
   onChange,
   placeholder,
   className = "",
-  variant = 'default'
+  variant = 'default',
+  disabled = false
 }: CustomDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -43,7 +45,14 @@ export default function CustomDropdown({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (disabled && isOpen) {
+      setIsOpen(false);
+    }
+  }, [disabled, isOpen]);
+
   const handleSelect = (optionValue: string) => {
+    if (disabled) return;
     onChange(optionValue);
     setIsOpen(false);
   };
@@ -52,11 +61,14 @@ export default function CustomDropdown({
     <div className={`relative ${className}`} ref={dropdownRef} dir={direction}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full px-4 py-3 rounded-lg focus:ring-2 focus:border-[#3277AE] transition-all duration-200 hover:border-[#3277AE] ${
-          variant === 'light' 
-            ? 'bg-gray-50 border border-gray-300 hover:bg-gray-100' 
-            : 'bg-white border border-gray-300 hover:bg-gray-50'
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className={`w-full px-4 py-3 rounded-lg focus:ring-2 focus:border-[#3277AE] transition-all duration-200 ${
+          disabled
+            ? 'bg-gray-100 border border-gray-300 cursor-not-allowed opacity-60'
+            : variant === 'light' 
+            ? 'bg-gray-50 border border-gray-300 hover:bg-gray-100 hover:border-[#3277AE]' 
+            : 'bg-white border border-gray-300 hover:bg-gray-50 hover:border-[#3277AE]'
         }`}
         style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
       >
