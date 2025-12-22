@@ -41,7 +41,7 @@ class TokenManager {
   private checkInterval: NodeJS.Timeout | null = null;
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_HOST_NAME || '';
+    this.baseUrl = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
     this.startTokenMonitoring();
   }
 
