@@ -40,29 +40,8 @@ interface ItemFormFields {
   title: string;
   description: string;
   location: string;
-  organization_id: string;
-  branch_id: string;
   approval: boolean;
   temporary_deletion: boolean;
-}
-
-interface Organization {
-  id: string;
-  name?: string;
-  name_ar?: string;
-  name_en?: string;
-  description?: string;
-}
-
-interface Branch {
-  id: string;
-  branch_name_ar?: string;
-  branch_name_en?: string;
-  description_ar?: string;
-  description_en?: string;
-  longitude?: number;
-  latitude?: number;
-  organization_id: string;
 }
 
 interface ItemData {
@@ -150,11 +129,6 @@ export default function EditPost({ params, onSave }: EditPostProps) {
   const [item, setItem] = useState<ItemData | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [originalLocation, setOriginalLocation] = useState<string>('');
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [loadingOrgs, setLoadingOrgs] = useState(false);
-  const [loadingBranches, setLoadingBranches] = useState(false);
   const [newImages, setNewImages] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
@@ -187,50 +161,6 @@ export default function EditPost({ params, onSave }: EditPostProps) {
     }
   }, []);
 
-  const watchedOrganization = watch('organization_id');
-
-  const fetchOrganizations = useCallback(async () => {
-    setLoadingOrgs(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/organizations`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setOrganizations(data);
-      } else {
-        console.error('Failed to fetch organizations:', response.status, response.statusText);
-      }
-    } catch (error) {
-      console.error('Error fetching organizations:', error);
-    } finally {
-      setLoadingOrgs(false);
-    }
-  }, []);
-
-  const fetchBranches = useCallback(async (organizationId: string, preserveBranchId = false) => {
-    setLoadingBranches(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/organizations/${organizationId}/branches`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setBranches(data);
-        if (!preserveBranchId) {
-          setValue('branch_id', ''); // Reset branch when org changes
-        }
-      } else {
-        console.error('Failed to fetch branches:', response.status, response.statusText);
-      }
-    } catch (error) {
-      console.error('Error fetching branches:', error);
-    } finally {
-      setLoadingBranches(false);
-    }
-  }, [setValue]);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -255,7 +185,6 @@ export default function EditPost({ params, onSave }: EditPostProps) {
           }
           
           setItem(data);
-          setOriginalLocation(data.location?.full_location || '');
 
           // Set form values
           setValue('title', data.title);
@@ -265,27 +194,6 @@ export default function EditPost({ params, onSave }: EditPostProps) {
           setValue('location', localizedLocation);
           setValue('approval', data.approval ?? true); // Keep for form compatibility
           setValue('temporary_deletion', data.temporary_deletion ?? false);
-
-          // Set organization and branch IDs if available from addresses
-          if (data.addresses && data.addresses.length > 0) {
-            const currentAddress = data.addresses.find((addr: { is_current: boolean }) => addr.is_current) || data.addresses[0];
-            if (currentAddress?.branch) {
-              const branchId = currentAddress.branch.id ?? '';
-              const orgId = currentAddress.branch.organization?.id ?? '';
-
-              if (orgId) {
-                setValue('organization_id', orgId);
-                // Fetch branches for this organization and preserve branch_id
-                await fetchBranches(orgId, true);
-                // Set branch_id after branches are loaded
-                if (branchId) {
-                  setValue('branch_id', branchId);
-                }
-              } else if (branchId) {
-                setValue('branch_id', branchId);
-              }
-            }
-          }
         }
       } catch (error) {
         console.error('Error fetching item:', error);
@@ -295,17 +203,7 @@ export default function EditPost({ params, onSave }: EditPostProps) {
     };
 
     fetchItem();
-    fetchOrganizations();
-  }, [params.itemId, setValue, fetchOrganizations, fetchBranches, getLocalizedLocation]);
-
-  useEffect(() => {
-    if (watchedOrganization) {
-      fetchBranches(watchedOrganization);
-    } else {
-      setBranches([]);
-      setValue('branch_id', '');
-    }
-  }, [watchedOrganization, fetchBranches, setValue]);
+  }, [params.itemId, setValue, getLocalizedLocation]);
 
   const handleDeleteImage = async (imageId: string) => {
     if (confirm(t('confirmDeleteImage') || 'Are you sure you want to delete this image?')) {
@@ -354,24 +252,14 @@ export default function EditPost({ params, onSave }: EditPostProps) {
     setUploadErrors([]);
 
     try {
-      const locationChanged = data.location !== originalLocation;
-
       const updateData: {
         title: string;
         description: string;
-        locationChanged: boolean;
-        originalLocation?: string;
-        organization_id: string;
-        branch_id: string;
         location: string;
         is_hidden?: boolean;
       } = {
         title: data.title,
         description: data.description,
-        locationChanged,
-        originalLocation: locationChanged ? originalLocation : undefined,
-        organization_id: data.organization_id,
-        branch_id: data.branch_id,
         location: data.location,
         is_hidden: item?.is_hidden,
       };
@@ -561,53 +449,6 @@ export default function EditPost({ params, onSave }: EditPostProps) {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Organization */}
-              <div>
-                <label htmlFor="organization_id" className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('organizationLabel')}
-                </label>
-                <select
-                  id="organization_id"
-                  {...register('organization_id')}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border bg-white"
-                >
-                  <option value="">
-                    {loadingOrgs ? t('loadingOrganizations') : t('selectOrganization')}
-                  </option>
-                  {organizations.map((org) => (
-                    <option key={org.id} value={org.id}>
-                      {getLocalizedName(org.name_ar, org.name_en) || org.name || 'Unnamed Organization'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Branch */}
-              <div>
-                <label htmlFor="branch_id" className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('branchLabel')}
-                </label>
-                <select
-                  id="branch_id"
-                  {...register('branch_id')}
-                  disabled={!watchedOrganization || branches.length === 0}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border bg-white disabled:bg-gray-50 disabled:text-gray-400"
-                >
-                  <option value="">
-                    {!watchedOrganization ? t('selectOrganizationFirst') :
-                      loadingBranches ? t('loadingBranches') :
-                        branches.length === 0 ? t('noBranchesAvailable') :
-                          t('selectBranch')}
-                  </option>
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
           </div>
         </section>
 
