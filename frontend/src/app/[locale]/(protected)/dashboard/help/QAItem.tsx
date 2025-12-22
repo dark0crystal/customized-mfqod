@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useLocale } from 'next-intl';
+import { getDirectionClasses } from '@/utils/direction';
 
 interface QAItemProps {
   question: string;
@@ -11,26 +13,22 @@ interface QAItemProps {
 
 export default function QAItem({ question, answer, index }: QAItemProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-
-  // Show answer on hover or click
-  const showAnswer = isOpen || isHovered;
+  const locale = useLocale() as 'en' | 'ar';
+  const directionClasses = getDirectionClasses(locale === 'ar' ? 'rtl' : 'ltr');
 
   return (
     <div className="border-b border-gray-200 last:border-b-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors duration-200"
-        aria-expanded={showAnswer}
+        className={`w-full flex items-center justify-between p-4 ${directionClasses.textAlign} hover:bg-gray-50 transition-colors duration-200 cursor-pointer`}
+        aria-expanded={isOpen}
         aria-controls={`answer-${index}`}
       >
-        <span className="flex-1 font-medium text-gray-900 pr-4 rtl:pl-4 rtl:pr-0">
+        <span className={`flex-1 font-medium text-gray-900 ${locale === 'ar' ? 'pl-4 pr-0' : 'pr-4 pl-0'}`}>
           {question}
         </span>
         <div className="flex-shrink-0">
-          {showAnswer ? (
+          {isOpen ? (
             <ChevronUp size={20} className="text-gray-600" />
           ) : (
             <ChevronDown size={20} className="text-gray-600" />
@@ -40,10 +38,10 @@ export default function QAItem({ question, answer, index }: QAItemProps) {
       <div
         id={`answer-${index}`}
         className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          showAnswer ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
-        <div className="p-4 pt-0 text-gray-700 whitespace-pre-line">
+        <div className={`p-4 pt-0 text-gray-700 whitespace-pre-line ${directionClasses.textAlign}`}>
           {answer}
         </div>
       </div>
