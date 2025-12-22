@@ -105,6 +105,16 @@ export const routePermissions: Record<string, RoutePermissionConfig> = {
     permission: 'can_manage_items',
     description: 'Report found items - requires can_manage_items permission',
   },
+  
+  // Help/Guides page (requires can_manage_items permission)
+  '/dashboard/help': {
+    permission: 'can_manage_items',
+    description: 'View help guides - requires can_manage_items permission',
+  },
+  '/dashboard/help/': {
+    permission: 'can_manage_items',
+    description: 'View help guides - requires can_manage_items permission',
+  },
 };
 
 /**

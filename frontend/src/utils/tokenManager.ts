@@ -229,27 +229,90 @@ class TokenManager {
       };
     }
 
+    // Prevent circular refresh calls - if already refreshing, return default values
+    if (this.isRefreshing) {
+      return {
+        expires_at: null,
+        seconds_remaining: 0,
+        minutes_remaining: 0,
+        is_expired: false,
+        needs_refresh: true,
+      };
+    }
+
     try {
-      const response = await fetch(`${this.baseUrl}/api/users/token/info`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/users/token/info`,
+        {
+          method: 'GET',
+        }
+      );
 
       if (response.ok) {
         return await response.json();
       }
-    } catch (error) {
-      console.error('Error getting token info:', error);
-    }
 
-    return {
-      expires_at: null,
-      seconds_remaining: 0,
-      minutes_remaining: 0,
-      is_expired: true,
-      needs_refresh: true,
-    };
+      // Handle non-ok responses
+      // 401 errors are already handled by makeAuthenticatedRequest with refresh
+      // If we still get 401 here, it means refresh failed
+      if (response.status === 401) {
+        console.error('Token info request failed after refresh attempt');
+        return {
+          expires_at: null,
+          seconds_remaining: 0,
+          minutes_remaining: 0,
+          is_expired: true,
+          needs_refresh: true,
+        };
+      }
+
+      // For other errors (403, 500, etc.), log and return default
+      console.error(`Token info request failed with status: ${response.status}`);
+      return {
+        expires_at: null,
+        seconds_remaining: 0,
+        minutes_remaining: 0,
+        is_expired: false,
+        needs_refresh: false,
+      };
+    } catch (error) {
+      // Distinguish between network errors and authentication errors
+      if (error instanceof Error) {
+        // Network errors (fetch failures) - don't clear tokens
+        if (error.message.includes('fetch') || error.message.includes('Network')) {
+          console.error('Network error getting token info:', error);
+          return {
+            expires_at: null,
+            seconds_remaining: 0,
+            minutes_remaining: 0,
+            is_expired: false,
+            needs_refresh: false,
+          };
+        }
+        
+        // Authentication errors (no token, refresh failed) - already handled by makeAuthenticatedRequest
+        if (error.message.includes('No access token') || error.message.includes('Token refresh failed')) {
+          console.error('Authentication error getting token info:', error);
+          return {
+            expires_at: null,
+            seconds_remaining: 0,
+            minutes_remaining: 0,
+            is_expired: true,
+            needs_refresh: true,
+          };
+        }
+      }
+
+      // Unknown errors - log and return default
+      console.error('Error getting token info:', error);
+      return {
+        expires_at: null,
+        seconds_remaining: 0,
+        minutes_remaining: 0,
+        is_expired: false,
+        needs_refresh: false,
+      };
+    }
   }
 
   // =======================================
