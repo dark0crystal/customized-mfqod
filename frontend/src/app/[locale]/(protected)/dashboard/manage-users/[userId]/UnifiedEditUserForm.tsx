@@ -98,7 +98,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                 const headers = getAuthHeaders();
 
                 // 1. Fetch User Details
-                const userRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}`, { headers });
+                const userRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}`, { headers });
                 if (!userRes.ok) throw new Error("Failed to fetch user");
                 const userData = await userRes.json();
 
@@ -113,7 +113,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                 setInitialStatus(userData.active);
 
                 // 2. Fetch Roles
-                const rolesRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/roles/all`, { headers });
+                const rolesRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/roles/all`, { headers });
                 if (rolesRes.ok) {
                     const rolesData = await rolesRes.json();
                     // Filter roles: Only users with can_manage_roles permission can assign all roles
@@ -129,7 +129,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                 }
 
                 // 3. Fetch Organizations
-                const orgsRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/organizations/`, { headers });
+                const orgsRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/organizations/`, { headers });
                 if (orgsRes.ok) {
                     const orgsData = await orgsRes.json();
                     setOrganizations(orgsData);
@@ -137,7 +137,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                 }
 
                 // 4. Fetch User Managed Branches
-                const managedRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/users/${userId}/managed-branches/`, { headers });
+                const managedRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/users/${userId}/managed-branches/`, { headers });
                 if (managedRes.ok) {
                     setUserManagedBranches(await managedRes.json());
                 }
@@ -162,7 +162,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                 return;
             }
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/public/?organization_id=${selectedOrgId}`, {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/public/?organization_id=${selectedOrgId}`, {
                     headers: { 'Content-Type': 'application/json' }
                 });
                 if (res.ok) setBranches(await res.json());
@@ -190,7 +190,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             // Convert empty phone_number to null to avoid validation errors
             const phoneNumber = data.phone_number?.trim();
             updates.push(
-                fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}`, {
+                fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}`, {
                     method: "PUT",
                     headers,
                     body: JSON.stringify({
@@ -205,7 +205,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             // 2. Update Role (if changed)
             if (data.role !== initialRole) {
                 updates.push(
-                    fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}/role`, {
+                    fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}/role`, {
                         method: "PUT",
                         headers,
                         body: JSON.stringify({ role_name: data.role })
@@ -217,7 +217,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             if (data.isActive !== initialStatus) {
                 const action = data.isActive ? 'activate' : 'deactivate';
                 updates.push(
-                    fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}/${action}`, {
+                    fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}/${action}`, {
                         method: "PUT",
                         headers
                     })
@@ -251,7 +251,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
         setErrorMessage(null);
         setSuccessMessage(null);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/${selectedBranchId}/managers/${userId}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/${selectedBranchId}/managers/${userId}`, {
                 method: "POST",
                 headers: getAuthHeaders()
             });
@@ -270,7 +270,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             }
 
             // Refresh managed branches
-            const managedRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/users/${userId}/managed-branches/`, { headers: getAuthHeaders() });
+            const managedRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/users/${userId}/managed-branches/`, { headers: getAuthHeaders() });
             if (managedRes.ok) setUserManagedBranches(await managedRes.json());
 
             setSelectedBranchId("");
@@ -284,14 +284,14 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
     const handleRemoveBranch = async (branchId: string) => {
         if (!confirm(t('removeBranchAssignment'))) return;
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/${branchId}/managers/${userId}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/${branchId}/managers/${userId}`, {
                 method: "DELETE",
                 headers: getAuthHeaders()
             });
             if (!res.ok) throw new Error("Failed to remove branch assignment");
 
             // Refresh managed branches
-            const managedRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME}/api/branches/users/${userId}/managed-branches/`, { headers: getAuthHeaders() });
+            const managedRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/users/${userId}/managed-branches/`, { headers: getAuthHeaders() });
             if (managedRes.ok) setUserManagedBranches(await managedRes.json());
 
             setSuccessMessage(t('branchAssignmentRemoved'));
@@ -309,8 +309,8 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
 
         try {
             const url = permanent
-                ? `${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}/permanent`
-                : `${process.env.NEXT_PUBLIC_HOST_NAME}/api/users/${userId}`;
+                ? `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}/permanent`
+                : `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}`;
 
             const res = await fetch(url, {
                 method: "DELETE",
