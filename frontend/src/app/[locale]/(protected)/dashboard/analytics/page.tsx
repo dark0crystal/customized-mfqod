@@ -28,21 +28,21 @@ import html2canvas from 'html2canvas';
 // Types for analytics data (matching backend response)
 interface AnalyticsSummary {
   total_items: number;
-  lost_items: number;
-  found_items: number;
-  returned_items: number;
+  lost_items: number; // Items not yet returned (unreturned items)
+  found_items: number; // All reported/found items (same as total_items)
+  returned_items: number; // Items with approved claims
   return_rate: number;
 }
 
 interface ItemsByDate {
   date: string;
-  lost: number;
-  found: number;
-  returned: number;
+  lost: number; // Unreturned items
+  found: number; // Reported items
+  returned: number; // Returned items
 }
 
 interface ItemsByCategory {
-  category: string;
+  category: string; // Item type name
   count: number;
   [key: string]: string | number;
 }
@@ -234,23 +234,23 @@ export default function AnalyticsPage() {
             </thead>
             <tbody>
               <tr style="background-color: #f8f9fa;">
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'};">${getPDFText('totalItems')}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'};">${getPDFText('totalItems') || 'Total Items'}</td>
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${analyticsData.summary.total_items}</td>
               </tr>
               <tr>
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'};">${getPDFText('lostItems')}</td>
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${analyticsData.summary.lost_items}</td>
-              </tr>
-              <tr style="background-color: #f8f9fa;">
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'};">${getPDFText('foundItems')}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'};">${getPDFText('reportedItems') || 'Reported Items'}</td>
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${analyticsData.summary.found_items}</td>
               </tr>
+              <tr style="background-color: #f8f9fa;">
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'};">${getPDFText('unreturnedItems') || 'Unreturned Items'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${analyticsData.summary.lost_items}</td>
+              </tr>
               <tr>
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'};">${getPDFText('returnedItems')}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'};">${getPDFText('returnedItems') || 'Returned Items'}</td>
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${analyticsData.summary.returned_items}</td>
               </tr>
               <tr style="background-color: #f8f9fa;">
-                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'};">${getPDFText('returnRate')}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'};">${getPDFText('returnRate') || 'Return Rate'}</td>
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">${analyticsData.summary.return_rate.toFixed(1)}%</td>
               </tr>
             </tbody>
@@ -258,12 +258,12 @@ export default function AnalyticsPage() {
         </div>
         
         <div style="margin-bottom: 30px;">
-          <h2 style="font-size: 18px; margin-bottom: 15px; color: #333;">${getPDFText('itemsByCategory')}</h2>
+          <h2 style="font-size: 18px; margin-bottom: 15px; color: #333;">${getPDFText('itemsByCategory') || 'Items by Category'}</h2>
           <table style="width: 100%; border-collapse: collapse;">
             <thead>
               <tr style="background-color: #1380a3; color: white;">
-                <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd;">${getPDFText('category')}</th>
-                <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">${getPDFText('count')}</th>
+                <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd;">${getPDFText('itemType') || 'Item Type'}</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">${getPDFText('count') || 'Count'}</th>
               </tr>
             </thead>
             <tbody>
@@ -416,26 +416,26 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-red-50 to-red-100 p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-red-600">{t('lostItems')}</p>
-              <p className="text-2xl font-bold text-red-700">{analyticsData.summary.lost_items}</p>
-            </div>
-            <div className="w-12 h-12 bg-red-200 rounded-full flex items-center justify-center">
-              <TrendingUp className="h-6 w-6 text-red-600" />
-            </div>
-          </div>
-        </div>
-
         <div className="bg-gradient-to-r from-green-50 to-green-100 p-6 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-green-600">{t('foundItems')}</p>
+              <p className="text-sm font-medium text-green-600">{t('reportedItems') || 'Reported Items'}</p>
               <p className="text-2xl font-bold text-green-700">{analyticsData.summary.found_items}</p>
             </div>
             <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
               <Users className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-red-50 to-red-100 p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-red-600">{t('unreturnedItems') || 'Unreturned Items'}</p>
+              <p className="text-2xl font-bold text-red-700">{analyticsData.summary.lost_items}</p>
+            </div>
+            <div className="w-12 h-12 bg-red-200 rounded-full flex items-center justify-center">
+              <TrendingUp className="h-6 w-6 text-red-600" />
             </div>
           </div>
         </div>
@@ -469,7 +469,7 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         {/* Items by Category */}
         <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('itemsByCategory')}</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('itemsByCategory') || 'Items by Item Type'}</h3>
           <div className="flex flex-col lg:flex-row items-center">
             {/* Pie Chart */}
             <div className="w-full lg:w-1/2">

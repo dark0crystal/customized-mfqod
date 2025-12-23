@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Search, RefreshCw, Filter, Eye, Clock, User as UserIcon } from "lucide-react";
+import { Search, RefreshCw, Filter, Eye } from "lucide-react";
 import { tokenManager } from '@/utils/tokenManager';
 import { useTranslations, useLocale } from 'next-intl';
 import { formatDateWithLocale } from '@/utils/dateFormatter';
@@ -118,6 +118,7 @@ export default function AuditLogsPage() {
     // Only refetch when search query changes, reset skip to 0
     setSkip(0);
     fetchLogs(false, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
