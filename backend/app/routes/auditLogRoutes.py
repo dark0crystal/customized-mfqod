@@ -36,9 +36,13 @@ async def get_audit_logs(
     audit_service: AuditLogService = Depends(get_audit_log_service),
     current_user: User = Depends(get_current_user_required)
 ):
-    """Get audit logs with filtering and pagination"""
+    """Get audit logs with filtering and pagination
+    
+    Security: Requires can_view_audit_logs permission
+    Used for compliance, security monitoring, and tracking system changes
+    """
     try:
-        # Convert action_type string to enum if provided
+        # Validate and convert action_type string to enum
         action_type_enum = None
         if action_type:
             try:
@@ -102,7 +106,11 @@ async def get_audit_logs_by_entity(
     audit_service: AuditLogService = Depends(get_audit_log_service),
     current_user: User = Depends(get_current_user_required)
 ):
-    """Get audit logs for a specific entity"""
+    """Get audit logs for a specific entity (item, user, claim, etc.)
+    
+    Useful for tracking all changes related to a specific entity
+    Returns chronological history of actions performed on the entity
+    """
     try:
         logs = audit_service.get_audit_logs_by_entity(entity_type, entity_id, limit)
         return [audit_service.to_response(log) for log in logs]

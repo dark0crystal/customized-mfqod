@@ -48,7 +48,8 @@ async def create_claim(
     try:
         new_claim = claim_service.create_claim(claim, current_user.id)
         
-        # Send notification email to item owner (if different from claimant)
+        # Notify item owner when someone claims their item (async, non-blocking)
+        # Only send if claimant is different from item owner to avoid self-notification
         try:
             from app.services.notification_service import send_item_found_notification
             if new_claim.item and new_claim.item.user and new_claim.item.user.id != current_user.id:
@@ -84,7 +85,9 @@ async def get_claims(
 ):
     """Get claims with optional filtering"""
     try:
-        # Regular users can only see their own claims unless querying for a specific item
+        # Access control: Regular users see only their own claims by default
+        # Exception: When filtering by item_id, show all claims for that item
+        # (item owners need to see all claims on their items)
         user_id = current_user.id if item_id is None else None
         
         claims = claim_service.get_claims(
@@ -163,14 +166,19 @@ async def get_claim(
                 detail="Claim not found"
             )
         
-        # Check access: users can view their own claims, claims on their items, or if they're branch managers/admins
+        # Access control: Users can view claims if:
+        # 1. They made the claim (claimant)
+        # 2. They own the item being claimed (item owner)
+        # 3. They manage the branch where the item is located (branch manager)
+        # 4. They are super admin
+        # This ensures proper access control while allowing necessary parties to view claims
         has_access = False
         if claim.user_id == current_user.id:
             has_access = True
         elif claim.item and claim.item.user_id == current_user.id:
             has_access = True
         else:
-            # Check if user is branch manager or admin
+            # Check branch manager access or super admin status
             from app.middleware.branch_auth_middleware import can_user_manage_item
             from app.services import permissionServices
             if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
@@ -282,7 +290,14 @@ async def approve_claim(
     db: Session = Depends(get_session),
     claim_service: ClaimService = Depends(get_claim_service)
 ):
-    """Approve a claim with optional custom message (admin only)"""
+    """Approve a claim with optional custom message (admin only)
+    
+    Business logic: When a claim is approved:
+    - Claim status changes to 'approved'
+    - Item's approved_claim_id is set to this claim
+    - Item status may change based on business rules
+    - Custom title/description can override default claim details
+    """
     try:
         approved_claim = claim_service.approve_claim(
             claim_id, 

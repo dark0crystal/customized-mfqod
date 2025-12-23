@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.middleware.auth_middleware import get_current_user_required
 from app.models import User
+from app.middleware.rate_limit_decorator import rate_limit_public
 
 from app.db.database import get_session  #database dependency
 from app.schemas.branch_schemas import (
@@ -12,7 +13,6 @@ from app.schemas.branch_schemas import (
 
 from app.services.branchService import BranchService, AddressService
 
-# Import permission decorators (if needed)
 from app.utils.permission_decorator import require_permission
 
 router = APIRouter()
@@ -49,18 +49,25 @@ def create_branch(
 
 
 @router.get("/public/", response_model=List[BranchWithOrganization])
+@rate_limit_public()
 def get_public_branches(
+    request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     organization_id: Optional[str] = Query(None),
     db: Session = Depends(get_session),
     branch_service: BranchService = Depends(get_branch_service)
 ):
-    """Get all branches for public viewing (no authentication required)"""
+    """Get all branches for public viewing (no authentication required)
+    
+    Public endpoint: Used for displaying branch locations on public pages
+    Returns branch information with organization details for mapping/display
+    """
     try:
         branches = branch_service.get_branches(skip=skip, limit=limit, organization_id=organization_id)
         
-        # Convert to response format with organization details
+        # Transform branch data to include nested organization information
+        # This format is used by frontend for displaying branch details
         result = []
         for branch in branches:
             branch_dict = {
@@ -287,7 +294,6 @@ def get_addresses(
 
 
 @router.get("/addresses/{address_id}", response_model=AddressWithDetails)
-# @require_permission("can_manage_addresses")  # Uncomment if permissions are needed
 def get_address(
     address_id: str,
     request: Request,
@@ -334,7 +340,6 @@ def get_address(
 
 
 @router.put("/addresses/{address_id}", response_model=AddressResponse)
-# @require_permission("can_manage_addresses")  # Uncomment if permissions are needed
 def update_address(
     address_id: str,
     address_update: AddressUpdate,
@@ -352,7 +357,6 @@ def update_address(
 
 
 @router.delete("/addresses/{address_id}", status_code=status.HTTP_204_NO_CONTENT)
-# @require_permission("can_manage_addresses")  # Uncomment if permissions are needed
 def delete_address(
     address_id: str,
     request: Request,
@@ -374,7 +378,6 @@ def delete_address(
 # ===========================
 
 @router.get("/{branch_id}/addresses/", response_model=List[AddressWithDetails])
-# @require_permission("can_manage_addresses")  # Uncomment if permissions are needed
 def get_branch_addresses(
     branch_id: str,
     request: Request,
@@ -437,7 +440,6 @@ def get_branch_addresses(
 # ===========================
 
 @router.get("/users/{user_id}/managed-branches/", response_model=List[BranchWithOrganization])
-# @require_permission("can_view_user_branches")  # Uncomment if permissions are needed
 def get_user_managed_branches(
     user_id: str,
     request: Request,
@@ -490,7 +492,11 @@ def assign_branch_manager(
     db: Session = Depends(get_session),
     branch_service: BranchService = Depends(get_branch_service)
 ):
-    """Assign a user as manager of a branch - requires can_manage_users permission"""
+    """Assign a user as manager of a branch - requires can_manage_users permission
+    
+    Business logic: Branch managers can manage items in their assigned branches
+    This assignment grants branch-based access control permissions
+    """
     try:
         branch_service.assign_branch_manager(branch_id, user_id)
         return {"message": "User successfully assigned as branch manager"}
@@ -520,7 +526,6 @@ def remove_branch_manager(
 
 
 @router.get("/{branch_id}/managers/", response_model=List[UserResponse])
-# @require_permission("can_view_branch_managers")  # Uncomment if permissions are needed
 def get_branch_managers(
     branch_id: str,
     request: Request,
@@ -556,9 +561,7 @@ def get_branch_managers(
         raise HTTPException(status_code=500, detail=f"Error retrieving branch managers: {str(e)}")
 
 
-# Alternative endpoint for getting current user's managed branches
 @router.get("/my-managed-branches/", response_model=List[BranchWithOrganization])
-# @require_permission("can_view_own_branches")  # Uncomment if permissions are needed
 def get_my_managed_branches(
     request: Request,
     skip: int = Query(0, ge=0),
