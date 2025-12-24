@@ -8,6 +8,7 @@ from app.db.database import get_session
 from app.models import Item, ItemType, Claim, User, Address, ItemStatus
 from app.middleware.auth_middleware import get_current_user_required
 from app.utils.permission_decorator import require_permission
+from app.middleware.rate_limit_decorator import rate_limit_public
 import logging
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,9 @@ class AnalyticsResponse(BaseModel):
     return_stats: List[ReturnStats]
 
 @router.get("/analytics/public/stats", response_model=PublicStatistics, tags=["Analytics"])
+@rate_limit_public()
 async def get_public_statistics(
+    request: Request,
     db: Session = Depends(get_session)
 ):
     """
@@ -58,8 +61,10 @@ async def get_public_statistics(
     Returns pending items count and returned items count
     """
     try:
-        # Count total pending items (not deleted)
-        # This shows the number of items awaiting approval/review
+        # Public statistics calculation:
+        # total_items = pending items (awaiting approval/review, visible to public)
+        # returned_items = approved items with approved claims (successfully returned)
+        # Note: Only pending items are shown publicly; approved items are hidden from public search
         pending_filter = Item.status == ItemStatus.PENDING.value
         total_items_query = db.query(func.count(Item.id)).filter(
             pending_filter,
@@ -67,9 +72,8 @@ async def get_public_statistics(
         )
         total_items = total_items_query.scalar() or 0
         
-        # Count returned items (items with approved_claim_id)
-        # An item is "returned" when it has an approved claim
-        # Returned items are based on approved items, not pending
+        # Returned items: approved items with approved_claim_id (successfully claimed and returned)
+        # Business rule: An item is "returned" when it has an approved claim assigned
         approved_filter = Item.status == ItemStatus.APPROVED.value
         returned_items_query = db.query(func.count(Item.id)).filter(
             approved_filter,
@@ -127,7 +131,8 @@ async def get_analytics_summary(
             Item.temporary_deletion == False
         )
         
-        # Add optional filters - branch filtering through Address relationship
+        # Optional filters: Branch filtering uses Address relationship (items can have multiple addresses)
+        # item_type_id filters by item category/type
         if branch_id:
             date_filter = and_(date_filter, Item.addresses.any(Address.branch_id == branch_id))
         if item_type_id:
@@ -137,21 +142,23 @@ async def get_analytics_summary(
         # Use func.count with explicit column to avoid selecting all columns (including missing approved_claim_id)
         total_items = db.query(func.count(Item.id)).filter(date_filter).scalar() or 0
         
-        # Since there's no status field, we'll consider all approved items as "found items"
-        # and items with approved claims as "returned items"
-        found_items = total_items  # All items in system are found/reported items
+        # Analytics calculation logic:
+        # found_items = all items reported/found (total_items)
+        # returned_items = items with approved_claim_id (successfully returned to owner)
+        # lost_items = found but not yet returned (found_items - returned_items)
+        # return_rate = percentage of found items that were successfully returned
+        found_items = total_items
         
-        # Count returned items (items with approved_claim_id)
-        # An item is "returned" when it has an approved claim assigned
+        # Business rule: Item is "returned" when approved_claim_id is set (claim approved and processed)
         returned_items = db.query(func.count(Item.id)).filter(
             date_filter,
             Item.approved_claim_id.isnot(None)
         ).scalar() or 0
         
-        # Lost items would be items not yet returned (found but not claimed)
+        # Lost items = found but not yet claimed/returned
         lost_items = total_items - returned_items
         
-        # Calculate return rate
+        # Return rate calculation: percentage of found items successfully returned
         return_rate = (returned_items / lost_items * 100) if lost_items > 0 else 0.0
         
         # Items by date (daily breakdown)

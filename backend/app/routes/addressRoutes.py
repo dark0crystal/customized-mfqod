@@ -45,7 +45,9 @@ async def create_address(
         if not branch:
             raise HTTPException(status_code=404, detail="Branch not found")
         
-        # If this is set as current, mark all other addresses for this item as not current
+        # Business rule: Only one address can be "current" per item
+        # When setting a new address as current, mark all other addresses for this item as not current
+        # This ensures item location tracking has a single current location
         if address.is_current:
             db.query(Address).filter(Address.item_id == address.item_id).update(
                 {"is_current": False}
@@ -130,7 +132,8 @@ async def update_address(
         if not address:
             raise HTTPException(status_code=404, detail="Address not found")
         
-        # If this is set as current, mark all other addresses for this item as not current
+        # Business rule: Maintain single current address per item
+        # When updating an address to current, mark all other addresses for this item as not current
         if address_update.is_current:
             db.query(Address).filter(
                 Address.item_id == address_update.item_id,
