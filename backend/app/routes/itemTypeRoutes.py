@@ -72,6 +72,7 @@ from app.schemas.item_type_schema import (
 )
 from app.utils.permission_decorator import require_permission, require_any_permission, require_all_permissions
 from app.middleware.auth_middleware import get_current_user_required
+from app.middleware.rate_limit_decorator import rate_limit_public
 
 router = APIRouter()
 
@@ -94,7 +95,9 @@ async def create_item_type(
 # Public endpoint for item types (no authentication required)
 # ================= 
 @router.get("/public", response_model=list[ItemTypeResponse])
+@rate_limit_public()
 async def get_public_item_types(
+    request: Request,
     db: Session = Depends(get_session)
 ):
     """Get all item types for public viewing (no authentication required)"""

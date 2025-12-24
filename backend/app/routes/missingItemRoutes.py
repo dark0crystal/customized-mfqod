@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, timezone
 from app.db.database import get_session
+from app.middleware.rate_limit_decorator import rate_limit_public
 
 # Import dependencies
 from app.services.missingItemService import MissingItemService
@@ -69,13 +70,10 @@ async def create_missing_item(
 # Read Operations
 # ===========================
 
-@router.get("/public-test")
-async def get_public_test():
-    """Test endpoint with no authentication required"""
-    return {"message": "Public missing items test endpoint works!", "status": "success"}
-
 @router.get("/public", response_model=MissingItemListResponse)
+@rate_limit_public()
 async def get_public_missing_items(
+    request: Request,
     skip: int = Query(0, ge=0, description="Number of missing items to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of missing items to return"),
     item_type_id: Optional[str] = Query(None, description="Filter by item type"),
@@ -142,16 +140,18 @@ async def get_missing_items(
     Users can always view their own missing items. Viewing all missing items requires can_manage_missing_items permission.
     """
     try:
-        # Check if user has permission to view all missing items
+        # Access control: Users can always view their own missing items
+        # Viewing all missing items requires can_manage_missing_items permission
+        # This prevents unauthorized access to other users' missing item reports
         from app.services import permissionServices
         has_permission = permissionServices.has_full_access(db, current_user.id) or \
                         permissionServices.check_user_permission(db, current_user.id, "can_manage_missing_items")
         
-        # If user doesn't have permission and no user_id filter is provided, filter to their own items
+        # Enforce access control: restrict to own items if no permission
         if not has_permission and user_id is None:
             user_id = current_user.id
         
-        # If user doesn't have permission and tries to filter by another user's ID, restrict to their own
+        # Security: prevent users from viewing other users' items without permission
         if not has_permission and user_id != current_user.id:
             user_id = current_user.id
         
@@ -208,16 +208,16 @@ async def search_missing_items(
     Users can always search their own missing items. Searching all missing items requires can_manage_missing_items permission.
     """
     try:
-        # Check if user has permission to search all missing items
+        # Same access control logic as get_missing_items: restrict to own items without permission
         from app.services import permissionServices
         has_permission = permissionServices.has_full_access(db, current_user.id) or \
                         permissionServices.check_user_permission(db, current_user.id, "can_manage_missing_items")
         
-        # If user doesn't have permission and no user_id filter is provided, filter to their own items
+        # Enforce access control: restrict to own items if no permission
         if not has_permission and user_id is None:
             user_id = current_user.id
         
-        # If user doesn't have permission and tries to filter by another user's ID, restrict to their own
+        # Security: prevent users from searching other users' items without permission
         if not has_permission and user_id != current_user.id:
             user_id = current_user.id
         
@@ -391,35 +391,35 @@ async def update_missing_item(
         if not existing_item:
             raise HTTPException(status_code=404, detail="Missing item not found")
         
-        # Check if user is the owner
+        # Access control logic for editing missing items:
+        # 1. Owners can edit their own items (unless approved)
+        # 2. Approved items require permission to edit (prevents tampering)
+        # 3. Non-owners require permission to edit
         is_owner = existing_item.user_id == current_user.id
         
-        # Check if user has permission
         from app.services import permissionServices
         has_permission = permissionServices.has_full_access(db, current_user.id) or \
                         permissionServices.check_user_permission(db, current_user.id, "can_manage_missing_items")
         
-        # If item is approved and user doesn't have permission, deny edit
+        # Business rule: Approved items are locked from owner edits (prevents status manipulation)
         if existing_item.status == "approved" and not has_permission:
             raise HTTPException(
                 status_code=403,
                 detail="Cannot edit approved missing items without 'can_manage_missing_items' permission"
             )
         
-        # If user is not the owner and doesn't have permission, deny edit
+        # Security: Non-owners need permission to edit
         if not is_owner and not has_permission:
             raise HTTPException(
                 status_code=403,
                 detail="Permission 'can_manage_missing_items' is required to edit other users' missing items"
             )
         
-        # Prevent status changes by non-permissioned users
+        # Security: Prevent unauthorized status changes (only admins can change status)
         if not has_permission:
-            # Remove status from update_data if user doesn't have permission
             update_dict = update_data.dict(exclude_unset=True)
             if "status" in update_dict:
                 update_dict.pop("status")
-                # Create a new UpdateMissingItemRequest without status
                 update_data = UpdateMissingItemRequest(**update_dict)
         
         missing_item = missing_item_service.update_missing_item(missing_item_id, update_data)
@@ -505,7 +505,12 @@ async def assign_found_items_to_missing(
     current_user = Depends(get_current_user_required)
 ):
     """
-    Assign one or more found item posts to a missing item, optionally moving status to visit and notifying the reporter.
+    Assign one or more found item posts to a missing item
+    
+    Business logic: Links found items to a missing item report, optionally:
+    - Changes missing item status to 'visit' (if auto_status_change enabled)
+    - Sends notification email to the missing item reporter
+    - Creates relationship between missing and found items for tracking
     """
     try:
         missing_item = missing_item_service.assign_found_items(missing_item_id, request_body, current_user)
@@ -528,7 +533,13 @@ async def assign_pending_item_to_missing(
     current_user = Depends(get_current_user_required)
 ):
     """
-    Assign a missing item to a pending item, optionally moving status to approved and notifying the reporter.
+    Assign a missing item to a pending item
+    
+    Business logic: When a pending found item matches a missing item report:
+    - Links the missing item to the pending found item
+    - Optionally changes missing item status to 'approved'
+    - Sends notification to the missing item reporter
+    - Used when admin confirms a match between missing and found items
     """
     try:
         missing_item = missing_item_service.assign_pending_item(missing_item_id, request_body, current_user)
@@ -554,6 +565,9 @@ async def delete_missing_item(
     """
     Delete a missing item (soft delete by default, permanent if specified)
     Requires: can_manage_missing_items permission
+    
+    Soft delete: Marks item as deleted, can be restored
+    Permanent delete: Removes item completely from database
     """
     try:
         missing_item_service.delete_missing_item(missing_item_id, permanent)
