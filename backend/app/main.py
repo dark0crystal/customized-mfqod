@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, HTTPException, Depends
+from fastapi import FastAPI, Query, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -8,6 +8,12 @@ from app.routes.comprehensive_auth_routes import router as comprehensive_auth_ro
 from app.routes.imageRoutes import router as image_router
 from fastapi.staticfiles import StaticFiles
 from app.middleware.auth_middleware import add_security_headers
+from app.middleware.rate_limit_decorator import rate_limit_public
+from app.middleware.rate_limit_setup import public_limiter, authenticated_limiter, should_exclude_path
+from app.config.auth_config import AuthConfig
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from app.services.sync_scheduler import start_scheduler, stop_scheduler
 from app.utils.logging_config import setup_logging
 import os
@@ -26,6 +32,16 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc"
 )
+
+# Initialize rate limiting if enabled
+config = AuthConfig()
+if config.ENABLE_GLOBAL_RATE_LIMIT:
+    # Add slowapi middleware for rate limiting
+    # Use public_limiter as the default, decorators will use specific limiters
+    app.state.limiter = public_limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
+    logger.info(f"Global rate limiting enabled - Public: {config.PUBLIC_API_RATE_LIMIT_PER_MINUTE}/min, Authenticated: {config.AUTHENTICATED_API_RATE_LIMIT_PER_MINUTE}/min")
 
 # CORS Configuration
 origins = [
@@ -62,8 +78,12 @@ app.mount("/static/images", StaticFiles(directory=UPLOAD_DIR), name="images")
 async def startup_event():
     """Initialize application on startup"""
     try:
-        # Initialize database
-        init_db()
+        # Check if automatic migrations are enabled (default: False for safety)
+        # Set AUTO_RUN_MIGRATIONS=true in .env to enable automatic migrations on startup
+        auto_run_migrations = os.getenv("AUTO_RUN_MIGRATIONS", "false").lower() == "true"
+        
+        # Initialize database (with optional automatic migrations)
+        init_db(run_migrations=auto_run_migrations)
         logger.info("Database initialized successfully")
         
         # Start background job scheduler
@@ -117,15 +137,6 @@ async def health_check():
         "status": "healthy",
         "version": "2.0.0",
         "timestamp": "2025-01-09T12:00:00Z"
-    }
-
-# Test public endpoint directly in main
-@app.get("/api/test-public", tags=["System"])
-async def test_public():
-    """Test public endpoint without authentication"""
-    return {
-        "message": "This is a public endpoint",
-        "status": "accessible"
     }
 
 # Root endpoint

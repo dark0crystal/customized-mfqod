@@ -180,6 +180,7 @@ class Item(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     title: Mapped[str] = mapped_column(String)
     description: Mapped[str] = mapped_column(Text)
+    internal_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     claims_count: Mapped[int] = mapped_column(Integer, default=0)
     temporary_deletion: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String, default=ItemStatus.PENDING.value, nullable=False)
@@ -342,6 +343,14 @@ class ADSyncLog(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+class RateLimitLog(Base):
+    __tablename__ = "rate_limit_logs"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    ip_address: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    endpoint: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    rate_limit_key: Mapped[str] = mapped_column(String, index=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
 
 class EmailVerification(Base):
     __tablename__ = "email_verifications"
