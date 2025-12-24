@@ -209,7 +209,7 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                       <div className="mt-2 space-y-1">
                         {getLocalizedName(item.location.organization_name_ar, item.location.organization_name_en) && (
                           <p className="text-gray-600 text-xs truncate" title={getLocalizedName(item.location.organization_name_ar, item.location.organization_name_en)}>
-                            <span className="font-medium">{locale === 'ar' ? 'المنظمة:' : 'Organization:'}</span> {getLocalizedName(item.location.organization_name_ar, item.location.organization_name_en)}
+                            <span className="font-medium">{locale === 'ar' ? 'الجامعة:' : 'University:'}</span> {getLocalizedName(item.location.organization_name_ar, item.location.organization_name_en)}
                           </p>
                         )}
                         {getLocalizedName(item.location.branch_name_ar, item.location.branch_name_en) && (

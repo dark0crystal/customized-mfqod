@@ -81,6 +81,7 @@ interface ItemData {
   id: string;
   title: string;
   description: string;
+  internal_description?: string;  // Internal description visible only to authorized users
   status?: string;  // Item status: cancelled, approved, pending
   approval: boolean;  // DEPRECATED: kept for backward compatibility
   temporary_deletion: boolean;
@@ -720,6 +721,17 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                     <label className="block text-sm font-medium text-gray-500 mb-1">{t('description')}</label>
                     <p className="text-base text-gray-900 whitespace-pre-wrap">{item.description || t('noDescription')}</p>
                   </div>
+
+                  {/* Internal Description - Only visible to users with can_manage_items permission */}
+                  {canManageItems && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">{tEdit('internalDescription')}</label>
+                      <p className={`text-base text-gray-900 whitespace-pre-wrap bg-blue-50 p-3 rounded-md border border-blue-200 ${!item.internal_description ? 'text-gray-400 italic' : ''}`}>
+                        {item.internal_description || t('noDescription')}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">{tEdit('internalDescriptionDisclaimer')}</p>
+                    </div>
+                  )}
 
                   {/* Approval Status */}
                   <div>
