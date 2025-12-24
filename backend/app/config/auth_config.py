@@ -26,6 +26,22 @@ class AuthConfig:
     LOGIN_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("LOGIN_RATE_LIMIT_PER_MINUTE", "5"))
     API_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("API_RATE_LIMIT_PER_MINUTE", "60"))
     
+    # General API Rate Limiting Configuration
+    ENABLE_GLOBAL_RATE_LIMIT: bool = os.getenv("ENABLE_GLOBAL_RATE_LIMIT", "true").lower() == "true"
+    PUBLIC_API_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("PUBLIC_API_RATE_LIMIT_PER_MINUTE", "30"))
+    AUTHENTICATED_API_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("AUTHENTICATED_API_RATE_LIMIT_PER_MINUTE", "60"))
+    RATE_LIMIT_WINDOW_MINUTES: int = int(os.getenv("RATE_LIMIT_WINDOW_MINUTES", "1"))
+    
+    # Excluded paths from rate limiting (health checks, docs, etc.)
+    RATE_LIMIT_EXCLUDED_PATHS: list = [
+        "/api/docs",
+        "/api/redoc",
+        "/api/openapi.json",
+        "/api/health",
+        "/static",
+        "/favicon.ico"
+    ]
+    
     # Session Management
     SESSION_CLEANUP_INTERVAL_HOURS: int = 24
     MAX_SESSIONS_PER_USER: int = 3
