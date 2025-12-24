@@ -37,245 +37,78 @@ engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Define all permissions required by the application
+# Using hierarchical permission model: "manage" permissions imply all CRUD operations
 PERMISSIONS = [
     # ============================================
     # ITEMS PERMISSIONS
     # ============================================
     {
-        "name": "can_create_items",
-        "description": "Can create new lost/found items"
-    },
-    {
-        "name": "can_view_items",
-        "description": "Can view lost/found items"
-    },
-    {
-        "name": "can_view_own_items",
-        "description": "Can view own lost/found items"
-    },
-    {
-        "name": "can_edit_items",
-        "description": "Can edit item details"
-    },
-    {
-        "name": "can_approve_items",
-        "description": "Can approve/reject item reports"
-    },
-    {
-        "name": "can_delete_items",
-        "description": "Can delete items"
-    },
-    {
-        "name": "can_restore_items",
-        "description": "Can restore deleted items"
-    },
-    {
-        "name": "can_bulk_delete_items",
-        "description": "Can delete multiple items at once"
-    },
-    {
-        "name": "can_bulk_edit_items",
-        "description": "Can edit multiple items at once"
-    },
-    {
-        "name": "can_manage_claims",
-        "description": "Can manage item claims"
-    },
-    {
-        "name": "can_view_statistics",
-        "description": "Can view system statistics and analytics"
+        "name": "can_manage_items",
+        "description": "Full item management (create, view, edit, delete, approve, restore, bulk operations). Users can always access their own items."
     },
     
     # ============================================
     # MISSING ITEMS PERMISSIONS
     # ============================================
     {
-        "name": "can_create_missing_items",
-        "description": "Can report missing items"
-    },
-    {
-        "name": "can_view_missing_items",
-        "description": "Can view missing items"
-    },
-    {
-        "name": "can_view_own_missing_items",
-        "description": "Can view own missing items"
-    },
-    {
-        "name": "can_edit_missing_items",
-        "description": "Can edit missing item details"
-    },
-    {
-        "name": "can_approve_missing_items",
-        "description": "Can approve/reject missing item reports"
-    },
-    {
         "name": "can_manage_missing_items",
-        "description": "Can manage missing items"
-    },
-    {
-        "name": "can_delete_missing_items",
-        "description": "Can delete missing items"
-    },
-    {
-        "name": "can_restore_missing_items",
-        "description": "Can restore deleted missing items"
-    },
-    {
-        "name": "can_bulk_delete_missing_items",
-        "description": "Can delete multiple missing items at once"
-    },
-    {
-        "name": "can_bulk_edit_missing_items",
-        "description": "Can edit multiple missing items at once"
+        "description": "Full missing item management (create, view, edit, delete, approve, restore, bulk operations). Users can always access their own missing items."
     },
     
     # ============================================
     # ITEM TYPES PERMISSIONS
     # ============================================
     {
-        "name": "can_create_item_types",
-        "description": "Can create new item types"
-    },
-    {
-        "name": "can_view_item_types",
-        "description": "Can view item types"
-    },
-    {
-        "name": "can_edit_item_types",
-        "description": "Can edit item types"
-    },
-    {
-        "name": "can_delete_item_types",
-        "description": "Can delete item types"
-    },
-    {
         "name": "can_manage_item_types",
-        "description": "Full item type management access"
+        "description": "Full item type management (create, view, edit, delete)"
     },
     
     # ============================================
     # BRANCHES PERMISSIONS
     # ============================================
     {
-        "name": "can_create_branches",
-        "description": "Can create new branches"
-    },
-    {
-        "name": "can_view_branches",
-        "description": "Can view branches"
-    },
-    {
-        "name": "can_edit_branches",
-        "description": "Can edit branch details"
-    },
-    {
-        "name": "can_delete_branches",
-        "description": "Can delete branches"
-    },
-    {
-        "name": "can_view_own_branches",
-        "description": "Can view own managed branches"
-    },
-    {
-        "name": "can_view_user_branches",
-        "description": "Can view user branch assignments"
-    },
-    {
-        "name": "can_assign_branch_managers",
-        "description": "Can assign branch managers"
-    },
-    {
-        "name": "can_remove_branch_managers",
-        "description": "Can remove branch managers"
-    },
-    {
-        "name": "can_view_branch_managers",
-        "description": "Can view branch managers"
-    },
-    {
-        "name": "can_be_branch_manager",
-        "description": "User can be assigned as a branch manager"
+        "name": "can_manage_branches",
+        "description": "Full branch management (create, view, edit, delete, manage managers)"
     },
     
     # ============================================
     # ADDRESSES PERMISSIONS
     # ============================================
     {
-        "name": "can_create_addresses",
-        "description": "Can create addresses"
-    },
-    {
-        "name": "can_view_addresses",
-        "description": "Can view addresses"
-    },
-    {
-        "name": "can_edit_addresses",
-        "description": "Can edit addresses"
-    },
-    {
-        "name": "can_delete_addresses",
-        "description": "Can delete addresses"
+        "name": "can_manage_addresses",
+        "description": "Full address management (create, view, edit, delete)"
     },
     
     # ============================================
     # ORGANIZATIONS PERMISSIONS
     # ============================================
     {
-        "name": "can_create_organizations",
-        "description": "Can create new organizations"
-    },
-    {
-        "name": "can_view_organizations",
-        "description": "Can view organizations"
-    },
-    {
-        "name": "can_edit_organizations",
-        "description": "Can edit organization details"
-    },
-    {
-        "name": "can_delete_organizations",
-        "description": "Can delete organizations"
+        "name": "can_manage_organizations",
+        "description": "Full organization management (create, view, edit, delete)"
     },
     
     # ============================================
     # USERS PERMISSIONS
     # ============================================
     {
-        "name": "can_view_users",
-        "description": "Can view user profiles and lists"
-    },
-    {
-        "name": "can_create_users",
-        "description": "Can create new user accounts"
-    },
-    {
-        "name": "can_edit_users",
-        "description": "Can edit user profiles and settings"
-    },
-    {
-        "name": "can_delete_users",
-        "description": "Can delete user accounts"
-    },
-    {
         "name": "can_manage_users",
-        "description": "Full user management access"
+        "description": "Full user management access (create, view, edit, delete)"
     },
     
     # ============================================
     # CLAIMS PERMISSIONS
     # ============================================
     {
-        "name": "can_view_claims",
-        "description": "Can view item claims"
+        "name": "can_manage_claims",
+        "description": "Full claim management (view, create, process/approve/reject)"
     },
+    
+    # ============================================
+    # TRANSFER REQUESTS PERMISSIONS
+    # ============================================
     {
-        "name": "can_create_claims",
-        "description": "Can create item claims"
-    },
-    {
-        "name": "can_process_claims",
-        "description": "Can approve/reject claims"
+        "name": "can_manage_transfer_requests",
+        "description": "Full transfer request management (create, view, approve, reject)"
     },
     
     # ============================================
@@ -299,7 +132,7 @@ PERMISSIONS = [
     },
     {
         "name": "can_view_analytics",
-        "description": "Can view system analytics and reports"
+        "description": "Can view system analytics and statistics"
     },
     {
         "name": "can_configure_system",
@@ -308,30 +141,6 @@ PERMISSIONS = [
     {
         "name": "can_access_admin",
         "description": "Can access admin panel"
-    },
-    
-    # ============================================
-    # TRANSFER REQUESTS PERMISSIONS (if needed)
-    # ============================================
-    {
-        "name": "can_create_transfer_requests",
-        "description": "Can create branch transfer requests"
-    },
-    {
-        "name": "can_view_transfer_requests",
-        "description": "Can view transfer requests"
-    },
-    {
-        "name": "can_approve_transfer_requests",
-        "description": "Can approve transfer requests"
-    },
-    {
-        "name": "can_reject_transfer_requests",
-        "description": "Can reject transfer requests"
-    },
-    {
-        "name": "can_manage_transfer_requests",
-        "description": "Can manage all transfer requests"
     },
 ]
 
