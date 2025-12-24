@@ -80,6 +80,7 @@ class EnhancedADService:
                 return False, None, error_detail
             
             # Step 3: Search for user - try multiple search filters for compatibility
+            # Business logic: Supports different LDAP configurations (production AD, test LDAP)
             search_filters = [
                 self.config.USER_SEARCH_FILTER.format(username=username),
                 f"(&(objectClass=person)(uid={username}))",  # For test LDAP
@@ -113,7 +114,8 @@ class EnhancedADService:
             user_dn, user_attrs = result[0]
             logger.debug(f"User found: {user_dn}")
             
-            # Step 4: Check if account is active and not expired
+            # Step 4: Security check - verify account is active and not expired
+            # Prevents authentication for disabled or expired accounts
             if not self._is_account_active(user_attrs):
                 uac = user_attrs.get('userAccountControl', [])
                 uac_str = uac[0].decode('utf-8') if uac and isinstance(uac[0], bytes) else str(uac[0]) if uac else "N/A"
@@ -121,7 +123,8 @@ class EnhancedADService:
                 logger.warning(f"User {username} account is disabled or expired. DN: {user_dn}")
                 return False, None, error_detail
             
-            # Step 5: Try to authenticate with user credentials
+            # Step 5: Security - Authenticate user credentials against AD
+            # This is the actual password verification step
             user_conn = None
             try:
                 user_conn = self._get_ldap_connection()
@@ -282,9 +285,14 @@ class EnhancedADService:
             return None
     
     async def sync_user_from_ad(self, username: str, db: Session) -> Optional[User]:
-        """Sync a specific user from AD to local database"""
+        """Sync a specific user from AD to local database
+        
+        Business logic: Creates or updates user record from AD data
+        Used for automatic user creation on first login
+        Runs AD lookup in thread pool to avoid blocking async operations
+        """
         try:
-            # Run AD lookup in thread pool to avoid blocking
+            # Run AD lookup in thread pool to avoid blocking async event loop
             loop = asyncio.get_event_loop()
             user_data = await loop.run_in_executor(
                 self.executor, 

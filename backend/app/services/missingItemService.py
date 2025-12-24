@@ -696,7 +696,7 @@ class MissingItemService:
         for item in items:
             item_url = f"{frontend_base_url}/dashboard/items/{item.id}"
             item_links_text.append(f"- {item.title}: {item_url}")
-            item_links_html.append(f'<li><a href="{item_url}" style="color: #667eea; text-decoration: none;">{item.title}</a></li>')
+            item_links_html.append(f'<li><a href="{item_url}" style="text-decoration: underline;">{item.title}</a></li>')
 
         branch_name = branch.branch_name_en or branch.branch_name_ar or 'branch'
         user_name = missing_item.user.first_name or "User"
@@ -717,28 +717,28 @@ class MissingItemService:
         
         # HTML version with clickable links
         html_body = f"""
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333;">
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6;">
             <h2>Update on your missing item</h2>
             <p>Hello {user_name},</p>
             
             <p>We have identified possible matches for your reported missing item <strong>"{missing_item.title}"</strong>.</p>
             
-            <div style="background-color: #e8f4fd; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0;">
+            <div style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
                 <strong>Branch to visit:</strong> {branch_name}
             </div>
             
-            <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-radius: 5px;">
+            <div style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
                 <strong>Items to review:</strong>
                 <ul style="margin-top: 10px;">
                     {''.join(item_links_html)}
                 </ul>
             </div>
             
-            {f'<div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;"><strong>Note:</strong> {note}</div>' if note else ''}
+            {f'<div style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;"><strong>Note:</strong> {note}</div>' if note else ''}
             
             <p>Please visit the branch with proof of ownership.</p>
             
-            <p style="color: #666; font-size: 12px; margin-top: 30px;">This is an automated message.</p>
+            <p style="font-size: 12px; margin-top: 30px;">This is an automated message.</p>
         </div>
         """
 
@@ -772,7 +772,7 @@ class MissingItemService:
             f"<p>Hello {missing_item.user.first_name},</p>"
             f"<p>Great news! Your missing item report <strong>\"{missing_item.title}\"</strong> has been approved.</p>"
             f"<p>Your item has been matched with the following item in our system:</p>"
-            f"<div style='background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin: 10px 0;'>"
+            f"<div style='border: 1px solid #cccccc; padding: 10px; margin: 10px 0;'>"
             f"<strong>Item:</strong> {pending_item.title}<br/>"
             f"{f'<strong>Note:</strong> {note}<br/>' if note else ''}"
             f"</div>"
