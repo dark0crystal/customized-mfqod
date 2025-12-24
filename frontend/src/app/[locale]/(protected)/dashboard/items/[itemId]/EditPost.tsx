@@ -9,6 +9,8 @@ import { useTranslations, useLocale } from 'next-intl';
 import CompressorFileInput from '@/components/forms/CompressorFileInput';
 import imageUploadService, { UploadProgress, UploadError } from '@/services/imageUploadService';
 import { X } from 'lucide-react';
+import CustomDropdown from '@/components/ui/CustomDropdown';
+import { usePermissions } from '@/PermissionsContext';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -39,15 +41,24 @@ interface LocationData {
 interface ItemFormFields {
   title: string;
   description: string;
+  internal_description?: string;
   location: string;
+  item_type_id: string;
   approval: boolean;
   temporary_deletion: boolean;
+}
+
+interface ItemType {
+  id: string;
+  name_ar?: string;
+  name_en?: string;
 }
 
 interface ItemData {
   id: string;
   title: string;
   description: string;
+  internal_description?: string;  // Internal description visible only to authorized users
   content: string;
   type: string;
   location?: LocationData;
@@ -79,6 +90,11 @@ interface ItemData {
     created_at: string;
     updated_at: string;
   }>;
+  item_type?: {
+    id: string;
+    name_ar?: string;
+    name_en?: string;
+  };
 }
 
 
@@ -92,6 +108,8 @@ export default function EditPost({ params, onSave }: EditPostProps) {
   const router = useRouter();
   const t = useTranslations('editPost');
   const locale = useLocale();
+  const { hasPermission } = usePermissions();
+  const canManageItems = hasPermission('can_manage_items');
 
   // Helper function to get localized name
   const getLocalizedName = useCallback((nameAr?: string, nameEn?: string): string => {
@@ -134,6 +152,7 @@ export default function EditPost({ params, onSave }: EditPostProps) {
   const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [deletingImages, setDeletingImages] = useState<Set<string>>(new Set());
+  const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ItemFormFields>();
   const formRef = useRef<HTMLFormElement>(null);
@@ -162,6 +181,25 @@ export default function EditPost({ params, onSave }: EditPostProps) {
   }, []);
 
 
+  // Fetch item types
+  useEffect(() => {
+    const fetchItemTypes = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/item-types/`, {
+          headers: getAuthHeaders(),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setItemTypes(data);
+        }
+      } catch (error) {
+        console.error('Error fetching item types:', error);
+      }
+    };
+
+    fetchItemTypes();
+  }, []);
+
   useEffect(() => {
     const fetchItem = async () => {
       try {
@@ -189,9 +227,14 @@ export default function EditPost({ params, onSave }: EditPostProps) {
           // Set form values
           setValue('title', data.title);
           setValue('description', data.description || data.content || '');
+          setValue('internal_description', data.internal_description || '');
           // Set location with localized version
           const localizedLocation = getLocalizedLocation(data.location);
           setValue('location', localizedLocation);
+          // Set item type if available
+          if (data.item_type?.id) {
+            setValue('item_type_id', data.item_type.id);
+          }
           setValue('approval', data.approval ?? true); // Keep for form compatibility
           setValue('temporary_deletion', data.temporary_deletion ?? false);
         }
@@ -255,7 +298,9 @@ export default function EditPost({ params, onSave }: EditPostProps) {
       const updateData: {
         title: string;
         description: string;
+        internal_description?: string;
         location: string;
+        item_type_id?: string;
         is_hidden?: boolean;
       } = {
         title: data.title,
@@ -263,6 +308,16 @@ export default function EditPost({ params, onSave }: EditPostProps) {
         location: data.location,
         is_hidden: item?.is_hidden,
       };
+
+      // Add internal_description if user has permission
+      if (canManageItems && data.internal_description !== undefined) {
+        updateData.internal_description = data.internal_description;
+      }
+
+      // Add item_type_id if provided
+      if (data.item_type_id) {
+        updateData.item_type_id = data.item_type_id;
+      }
 
       // Update item details
       const response = await fetch(`${API_BASE_URL}/api/items/${params.itemId}`, {
@@ -421,6 +476,47 @@ export default function EditPost({ params, onSave }: EditPostProps) {
               />
               {errors.description && (
                 <p className="mt-1 text-xs text-red-500">{errors.description.message}</p>
+              )}
+            </div>
+
+            {/* Internal Description - Only visible to users with can_manage_items permission */}
+            {canManageItems && (
+              <div>
+                <label htmlFor="internal_description" className="block text-sm font-medium text-gray-700 mb-1">
+                  {t('internalDescription')}
+                </label>
+                <textarea
+                  id="internal_description"
+                  rows={4}
+                  {...register('internal_description')}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5 border"
+                  placeholder={t('placeholderInternalDescription')}
+                />
+                <p className="mt-1 text-xs text-gray-500">{t('internalDescriptionDisclaimer')}</p>
+              </div>
+            )}
+
+            {/* Item Type */}
+            <div>
+              <label htmlFor="item_type_id" className="block text-sm font-medium text-gray-700 mb-1">
+                {t('itemTypeLabel') || 'Item Type'}
+              </label>
+              <input
+                type="hidden"
+                {...register('item_type_id')}
+              />
+              <CustomDropdown
+                options={itemTypes.map(type => ({
+                  value: type.id,
+                  label: getLocalizedName(type.name_ar, type.name_en) || 'Unnamed'
+                }))}
+                value={watch('item_type_id') || ''}
+                onChange={(value) => setValue('item_type_id', value, { shouldValidate: true })}
+                placeholder={t('selectItemType') || 'Select Item Type'}
+                variant="default"
+              />
+              {errors.item_type_id && (
+                <p className="mt-1 text-xs text-red-500">{errors.item_type_id.message}</p>
               )}
             </div>
           </div>

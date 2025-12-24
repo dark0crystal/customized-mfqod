@@ -257,6 +257,12 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
   const handleSendEmail = async () => {
     if (!claim) return;
 
+    // Validate that a branch is selected
+    if (!selectedBranchId || selectedBranchId === '') {
+      setEmailError(t('selectBranchRequired') || 'Please select a branch/office before sending the email');
+      return;
+    }
+
     setSendingEmail(true);
     setEmailError(null);
     setEmailSent(false);
@@ -266,7 +272,7 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          branch_id: selectedBranchId || null,
+          branch_id: selectedBranchId,
           note: emailNote || null
         })
       });
@@ -661,7 +667,7 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                         e.currentTarget.style.boxShadow = '';
                       }}
                     >
-                      <option value="">{t('generalOffice') || 'General Office'}</option>
+                      <option value="" disabled>{t('selectBranch') || 'Select Branch/Office'}</option>
                       {branches.map((branch) => (
                         <option key={branch.id} value={branch.id}>
                           {getLocalizedName(branch.branch_name_ar, branch.branch_name_en)}
@@ -703,9 +709,9 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                   {/* Send Button */}
                   <button
                     onClick={handleSendEmail}
-                    disabled={sendingEmail || !claim.user_email}
-                    className="w-full px-4 py-2 text-white rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    style={{ backgroundColor: '#3277AE' }}
+                    disabled={sendingEmail || !claim.user_email || !selectedBranchId || selectedBranchId === ''}
+                    className="w-full px-4 py-2 text-white rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    style={{ backgroundColor: (sendingEmail || !claim.user_email || !selectedBranchId || selectedBranchId === '') ? '#9CA3AF' : '#3277AE' }}
                     onMouseEnter={(e) => { 
                       if (!sendingEmail && claim.user_email) {
                         e.currentTarget.style.opacity = '0.9';
