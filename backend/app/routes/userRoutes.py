@@ -43,7 +43,12 @@ async def get_current_user_with_refresh(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     session: Session = Depends(get_session)
 ):
-    """Dependency to get current user with automatic token refresh"""
+    """Dependency to get current user with automatic token refresh
+    
+    Token refresh mechanism: Automatically refreshes JWT tokens if they're close to expiry
+    Returns new token in response header (X-New-Token) if refreshed
+    This prevents session interruption for active users
+    """
     token = credentials.credentials
     user_data, new_token = await validate_and_refresh_if_needed(token, session)
     return {"user": user_data, "new_token": new_token}
@@ -149,14 +154,17 @@ async def permanently_delete_user_endpoint(
 ):
     """
     Permanently delete a user and anonymize their data.
-    Requires can_manage_users permission (and ideally super_admin check inside service or here).
+    Requires can_manage_users permission.
+    
+    Security: This is a destructive operation that:
+    - Permanently removes user record
+    - Anonymizes user's contributions (items, claims, etc.) by setting user_id to NULL
+    - Preserves data integrity while removing personal information
+    - Used for GDPR compliance or account deletion requests
     """
     if current_user_data["new_token"]:
         response.headers["X-New-Token"] = current_user_data["new_token"]
-        
-    # Extra safety check: Ensure the requestor is an admin/super_admin
-    # The require_permission decorator handles the basic check, but for hard delete
-    # we might want to be extra careful. For now, we rely on the permission.
+    
     
     from app.services.userServices import permanently_delete_user
     return await permanently_delete_user(user_id, session)
@@ -211,24 +219,23 @@ async def update_user_role(
                 detail="Permission 'can_manage_roles' is required to assign roles"
             )
     
-    # Prevent role escalation: Only users with full access can assign roles with all permissions
-    # Check if the role being assigned has all permissions (full access)
+    # Security: Prevent role escalation attack
+    # Only super admins can assign roles with full permissions (prevents privilege escalation)
+    # This ensures regular admins cannot grant themselves or others super admin privileges
     if role_update.role_name:
-        # Get the role to check its permissions
         from app.models import Role
         target_role = session.query(Role).filter(Role.name == role_update.role_name).first()
         
         if target_role:
-            # Get all permissions in system
+            # Check if target role has all permissions (super admin role)
             all_permissions = permissionServices.get_all_permissions(session)
             role_permissions = {perm.name for perm in target_role.permissions}
             all_permission_names = {perm.name for perm in all_permissions}
             
-            # Check if target role has all permissions (full access)
             has_all_permissions = role_permissions == all_permission_names and len(all_permission_names) > 0
             
             if has_all_permissions:
-                # Only users with full access can assign roles with full access
+                # Security check: Only super admins can assign super admin roles
                 if not permissionServices.has_full_access(session, current_user_id):
                     logger.warning(
                         f"User {current_user_id} attempted to assign role with full access without full access privileges"
