@@ -10,11 +10,13 @@ import imageUploadService, { UploadError, UploadProgress } from "@/services/imag
 import { tokenManager } from "@/utils/tokenManager";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import HydrationSafeWrapper from "@/components/HydrationSafeWrapper";
+import { usePermissions } from "@/PermissionsContext";
 
 // Type definitions for form fields
 type ItemFormFields = {
   title: string;
   content: string;
+  internal_description?: string;
   type: string;
   place: string;
   country: string;
@@ -114,6 +116,8 @@ export default function ReportFoundItem() {
 
   const c = useTranslations("report-found");
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canManageItems = hasPermission('can_manage_items');
 
   // useForm with empty orgnization by default, will set after fetch
   const { 
@@ -354,7 +358,7 @@ export default function ReportFoundItem() {
       }
 
       // STEP 1: Create the item
-      const itemPayload = {
+      const itemPayload: any = {
         title: data.title,
         description: data.content,
         user_id: currentUser.id,
@@ -363,6 +367,11 @@ export default function ReportFoundItem() {
         temporary_deletion: false,
         is_hidden: imageVisibility === 'hide'
       };
+
+      // Add internal_description only if user has permission and field is provided
+      if (canManageItems && data.internal_description) {
+        itemPayload.internal_description = data.internal_description;
+      }
 
       const itemResponse = await fetch(`${API_BASE_URL}/api/items`, {
         method: "POST",
@@ -537,6 +546,29 @@ export default function ReportFoundItem() {
             <p className="mt-2 text-sm text-red-500">{errors.content.message}</p>
           )}
         </div>
+
+        {/* Internal Description Input - Only visible to users with can_manage_items permission */}
+        {canManageItems && (
+          <div>
+            <label htmlFor="internal_description" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
+              {c("internalDescription") || "Internal Description"}
+            </label>
+            <textarea
+              id="internal_description"
+              {...register("internal_description")}
+              placeholder={c("placeholderInternalDescription") || "Enter detailed internal information (visible only to administrators)"}
+              rows={4}
+              className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
+              style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              {c("internalDescriptionDisclaimer") || "This field is only visible to users with item management permissions"}
+            </p>
+            {errors.internal_description && (
+              <p className="mt-2 text-sm text-red-500">{errors.internal_description.message}</p>
+            )}
+          </div>
+        )}
 
         {/* Item Type Selection */}
         <div>
