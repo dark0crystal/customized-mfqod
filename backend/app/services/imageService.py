@@ -1,6 +1,6 @@
 # services/imageService.py
 from sqlalchemy.orm import Session
-from app.models import Image, User, Item  # Adjust import based on your model
+from app.models import Image, User, Item
 from typing import Optional
 from app.services import permissionServices
 from app.middleware.branch_auth_middleware import can_user_manage_item

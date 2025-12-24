@@ -267,11 +267,9 @@ class MissingItemService:
             logger.info(f"User with full access {user_id} - returning all pending missing items count")
             return query.count()
         
-        # Missing items no longer have branch associations, so branch managers see all pending items
-        # (or we can return 0 if branch managers shouldn't see missing items)
-        # For now, branch managers will see all pending missing items
-        
+        # Access control: Missing items don't have branch associations
         # Regular users see only their own pending missing items
+        # Branch managers see all pending missing items (no branch filtering)
         count = query.filter(MissingItem.user_id == user_id).count()
         logger.info(f"Regular user {user_id} - returning {count} own pending missing items")
         return count
@@ -332,17 +330,21 @@ class MissingItemService:
 
         now = datetime.now(timezone.utc)
 
-        # Permission: users with full access can assign anywhere; branch managers must own the branch
+        # Security: Access control for assigning found items to missing items
+        # Super admins can assign items from any branch
+        # Branch managers can only assign items from their managed branches
         is_admin = permissionServices.has_full_access(self.db, current_user.id)
         managed_branch_ids: List[str] = []
         if not is_admin:
             if not is_branch_manager(current_user.id, self.db):
                 raise PermissionError("Only admins or branch managers can assign found items")
+            # Get user's managed branches for access control
             managed_branch_ids = [
                 row[0] for row in self.db.query(UserBranchManager.branch_id).filter(
                     UserBranchManager.user_id == current_user.id
                 ).all()
             ]
+            # Security: Branch managers can only assign items from their managed branches
             if request.branch_id not in managed_branch_ids:
                 raise PermissionError("Branch managers can only assign items for their managed branches")
 
@@ -360,16 +362,19 @@ class MissingItemService:
         if missing_ids:
             raise ValueError(f"Found item(s) not found: {', '.join(missing_ids)}")
 
-        # Upsert links
+        # Business logic: Upsert found item links (update existing or create new)
+        # Links connect missing items to found items, allowing tracking of matches
         existing_links = {link.item_id: link for link in missing_item.assigned_found_items}
         for item in found_items:
             if item.id in existing_links:
+                # Update existing link
                 link = existing_links[item.id]
                 link.branch_id = request.branch_id
                 link.note = request.note
                 link.created_by = current_user.id
                 link.updated_at = now
             else:
+                # Create new link between missing item and found item
                 link = MissingItemFoundItem(
                     id=str(uuid.uuid4()),
                     missing_item_id=missing_item.id,
@@ -385,12 +390,14 @@ class MissingItemService:
 
         missing_item.updated_at = now
 
+        # Track notification status if notify flag is set
         if request.notify:
             for link in missing_item.assigned_found_items:
                 if link.item_id in request.found_item_ids:
                     link.notified_at = now
 
-        # Optionally move to visit status after validation
+        # Business rule: Optionally move to "visit" status after validation
+        # Visit status requires branch, found items, and note
         if request.set_status_to_visit:
             self._validate_visit_requirements(missing_item, request.note)
             missing_item.status = "visit"
@@ -889,7 +896,7 @@ class MissingItemService:
         """Send notification about new missing item"""
         try:
             # Get admin email - you can configure this in environment variables
-            admin_email = "albusaidi9094@gmail.com"  # This should be configurable
+            admin_email = "albusaidi9094@gmail.com"
             
             # Get user information
             user = self.db.query(User).filter(User.id == missing_item.user_id).first()
@@ -911,7 +918,7 @@ class MissingItemService:
                 item_type=item_type_name,
                 reporter_name=f"{user.first_name} {user.last_name}".strip(),
                 reporter_email=user.email,
-                missing_item_url=None  # You can add URL generation here if needed
+                missing_item_url=None
             )
         except Exception as e:
             # Log error but don't raise it

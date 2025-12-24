@@ -54,6 +54,7 @@ class ItemService:
             id=str(uuid.uuid4()),
             title=item_data.title,
             description=item_data.description,
+            internal_description=item_data.internal_description,
             user_id=item_data.user_id,
             item_type_id=item_data.item_type_id,
             status=status_value,
@@ -139,32 +140,31 @@ class ItemService:
         if filters.date_to:
             query = query.filter(Item.created_at <= filters.date_to)
         
-        # Apply branch-based access control if user_id is provided
-        # When user_id is provided, it means we want to filter by branch access (managed items view)
-        # When user_id is None, it means show all items (all items view)
+        # Branch-based access control: Filter items by user's branch assignments
+        # Security: When user_id is provided, only show items from branches the user manages
+        # When user_id is None, show all items (used for admin views or public search)
+        # This prevents users from seeing items outside their branch scope
         if user_id:
-            # Always apply branch-based filtering when user_id is provided
-            # This ensures "My Managed Items" shows only items the user can access
             try:
                 accessible_items = get_user_accessible_items(user_id, self.db)
                 logger.info(f"User {user_id} has {len(accessible_items) if accessible_items else 0} accessible items")
                 if accessible_items:
-                    # Filter out None values to avoid SQL errors
+                    # Filter out None values to prevent SQL errors
                     accessible_items = [item_id for item_id in accessible_items if item_id is not None]
                     if accessible_items:
                         logger.info(f"Filtering items to {len(accessible_items)} accessible items for user {user_id}")
                         query = query.filter(Item.id.in_(accessible_items))
                     else:
-                        # User has no accessible items, return empty result
+                        # Security: Return empty if user has no accessible items
                         logger.info(f"User {user_id} has no accessible items (all None), returning empty")
                         return [], 0
                 else:
-                    # User has no accessible items, return empty result
+                    # Security: Return empty if user has no accessible items
                     logger.info(f"User {user_id} has no accessible items, returning empty")
                     return [], 0
             except Exception as e:
                 logger.error(f"Error getting accessible items for user {user_id}: {e}")
-                # If we can't determine accessible items, return empty to be safe
+                # Security: Fail-safe - return empty if access control check fails
                 return [], 0
         else:
             logger.info("No user_id provided, showing all items (no branch filtering)")
@@ -373,21 +373,23 @@ class ItemService:
         
         old_status = item.status
         
-        # Toggle between approved and pending (don't change cancelled)
+        # Business rule: Toggle between approved and pending states only
+        # Cancelled status is not affected by toggle operation
         if item.status == ItemStatus.APPROVED.value:
             item.status = ItemStatus.PENDING.value
-            # Update the associated claim's approval status to False when changing from approved to pending
+            # Business rule: When unapproving an item, also unapprove the associated claim
+            # This maintains data consistency - approved items must have approved claims
             if item.approved_claim_id:
                 claim = self.db.query(Claim).filter(Claim.id == item.approved_claim_id).first()
                 if claim:
                     claim.approval = False
                     claim.updated_at = datetime.now(timezone.utc)
                     logger.info(f"Unapproved claim {claim.id} for item {item_id} due to status change from approved to pending")
-            # Clear approved_claim_id when changing from approved to pending
+            # Clear approved_claim_id to maintain referential integrity
             item.approved_claim_id = None
         elif item.status == ItemStatus.PENDING.value:
             item.status = ItemStatus.APPROVED.value
-        # If status is cancelled, don't change it
+        # Business rule: Cancelled status is immutable via toggle
         
         item.updated_at = datetime.now(timezone.utc)
         
@@ -422,7 +424,8 @@ class ItemService:
         item.status = new_status.value
         item.updated_at = datetime.now(timezone.utc)
         
-        # Update the associated claim's approval status to False when changing from approved to pending
+        # Business rule: When changing from approved to pending, unapprove associated claim
+        # This maintains data consistency - approved items require approved claims
         if old_status == ItemStatus.APPROVED.value and new_status == ItemStatus.PENDING:
             if item.approved_claim_id:
                 claim = self.db.query(Claim).filter(Claim.id == item.approved_claim_id).first()
@@ -430,7 +433,7 @@ class ItemService:
                     claim.approval = False
                     claim.updated_at = datetime.now(timezone.utc)
                     logger.info(f"Unapproved claim {claim.id} for item {item_id} due to status change from approved to pending")
-            # Clear approved_claim_id when changing from approved to pending
+            # Clear approved_claim_id to maintain referential integrity
             item.approved_claim_id = None
         
         self.db.commit()
@@ -467,7 +470,8 @@ class ItemService:
         if item.status != ItemStatus.PENDING.value:
             raise ValueError(f"Item status must be 'pending' to approve. Current status: {item.status}")
         
-        # Check if item has an approved claim
+        # Business rule: Items can only be approved if they have an approved claim
+        # This ensures items are only approved after a valid claim has been processed
         if not item.approved_claim_id:
             raise ValueError("Item must have an approved claim before it can be approved")
         
@@ -580,7 +584,8 @@ class ItemService:
         if 'approved_claim_id' in update_data:
             approved_claim_id = update_data['approved_claim_id']
             
-            # If there was a previous approved claim, unapprove it
+            # Business rule: Only one claim can be approved per item
+            # When changing approved_claim_id, unapprove the previous claim
             if item.approved_claim_id and item.approved_claim_id != approved_claim_id:
                 previous_claim = self.db.query(Claim).filter(Claim.id == item.approved_claim_id).first()
                 if previous_claim:
@@ -588,7 +593,7 @@ class ItemService:
                     previous_claim.updated_at = datetime.now(timezone.utc)
                     logger.info(f"Unapproved previous claim {previous_claim.id} for item {item_id}")
             
-            # Validate that the claim exists and belongs to this item
+            # Validate claim exists and belongs to this item before assigning
             if approved_claim_id:
                 claim = self.db.query(Claim).filter(Claim.id == approved_claim_id).first()
                 if not claim:
@@ -596,16 +601,19 @@ class ItemService:
                 if claim.item_id != item_id:
                     raise ValueError(f"Claim {approved_claim_id} does not belong to item {item_id}")
                 
-                # Update the claim approval to True when it's connected to the item
+                # Business rule: When assigning approved_claim_id, approve the claim
+                # This maintains consistency - approved items have approved claims
                 claim.approval = True
                 claim.updated_at = datetime.now(timezone.utc)
                 logger.info(f"Approved claim {approved_claim_id} for item {item_id}")
             
             item.approved_claim_id = approved_claim_id
         
-        # Handle location update with history tracking
+        # Location history tracking: When item location changes, preserve history
+        # Business rule: Only one address can be "current" per item at any time
+        # Previous addresses are kept for audit trail but marked as not current
         if location_changed and original_location:
-            # Mark all current addresses as not current
+            # Mark all existing current addresses as not current
             current_addresses = self.db.query(Address).filter(
                 Address.item_id == item_id,
                 Address.is_current == True
@@ -616,7 +624,7 @@ class ItemService:
                 addr.updated_at = datetime.now(timezone.utc)
         
         # Create new address entry if location info is provided
-        # Check for organization_id and branch_id (new way) or organization_name and branch_name (old way)
+        # Supports both new format (branch_id) and legacy format (organization_name/branch_name)
         branch_id = None
         if 'branch_id' in update_data and update_data['branch_id']:
             branch_id = update_data['branch_id']
@@ -704,7 +712,8 @@ class ItemService:
             raise ValueError("Item not found")
         
         if permanent:
-            # Delete all related data when permanently deleting
+            # Permanent delete: Remove item and all related data
+            # Order matters: Clear foreign key references before deleting referenced records
             # 1. Delete all images associated with this item
             self.db.query(Image).filter(
                 Image.imageable_type == "item",
@@ -714,8 +723,8 @@ class ItemService:
             # 2. Get all claim IDs for this item before deletion
             claim_ids = [claim.id for claim in self.db.query(Claim).filter(Claim.item_id == item_id).all()]
             
-            # 3. Clear approved_claim_id references from ALL items (including this one) that reference these claims
-            # This prevents foreign key constraint violations when deleting claims
+            # 3. Clear approved_claim_id references from ALL items that reference these claims
+            # Critical: Prevents foreign key constraint violations when deleting claims
             if claim_ids:
                 self.db.query(Item).filter(Item.approved_claim_id.in_(claim_ids)).update(
                     {Item.approved_claim_id: None},
@@ -737,6 +746,8 @@ class ItemService:
             # 7. Finally, delete the item itself
             self.db.delete(item)
         else:
+            # Soft delete: Mark item as deleted but preserve data
+            # Allows restoration and maintains referential integrity
             item.temporary_deletion = True
             item.updated_at = datetime.now(timezone.utc)
         
@@ -928,111 +939,31 @@ class ItemService:
         }
     
     def get_pending_items_count(self, user_id: str) -> int:
-        """Get count of pending items accessible to the user based on branch assignments"""
-        import json
-        import os
-        from datetime import datetime
+        """Get count of pending items accessible to the user based on branch assignments
         
-        # #region agent log
-        try:
-            log_data = {
-                "sessionId": "debug-session",
-                "runId": "run1",
-                "hypothesisId": "A",
-                "location": "itemService.py:get_pending_items_count:entry",
-                "message": "Function entry",
-                "data": {"user_id": user_id},
-                "timestamp": int(datetime.now().timestamp() * 1000)
-            }
-            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                f.write(json.dumps(log_data) + "\n")
-        except: pass
-        # #endregion
-        
-        # Start with base query for pending items
+        Access control:
+        - Super admins see all pending items
+        - Branch managers see pending items in their managed branches
+        - Regular users see 0 (no pending items access)
+        """
+        # Base query: All pending, non-deleted items
         query = self.db.query(Item).filter(
             Item.status == ItemStatus.PENDING.value,
             Item.temporary_deletion == False
         )
         
-        total_pending = query.count()
-        
-        # #region agent log
-        try:
-            log_data = {
-                "sessionId": "debug-session",
-                "runId": "run1",
-                "hypothesisId": "E",
-                "location": "itemService.py:get_pending_items_count:base_query",
-                "message": "Base query count",
-                "data": {"total_pending": total_pending},
-                "timestamp": int(datetime.now().timestamp() * 1000)
-            }
-            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                f.write(json.dumps(log_data) + "\n")
-        except: pass
-        # #endregion
-        
-        # Check if user has full access - if so, return all pending items
+        # Security: Super admins bypass branch filtering
         is_admin = permissionServices.has_full_access(self.db, user_id)
-        
-        # #region agent log
-        try:
-            log_data = {
-                "sessionId": "debug-session",
-                "runId": "run1",
-                "hypothesisId": "A",
-                "location": "itemService.py:get_pending_items_count:admin_check",
-                "message": "Admin check result",
-                "data": {"is_admin": is_admin},
-                "timestamp": int(datetime.now().timestamp() * 1000)
-            }
-            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                f.write(json.dumps(log_data) + "\n")
-        except: pass
-        # #endregion
         
         if is_admin:
             logger.info(f"Super admin user {user_id} - returning all pending items count")
-            count = query.count()
-            # #region agent log
-            try:
-                log_data = {
-                    "sessionId": "debug-session",
-                    "runId": "run1",
-                    "hypothesisId": "A",
-                    "location": "itemService.py:get_pending_items_count:admin_return",
-                    "message": "Admin returning count",
-                    "data": {"count": count},
-                    "timestamp": int(datetime.now().timestamp() * 1000)
-                }
-                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                    f.write(json.dumps(log_data) + "\n")
-            except: pass
-            # #endregion
-            return count
+            return query.count()
         
-        # Check if user is a branch manager - branch managers see pending items in their managed branches
+        # Security: Branch managers see only items from their managed branches
         is_bm = is_branch_manager(user_id, self.db)
         
-        # #region agent log
-        try:
-            log_data = {
-                "sessionId": "debug-session",
-                "runId": "run1",
-                "hypothesisId": "A",
-                "location": "itemService.py:get_pending_items_count:branch_manager_check",
-                "message": "Branch manager check",
-                "data": {"is_branch_manager": is_bm},
-                "timestamp": int(datetime.now().timestamp() * 1000)
-            }
-            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                f.write(json.dumps(log_data) + "\n")
-        except: pass
-        # #endregion
-        
         if is_bm:
-            # Get user's managed branches
+            # Get user's managed branches and filter items by those branches
             from app.models import UserBranchManager, Address
             managed_branch_ids = [
                 row[0] for row in self.db.query(UserBranchManager.branch_id).filter(
@@ -1040,24 +971,8 @@ class ItemService:
                 ).all()
             ]
             
-            # #region agent log
-            try:
-                log_data = {
-                    "sessionId": "debug-session",
-                    "runId": "run1",
-                    "hypothesisId": "A",
-                    "location": "itemService.py:get_pending_items_count:managed_branches",
-                    "message": "Managed branches",
-                    "data": {"managed_branch_ids": managed_branch_ids, "count": len(managed_branch_ids)},
-                    "timestamp": int(datetime.now().timestamp() * 1000)
-                }
-                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                    f.write(json.dumps(log_data) + "\n")
-            except: pass
-            # #endregion
-            
             if managed_branch_ids:
-                # Get items in managed branches
+                # Get items in managed branches (only current addresses)
                 item_ids_in_branches = [
                     row[0] for row in self.db.query(Address.item_id).filter(
                         Address.branch_id.in_(managed_branch_ids),
@@ -1065,136 +980,28 @@ class ItemService:
                     ).distinct().all()
                 ]
                 
-                # #region agent log
-                try:
-                    log_data = {
-                        "sessionId": "debug-session",
-                        "runId": "run1",
-                        "hypothesisId": "A",
-                        "location": "itemService.py:get_pending_items_count:items_in_branches",
-                        "message": "Items in managed branches",
-                        "data": {"item_ids_count": len(item_ids_in_branches)},
-                        "timestamp": int(datetime.now().timestamp() * 1000)
-                    }
-                    with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                        f.write(json.dumps(log_data) + "\n")
-                except: pass
-                # #endregion
-                
                 if item_ids_in_branches:
-                    # Filter out None values
+                    # Filter out None values to prevent SQL errors
                     item_ids_in_branches = [item_id for item_id in item_ids_in_branches if item_id is not None]
                     if item_ids_in_branches:
-                        count = query.filter(Item.id.in_(item_ids_in_branches)).count()
-                        # #region agent log
-                        try:
-                            log_data = {
-                                "sessionId": "debug-session",
-                                "runId": "run1",
-                                "hypothesisId": "A",
-                                "location": "itemService.py:get_pending_items_count:branch_manager_return",
-                                "message": "Branch manager returning count",
-                                "data": {"count": count, "filtered_item_ids_count": len(item_ids_in_branches)},
-                                "timestamp": int(datetime.now().timestamp() * 1000)
-                            }
-                            with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                                f.write(json.dumps(log_data) + "\n")
-                        except: pass
-                        # #endregion
-                        return count
+                        return query.filter(Item.id.in_(item_ids_in_branches)).count()
             
-            # If no managed branches or no items in branches, return 0
-            # #region agent log
-            try:
-                log_data = {
-                    "sessionId": "debug-session",
-                    "runId": "run1",
-                    "hypothesisId": "A",
-                    "location": "itemService.py:get_pending_items_count:branch_manager_zero",
-                    "message": "Branch manager returning 0",
-                    "data": {},
-                    "timestamp": int(datetime.now().timestamp() * 1000)
-                }
-                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                    f.write(json.dumps(log_data) + "\n")
-            except: pass
-            # #endregion
+            # Branch manager with no managed branches or no items in branches
             return 0
         
-        # For regular users, get accessible items (own items + items in managed branches)
+        # Regular users: Get accessible items (own items + items in managed branches)
         try:
             accessible_items = get_user_accessible_items(user_id, self.db)
             
-            # #region agent log
-            try:
-                log_data = {
-                    "sessionId": "debug-session",
-                    "runId": "run1",
-                    "hypothesisId": "A",
-                    "location": "itemService.py:get_pending_items_count:accessible_items",
-                    "message": "Accessible items",
-                    "data": {"accessible_items_count": len(accessible_items) if accessible_items else 0},
-                    "timestamp": int(datetime.now().timestamp() * 1000)
-                }
-                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                    f.write(json.dumps(log_data) + "\n")
-            except: pass
-            # #endregion
-            
             if accessible_items:
-                # Filter out None values
+                # Filter out None values to prevent SQL errors
                 accessible_items = [item_id for item_id in accessible_items if item_id is not None]
                 if accessible_items:
-                    count = query.filter(Item.id.in_(accessible_items)).count()
-                    # #region agent log
-                    try:
-                        log_data = {
-                            "sessionId": "debug-session",
-                            "runId": "run1",
-                            "hypothesisId": "A",
-                            "location": "itemService.py:get_pending_items_count:regular_user_return",
-                            "message": "Regular user returning count",
-                            "data": {"count": count, "filtered_accessible_items_count": len(accessible_items)},
-                            "timestamp": int(datetime.now().timestamp() * 1000)
-                        }
-                        with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                            f.write(json.dumps(log_data) + "\n")
-                    except: pass
-                    # #endregion
-                    return count
-            # #region agent log
-            try:
-                log_data = {
-                    "sessionId": "debug-session",
-                    "runId": "run1",
-                    "hypothesisId": "A",
-                    "location": "itemService.py:get_pending_items_count:regular_user_zero",
-                    "message": "Regular user returning 0",
-                    "data": {},
-                    "timestamp": int(datetime.now().timestamp() * 1000)
-                }
-                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                    f.write(json.dumps(log_data) + "\n")
-            except: pass
-            # #endregion
+                    return query.filter(Item.id.in_(accessible_items)).count()
+            
             return 0
         except Exception as e:
             logger.error(f"Error getting pending items count for user {user_id}: {e}")
-            # #region agent log
-            try:
-                log_data = {
-                    "sessionId": "debug-session",
-                    "runId": "run1",
-                    "hypothesisId": "A",
-                    "location": "itemService.py:get_pending_items_count:error",
-                    "message": "Exception occurred",
-                    "data": {"error": str(e)},
-                    "timestamp": int(datetime.now().timestamp() * 1000)
-                }
-                with open("/Users/almardas/Desktop/customized-mfqod/.cursor/debug.log", "a") as f:
-                    f.write(json.dumps(log_data) + "\n")
-            except: pass
-            # #endregion
             return 0
     
     # =========================== 
@@ -1343,24 +1150,28 @@ class ItemService:
             raise
     
     def _filter_images_by_permission(self, item: Item, all_images: List, user_id: Optional[str] = None) -> List:
-        """Filter images based on is_hidden and user permissions"""
+        """Filter images based on is_hidden and user permissions
+        
+        Security: Hidden items' images are only visible to users with can_manage_items permission
+        This allows admins to hide sensitive images while preserving them in the database
+        """
         from app.schemas.item_schema import ImageResponse
         
-        # If item is not hidden, return all images
+        # Public items: All images are visible
         if not item.is_hidden:
             return all_images
         
-        # If item is hidden, check user permissions
+        # Hidden items: Check user permissions
         if user_id:
-            # Check if user has can_manage_items permission
+            # Security check: Only users with can_manage_items can see hidden item images
             has_permission = permissionServices.check_user_permission(
                 self.db, user_id, "can_manage_items"
             ) or permissionServices.has_full_access(self.db, user_id)
             
             if has_permission:
-                return all_images  # User with permission sees all images
+                return all_images
         
-        # User without permission and item is hidden - return empty list
+        # Security: Users without permission cannot see hidden item images
         return []
     
     def _item_to_detail_response(self, item: Item, user_id: Optional[str] = None) -> ItemDetailResponse:
