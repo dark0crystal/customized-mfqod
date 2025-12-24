@@ -78,8 +78,8 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [loadingLinks, setLoadingLinks] = useState<Set<string>>(new Set());
+  const [user, setUser] = useState<any>(null);
   const { userRole, hasAnyPermission, hasAllPermissions, isAuthenticated, permissions, isLoading: permissionsLoading, roleId } = usePermissions();
-  const user = getUserFromCookies();
   const { logout, isLoading: logoutLoading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -88,6 +88,70 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
   const { count: pendingMissingItemsCount } = usePendingMissingItemsCount();
   const { count: pendingTransferRequestsCount } = usePendingTransferRequestsCount();
   
+  const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
+
+  // Fetch fresh user data on mount and when pathname changes
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        // Get token from cookies
+        const getTokenFromCookies = (): string | null => {
+          if (typeof document === "undefined") return null;
+          const cookies = document.cookie.split(';');
+          for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'token' || name === 'access_token' || name === 'auth_token') {
+              return decodeURIComponent(value);
+            }
+          }
+          return null;
+        };
+
+        const token = getTokenFromCookies();
+        if (!token) {
+          // Fallback to cookie user if no token
+          setUser(getUserFromCookies());
+          return;
+        }
+
+        // Fetch fresh user data from API
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          // Build full name from components if name is missing
+          if (!data.name && (data.first_name || data.last_name)) {
+            const nameParts = [data.first_name, data.middle_name, data.last_name].filter(Boolean);
+            data.name = nameParts.join(' ').trim();
+          }
+          setUser(data);
+          // Update cookie with fresh data
+          if (typeof document !== 'undefined') {
+            const userCookie = `user=${encodeURIComponent(JSON.stringify(data))}; path=/; max-age=${7 * 24 * 60 * 60}`;
+            document.cookie = userCookie;
+          }
+        } else {
+          // Fallback to cookie user if API fails
+          setUser(getUserFromCookies());
+        }
+      } catch (error) {
+        console.error('Error fetching user for sidebar:', error);
+        // Fallback to cookie user on error
+        setUser(getUserFromCookies());
+      }
+    };
+
+    if (isAuthenticated) {
+      fetchUser();
+    }
+  }, [isAuthenticated, pathname]);
 
   // Clear loading states when pathname changes
   useEffect(() => {
@@ -552,7 +616,10 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
             {!isCollapsed && (
               <div className="flex-1">
                 <p className="text-sm font-medium text-gray-800">
-                  {user?.name || user?.first_name + ' ' + (user?.last_name || '') || user?.email || 'User'}
+                  {user?.name || 
+                   (user?.first_name && user?.last_name 
+                     ? `${user.first_name} ${user.middle_name || ''} ${user.last_name}`.trim()
+                     : user?.first_name || user?.email || 'User')}
                 </p>
                 <p className="text-xs text-gray-500 capitalize">{userRole}</p>
               </div>
