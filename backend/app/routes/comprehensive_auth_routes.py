@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 from typing import Dict, Any, Optional, List
+from datetime import datetime, timezone
 import logging
+import ldap
 
 from app.db.database import get_session
 from app.services.auth_service import AuthService
@@ -24,7 +26,8 @@ from app.schemas.auth_schemas import (
     ResetPasswordRequest,
     UserProfileUpdateRequest,
     SendOTPRequest,
-    VerifyOTPRequest
+    VerifyOTPRequest,
+    ADDiagnosticRequest
 )
 from app.models import User, LoginAttempt, UserSession, ADSyncLog
 
@@ -583,6 +586,159 @@ async def check_system_health(db: Session = Depends(get_session)):
             "status": "unhealthy",
             "error": str(e)
         }
+
+@router.post("/admin/diagnose-ad", dependencies=[Depends(auth_middleware.require_admin())])
+async def diagnose_ad(
+    request: ADDiagnosticRequest,
+    db: Session = Depends(get_session)
+):
+    """
+    Diagnostic endpoint to test AD connectivity and user lookup (admin only).
+    Provides detailed diagnostic information for troubleshooting authentication issues.
+    
+    - **username**: Optional username to test lookup and authentication
+    """
+    diagnostics = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "config": {
+            "server": ad_service.config.SERVER,
+            "port": ad_service.config.PORT,
+            "use_ssl": ad_service.config.USE_SSL,
+            "user_dn": ad_service.config.USER_DN,
+            "bind_user": ad_service.config.BIND_USER,
+            "search_filter": ad_service.config.USER_SEARCH_FILTER
+        },
+        "tests": {}
+    }
+    
+    # Test 1: Connection
+    diagnostics["tests"]["connection"] = {
+        "status": "pending",
+        "details": {}
+    }
+    try:
+        conn = ad_service._get_ldap_connection()
+        diagnostics["tests"]["connection"]["status"] = "success"
+        diagnostics["tests"]["connection"]["details"]["message"] = "Connection established"
+        conn.unbind_s()
+    except Exception as e:
+        diagnostics["tests"]["connection"]["status"] = "failed"
+        diagnostics["tests"]["connection"]["details"]["error"] = str(e)
+        diagnostics["tests"]["connection"]["details"]["message"] = "Failed to establish connection"
+    
+    # Test 2: Service Account Bind
+    diagnostics["tests"]["service_bind"] = {
+        "status": "pending",
+        "details": {}
+    }
+    conn = None
+    try:
+        conn = ad_service._get_ldap_connection()
+        conn.simple_bind_s(ad_service.config.BIND_USER, ad_service.config.BIND_PASSWORD)
+        diagnostics["tests"]["service_bind"]["status"] = "success"
+        diagnostics["tests"]["service_bind"]["details"]["message"] = "Service account bind successful"
+    except ldap.INVALID_CREDENTIALS:
+        diagnostics["tests"]["service_bind"]["status"] = "failed"
+        diagnostics["tests"]["service_bind"]["details"]["error"] = "Invalid service account credentials"
+    except Exception as e:
+        diagnostics["tests"]["service_bind"]["status"] = "failed"
+        diagnostics["tests"]["service_bind"]["details"]["error"] = str(e)
+    finally:
+        if conn:
+            try:
+                conn.unbind_s()
+            except:
+                pass
+    
+    # Test 3: User Search (if username provided)
+    username = request.username
+    if username:
+        diagnostics["tests"]["user_search"] = {
+            "status": "pending",
+            "username": username,
+            "details": {}
+        }
+        conn = None
+        try:
+            conn = ad_service._get_ldap_connection()
+            conn.simple_bind_s(ad_service.config.BIND_USER, ad_service.config.BIND_PASSWORD)
+            
+            # Try multiple search filters
+            search_filters = [
+                ad_service.config.USER_SEARCH_FILTER.format(username=username),
+                f"(&(objectClass=person)(uid={username}))",
+                f"(&(objectClass=person)(cn={username}))",
+            ]
+            
+            found = False
+            for search_filter in search_filters:
+                try:
+                    result = conn.search_s(
+                        ad_service.config.USER_DN,
+                        ldap.SCOPE_SUBTREE,
+                        search_filter,
+                        ["sAMAccountName", "uid", "cn", "mail", "displayName", "userAccountControl"]
+                    )
+                    if result:
+                        user_dn, user_attrs = result[0]
+                        diagnostics["tests"]["user_search"]["status"] = "success"
+                        diagnostics["tests"]["user_search"]["details"]["user_dn"] = user_dn
+                        diagnostics["tests"]["user_search"]["details"]["used_filter"] = search_filter
+                        
+                        # Extract user info
+                        def get_attr(attr_name):
+                            values = user_attrs.get(attr_name, [])
+                            if values:
+                                if isinstance(values[0], bytes):
+                                    return values[0].decode('utf-8')
+                                return str(values[0])
+                            return None
+                        
+                        diagnostics["tests"]["user_search"]["details"]["user_info"] = {
+                            "sAMAccountName": get_attr("sAMAccountName"),
+                            "uid": get_attr("uid"),
+                            "cn": get_attr("cn"),
+                            "mail": get_attr("mail"),
+                            "displayName": get_attr("displayName"),
+                            "userAccountControl": get_attr("userAccountControl")
+                        }
+                        
+                        # Check account status
+                        is_active = ad_service._is_account_active(user_attrs)
+                        diagnostics["tests"]["user_search"]["details"]["account_active"] = is_active
+                        
+                        found = True
+                        break
+                except Exception as e:
+                    diagnostics["tests"]["user_search"]["details"][f"filter_error_{search_filter}"] = str(e)
+                    continue
+            
+            if not found:
+                diagnostics["tests"]["user_search"]["status"] = "failed"
+                diagnostics["tests"]["user_search"]["details"]["error"] = f"User '{username}' not found with any search filter"
+                diagnostics["tests"]["user_search"]["details"]["tried_filters"] = search_filters
+                
+        except Exception as e:
+            diagnostics["tests"]["user_search"]["status"] = "failed"
+            diagnostics["tests"]["user_search"]["details"]["error"] = str(e)
+        finally:
+            if conn:
+                try:
+                    conn.unbind_s()
+                except:
+                    pass
+    
+    # Test 4: Health Check
+    try:
+        health = await ad_service.health_check()
+        diagnostics["tests"]["health_check"] = health
+    except Exception as e:
+        diagnostics["tests"]["health_check"] = {
+            "status": "failed",
+            "error": str(e)
+        }
+    
+    return diagnostics
 
 @router.put("/admin/users/{user_id}/toggle-active", dependencies=[Depends(auth_middleware.require_admin())])
 async def toggle_user_active(

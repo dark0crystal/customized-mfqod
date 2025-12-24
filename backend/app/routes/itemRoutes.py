@@ -1,10 +1,10 @@
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, Request
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, timezone
 from app.db.database import get_session
+from app.middleware.rate_limit_decorator import rate_limit_public, rate_limit_authenticated
 
-# Import dependencies (adjust import paths as needed)
 from app.services.itemService import ItemService
 from app.schemas.item_schema import (
     CreateItemRequest,
@@ -75,13 +75,10 @@ async def create_item(
 # Read Operations
 # ===========================
 
-@router.get("/public-test")
-async def get_public_test():
-    """Test endpoint with no authentication required"""
-    return {"message": "Public test endpoint works!", "status": "success"}
-
 @router.get("/public", response_model=ItemListResponse)
+@rate_limit_public()
 async def get_public_items(
+    request: Request,
     skip: int = Query(0, ge=0, description="Number of items to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of items to return"),
     item_type_id: Optional[str] = Query(None, description="Filter by item type"),
@@ -118,6 +115,7 @@ async def get_public_items(
         raise HTTPException(status_code=500, detail=f"Error retrieving public items: {str(e)}")
 
 @router.get("/", response_model=ItemListResponse)
+@rate_limit_authenticated()
 async def get_items(
     request: Request,
     skip: int = Query(0, ge=0, description="Number of items to skip"),
@@ -179,13 +177,12 @@ async def get_items(
             date_to=parsed_date_to
         )
         
-        # When approved_only is True or show_all is True, show all items (skip branch-based access control)
-        # This allows:
-        # - Public search page to display all approved items
-        # - Users to view all items when show_all=True
-        # Otherwise, apply branch-based access control for regular queries
-        # NOTE: We don't bypass branch filtering based on status - users should only see items they manage
-        # regardless of status when show_all=False
+        # Branch-based access control: Users can only see items from branches they manage
+        # Bypass this restriction when:
+        # - approved_only=True: Public search needs to show all approved items
+        # - show_all=True: Admin/privileged users explicitly requesting all items
+        # Otherwise, pass current_user.id to filter items by branch assignments
+        # Security: This prevents users from seeing items outside their branch scope
         user_id_for_access_control = None if (approved_only or show_all) else current_user.id
         import logging
         logger = logging.getLogger(__name__)
@@ -267,11 +264,9 @@ async def search_items(
             date_to=parsed_date_to
         )
         
-        # When approved_only is True or show_all is True, show all items (skip branch-based access control)
-        # This allows the public search page to display all approved items, or users to view all items
-        # Otherwise, apply branch-based access control for regular queries
-        # NOTE: We don't bypass branch filtering based on status - users should only see items they manage
-        # regardless of status when show_all=False
+        # Branch-based access control: Same logic as get_items endpoint
+        # Bypass branch filtering for public search (approved_only) or admin override (show_all)
+        # Security: Regular users only see items from their assigned branches
         user_id_for_access_control = None if (approved_only or show_all) else current_user.id
         
         items, total = item_service.search_items(q, filters, user_id_for_access_control)
@@ -302,9 +297,10 @@ async def get_user_items(
     Users can always view their own items. Viewing other users' items requires can_manage_items permission.
     """
     try:
-        # Check if user is viewing their own items
+        # Access control: Users can always view their own items
+        # Viewing other users' items requires can_manage_items permission
+        # This prevents unauthorized access to other users' data
         if user_id != current_user.id:
-            # User is trying to view another user's items - require permission
             from app.services import permissionServices
             if not permissionServices.has_full_access(db, current_user.id):
                 if not permissionServices.check_user_permission(db, current_user.id, "can_manage_items"):
@@ -418,8 +414,10 @@ async def get_pending_items_count(
         raise HTTPException(status_code=500, detail=f"Error retrieving pending items count: {str(e)}")
 
 @router.get("/public/{item_id}", response_model=ItemDetailResponse)
+@rate_limit_public()
 async def get_public_item(
     item_id: str,
+    request: Request,
     db: Session = Depends(get_session)
 ):
     """
@@ -508,9 +506,11 @@ async def patch_item(
     """
     Partially update an existing item with location history tracking
     Requires: can_manage_items permission
+    
+    Note: Changes to item location are tracked in audit log for compliance
     """
     try:
-        # Get request info for audit logging
+        # Capture request metadata for audit trail (IP, user agent, user ID)
         auth_service = AuthService()
         ip_address = auth_service._get_client_ip(request)
         user_agent = request.headers.get("user-agent", "")
@@ -641,8 +641,10 @@ async def approve_item(
 ):
     """
     Approve an item (change status from pending to approved)
-    Requires: item status must be 'pending' and item must have an approved claim
     Requires: can_manage_items permission
+    
+    Business rule: Item must be in 'pending' status and have an approved claim
+    This ensures items are only approved after a valid claim has been processed
     """
     try:
         # Get request info for audit logging
@@ -695,9 +697,12 @@ async def delete_item(
     """
     Delete an item (soft delete by default, permanent if specified)
     Requires: can_manage_items permission
+    
+    Soft delete: Sets temporary_deletion flag, item can be restored
+    Permanent delete: Removes item and all related data (images, claims, addresses)
     """
     try:
-        # Get request info for audit logging
+        # Capture request metadata for audit trail
         auth_service = AuthService()
         ip_address = auth_service._get_client_ip(request)
         user_agent = request.headers.get("user-agent", "")
@@ -755,6 +760,9 @@ async def bulk_delete_items(
     """
     Bulk delete multiple items
     Requires: can_manage_items permission
+    
+    Security: require_branch_access_for_bulk_operations ensures user can only
+    delete items from branches they manage, preventing unauthorized bulk operations
     """
     try:
         result = item_service.bulk_delete(request)
