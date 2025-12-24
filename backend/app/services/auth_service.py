@@ -44,37 +44,41 @@ class AuthService:
             ip_address = self._get_client_ip(request)
             user_agent = request.headers.get("user-agent", "")
             
-            # Check rate limiting
+            # Security: Rate limiting prevents brute force attacks
             await self._check_rate_limit(email_or_username, ip_address, db)
         
-            # Look up user in database FIRST
+            # Authentication routing: Database-first lookup determines user type
+            # Internal users authenticate via AD, external users use database passwords
             user = self._get_user_by_email_or_username(email_or_username, db)
         
             if user:
-                # User exists - use stored user_type to route authentication
+                # User exists: Route to appropriate authentication method based on user_type
                 if user.user_type == UserType.INTERNAL:
+                    # Internal users: Always authenticate against Active Directory
                     return await self._authenticate_internal_user(
                         email_or_username, password, ip_address, user_agent, db
                     )
                 else:
+                    # External users: Authenticate using database-stored password hash
                     return await self._authenticate_external_user(
                         email_or_username, password, ip_address, user_agent, db
                     )
             else:
-                # User doesn't exist - try AD authentication (for new internal users)
+                # User doesn't exist: Try AD authentication for new internal users
+                # This enables automatic user creation from AD on first login
                 username = email_or_username.split("@")[0] if "@" in email_or_username else email_or_username
                 
                 try:
                     is_authenticated, ad_user_data, error_detail = self.ad_service.authenticate_user(username, password)
                     
                     if is_authenticated:
-                        # Create new internal user from AD
+                        # Business logic: Auto-create internal user from AD on successful authentication
                         user = await self.ad_service.sync_user_from_ad(username, db)
                         if user:
                             await self._handle_successful_login(user, ip_address, user_agent, db)
                             return await self._generate_auth_response(user, ip_address, user_agent, db)
                     
-                    # AD failed - log detailed error but return generic message for security
+                    # Security: Log detailed error but return generic message to prevent user enumeration
                     failure_reason = error_detail or "Invalid credentials"
                     logger.warning(f"AD authentication failed for {email_or_username}: {failure_reason}")
                     await self._handle_failed_login(None, email_or_username, ip_address, 
@@ -112,15 +116,17 @@ class AuthService:
     async def _authenticate_internal_user(self, email_or_username: str, password: str,
                                         ip_address: str, user_agent: str, 
                                         db: Session) -> Dict[str, Any]:
-        """
-        Authenticate internal user via Active Directory.
-        Always verifies against AD, even if user exists in database, to ensure
-        user is still active and exists in AD.
+        """Authenticate internal user via Active Directory
+        
+        Security: Always verifies against AD, even if user exists in database
+        This ensures user is still active in AD and prevents stale account access
+        Account lockout is checked before AD authentication to prevent unnecessary AD calls
         """
         username = email_or_username.split("@")[0] if "@" in email_or_username else email_or_username
         
         try:
-            # Check account lockout first (if user exists in DB)
+            # Security: Check account lockout before attempting authentication
+            # Prevents brute force attacks and reduces unnecessary AD calls
             user = self._get_user_by_email_or_username(email_or_username, db)
             if user and self._is_account_locked(user):
                 self._log_login_attempt(user.id, email_or_username, ip_address, 
@@ -131,8 +137,8 @@ class AuthService:
                     detail=f"Account locked until {user.locked_until.isoformat()}"
                 )
             
-            # ALWAYS authenticate against AD first (even if user exists in DB)
-            # This ensures user still exists and is active in AD
+            # Security: Always authenticate against AD to verify user is still active
+            # This ensures database user records stay in sync with AD
             try:
                 is_authenticated, ad_user_data, error_detail = self.ad_service.authenticate_user(username, password)
             except HTTPException as e:
@@ -220,7 +226,8 @@ class AuthService:
                 detail="Invalid credentials"
             )
         
-        # Check account lockout
+        # Security: Check account lockout before password verification
+        # Prevents brute force attacks on locked accounts
         if self._is_account_locked(user):
             self._log_login_attempt(user.id, email_or_username, ip_address, 
                                   user_agent, LoginAttemptStatus.BLOCKED, 
@@ -230,7 +237,8 @@ class AuthService:
                 detail=f"Account locked until {user.locked_until.isoformat()}"
             )
         
-        # Verify password
+        # Security: Verify password using bcrypt hash comparison
+        # Timing-safe comparison prevents timing attacks
         if not user.password or not self._verify_password(password, user.password):
             await self._handle_failed_login(user, email_or_username, ip_address, 
                                           user_agent, "Invalid password", db)
@@ -239,7 +247,8 @@ class AuthService:
                 detail="Invalid credentials"
             )
         
-        # Check if account is active
+        # Business rule: Check if account is active before allowing login
+        # Deactivated accounts cannot authenticate even with correct password
         if not user.active:
             self._log_login_attempt(user.id, email_or_username, ip_address, 
                                   user_agent, LoginAttemptStatus.FAILED, 
@@ -267,7 +276,8 @@ class AuthService:
                 detail="User with this email or username already exists"
             )
         
-        # Validate password strength
+        # Security: Validate password strength before creating account
+        # Enforces password complexity requirements
         password = user_data.get('password')
         if not self._is_password_strong(password):
             raise HTTPException(
@@ -275,7 +285,8 @@ class AuthService:
                 detail=self._get_password_requirements()
             )
         
-        # Hash password
+        # Security: Hash password using bcrypt before storing
+        # Never store plaintext passwords
         hashed_password = self._hash_password(password)
         
         # Get default 'user' role

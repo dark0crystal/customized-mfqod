@@ -148,19 +148,20 @@ class ClaimService:
         if not claim:
             return False
         
-        # If claim is approved, no one can edit it (except admins for approval changes)
+        # Security: Approved claims cannot be edited (immutable once approved)
+        # This prevents changes to claims that have already been processed
         if claim.approval:
             return False
         
-        # Claim owner can always edit their own claim (if not approved)
+        # Business rule: Claim owners can edit their own unapproved claims
         if claim.user_id == user_id:
             return True
         
-        # Check if user has full access
+        # Security: Super admins can edit any claim
         if permissionServices.has_full_access(self.db, user_id):
             return True
         
-        # Check if user is a branch manager for the item's branch
+        # Security: Branch managers can edit claims for items in their managed branches
         if claim.item_id:
             if can_user_manage_item(user_id, claim.item_id, self.db):
                 return True
@@ -266,9 +267,9 @@ class ClaimService:
                         detail="You do not have permission to edit this claim. Claims cannot be edited once approved."
                     )
 
-            # Approval status changes are admin-only
+            # Security: Approval status changes are admin-only
+            # Business rule: Only users with full access or can_manage_claims permission can approve/reject claims
             if claim_update.approval is not None and user_id:
-                # Only users with full access or can_manage_claims permission can change approval status
                 if not permissionServices.has_full_access(self.db, user_id):
                     # Check if user has can_manage_claims permission
                     if not permissionServices.check_user_permission(self.db, user_id, "can_manage_claims"):
@@ -292,7 +293,8 @@ class ClaimService:
             self.db.commit()
             self.db.refresh(claim)
 
-            # Update item's claims count if approval status changed
+            # Business logic: Update item's claims count when approval status changes
+            # This keeps the cached count in sync with actual claim approvals
             if claim_update.approval is not None:
                 self._update_item_claims_count(claim.item_id)
 
@@ -367,19 +369,19 @@ class ClaimService:
                 detail="Claim is not associated with an item"
             )
         
-        # Check if item already has an approved claim
-        previous_approved_claim = None
-        if claim.item.approved_claim_id and claim.item.approved_claim_id != claim_id:
-            # Get the previous approved claim
-            previous_approved_claim = self.db.query(Claim).filter(
-                Claim.id == claim.item.approved_claim_id
-            ).first()
-            
-            if previous_approved_claim:
-                # Unapprove the previous claim
-                previous_approved_claim.approval = False
-                previous_approved_claim.updated_at = datetime.now(timezone.utc)
-                logger.info(f"Unapproved previous claim {previous_approved_claim.id} for item {claim.item.id}")
+            # Business rule: Only one claim can be approved per item at a time
+            # When approving a new claim, unapprove any previously approved claim
+            previous_approved_claim = None
+            if claim.item.approved_claim_id and claim.item.approved_claim_id != claim_id:
+                previous_approved_claim = self.db.query(Claim).filter(
+                    Claim.id == claim.item.approved_claim_id
+                ).first()
+                
+                if previous_approved_claim:
+                    # Unapprove the previous claim to maintain data consistency
+                    previous_approved_claim.approval = False
+                    previous_approved_claim.updated_at = datetime.now(timezone.utc)
+                    logger.info(f"Unapproved previous claim {previous_approved_claim.id} for item {claim.item.id}")
         
         # Update claim approval status
         claim = self.update_claim(claim_id, ClaimUpdate(approval=True))
@@ -389,19 +391,20 @@ class ClaimService:
             joinedload(Claim.item)
         ).filter(Claim.id == claim_id).first()
         
-        # Assign this claim to the item as the correct claim
+        # Business logic: Assign approved claim to item
+        # This links the approved claim to the item for tracking purposes
         if claim.item:
-            # Set the new claim as approved
             claim.item.approved_claim_id = claim.id
-            # Keep item status as pending (don't change to RECEIVED)
-            # Only change status if it's not already pending
+            # Business rule: Approval doesn't automatically change item status
+            # Item status remains pending until explicitly changed
             if claim.item.status != ItemStatus.PENDING.value:
                 claim.item.status = ItemStatus.PENDING.value
             claim.item.updated_at = datetime.now(timezone.utc)
             self.db.commit()
             logger.info(f"Claim {claim_id} assigned to item {claim.item.id}, status kept as PENDING")
         
-        # Send email notification to claimer
+        # Send async email notification to claimer about approval
+        # Non-blocking: Approval succeeds even if notification fails
         try:
             asyncio.create_task(self._send_claim_status_notification(
                 claim, "approved", custom_title, custom_description
@@ -472,17 +475,19 @@ class ClaimService:
             joinedload(Claim.item)
         ).filter(Claim.id == claim_id).first()
         
-        # If this claim was the assigned one, clear the assignment and reset status
+        # Business logic: If this claim was assigned to the item, clear assignment
+        # When rejecting an assigned claim, reset item status to pending
         if claim.item and claim.item.approved_claim_id == claim.id:
             claim.item.approved_claim_id = None
-            # Reset status to pending if it was approved
+            # Business rule: Rejecting an approved claim resets item status to pending
             if claim.item.status == ItemStatus.APPROVED.value:
                 claim.item.status = ItemStatus.PENDING.value
             claim.item.updated_at = datetime.now(timezone.utc)
             self.db.commit()
             logger.info(f"Claim {claim_id} unassigned from item {claim.item.id}, status reset to PENDING")
         
-        # Send email notification to claimer
+        # Send async email notification to claimer about rejection
+        # Non-blocking: Rejection succeeds even if notification fails
         try:
             asyncio.create_task(self._send_claim_status_notification(
                 claim, "pending", custom_title, custom_description
