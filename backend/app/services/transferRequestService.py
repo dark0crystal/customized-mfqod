@@ -44,14 +44,15 @@ class TransferRequestService:
                 detail="Destination branch not found"
             )
         
-        # Check if it's the same branch
+        # Business rule: Cannot transfer item to the same branch
         if from_branch_id == request_data.to_branch_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot transfer item to the same branch"
             )
         
-        # Check if there's already a pending request for this item
+        # Business rule: Only one pending transfer request per item at a time
+        # Prevents conflicting transfer requests
         existing_request = self.db.query(BranchTransferRequest).filter(
             and_(
                 BranchTransferRequest.item_id == request_data.item_id,
@@ -88,7 +89,8 @@ class TransferRequestService:
         query = self.db.query(BranchTransferRequest)
         
         if user_id:
-            # Get requests where user is the requester or manages the destination branch
+            # Access control: Users see transfer requests they created or manage destination branch
+            # Branch managers can see requests for items being transferred to their branches
             from app.models import UserBranchManager
             managed_branch_ids = [
                 row[0] for row in self.db.query(UserBranchManager.branch_id).filter(
@@ -97,6 +99,7 @@ class TransferRequestService:
             ]
             
             if managed_branch_ids:
+                # Show requests user created OR requests for branches they manage
                 query = query.filter(
                     or_(
                         BranchTransferRequest.requested_by == user_id,
@@ -104,6 +107,7 @@ class TransferRequestService:
                     )
                 )
             else:
+                # Regular users only see their own requests
                 query = query.filter(BranchTransferRequest.requested_by == user_id)
         
         if branch_id:
@@ -143,7 +147,8 @@ class TransferRequestService:
                 detail=f"Transfer request is already {transfer_request.status.value}"
             )
         
-        # Check if user manages the source branch - if so, they cannot approve
+        # Security: Prevent conflict of interest - source branch managers cannot approve
+        # This prevents branch managers from approving transfers from their own branches
         from app.models import UserBranchManager
         user_manages_source = self.db.query(UserBranchManager).filter(
             and_(
@@ -158,7 +163,8 @@ class TransferRequestService:
                 detail="You cannot approve a transfer request from a branch you manage"
             )
         
-        # Check if user manages the destination branch - they must manage it to approve
+        # Security: Only destination branch managers can approve transfers to their branches
+        # This ensures proper authorization for receiving items
         user_manages_destination = self.db.query(UserBranchManager).filter(
             and_(
                 UserBranchManager.user_id == approved_by_user_id,
@@ -172,14 +178,14 @@ class TransferRequestService:
                 detail="You can only approve transfer requests to branches you manage"
             )
         
-        # Update transfer request status
+        # Update transfer request status to approved
         transfer_request.status = TransferStatus.APPROVED
         transfer_request.approved_by = approved_by_user_id
         transfer_request.approved_at = datetime.now(timezone.utc)
         transfer_request.updated_at = datetime.now(timezone.utc)
         
-        # Update item location
-        # Mark current address as not current
+        # Business logic: Update item location when transfer is approved
+        # Mark old address as not current (preserves location history)
         self.db.query(Address).filter(
             and_(
                 Address.item_id == transfer_request.item_id,
@@ -187,7 +193,8 @@ class TransferRequestService:
             )
         ).update({Address.is_current: False})
         
-        # Create new address for the new branch
+        # Create new current address for destination branch
+        # This updates the item's current location
         new_address = Address(
             item_id=transfer_request.item_id,
             branch_id=transfer_request.to_branch_id,

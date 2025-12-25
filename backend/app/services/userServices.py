@@ -99,7 +99,8 @@ async def register_user(user: UserRegister, session: Session):
         from app.services.notification_service import send_welcome_email
         user_full_name = f"{new_user.first_name} {new_user.last_name}".strip()
         
-        # Send welcome email in background
+        # Send async welcome email notification
+        # Non-blocking: Registration succeeds even if email fails
         asyncio.create_task(
             send_welcome_email(
                 user_email=new_user.email,
@@ -317,7 +318,11 @@ async def update_user(user_id: str, user_update: UserUpdate, session: Session) -
     }
 
 async def delete_user(user_id: str, session: Session) -> Dict[str, Any]:
-    """Delete a user (soft delete by updating status)"""
+    """Delete a user (soft delete by updating status)
+    
+    Security: Soft delete preserves user data for audit trail and referential integrity
+    User contributions (items, claims) remain linked to the user account
+    """
     logger.info(f"Attempting to soft delete user: {user_id}")
     
     try:
@@ -328,14 +333,14 @@ async def delete_user(user_id: str, session: Session) -> Dict[str, Any]:
             logger.warning(f"User not found for soft delete: {user_id}")
             raise HTTPException(status_code=404, detail="User not found")
         
-        # Soft delete (update status to "deleted")
+        # Soft delete: Update status to "deleted" instead of removing record
+        # This preserves referential integrity and audit trail
         deleted_status = session.execute(
             select(UserStatus).where(UserStatus.name == "deleted")
         ).scalars().first()
         
         if not deleted_status:
             logger.info("Creating missing 'deleted' status")
-            # Create it if it doesn't exist
             deleted_status = UserStatus(name="deleted", description="User account is deleted")
             session.add(deleted_status)
             session.commit()
@@ -355,8 +360,11 @@ async def delete_user(user_id: str, session: Session) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
 
 async def permanently_delete_user(user_id: str, session: Session) -> Dict[str, Any]:
-    """
-    Permanently delete a user but preserve their contributions by anonymizing them.
+    """Permanently delete a user while preserving their contributions through anonymization
+    
+    GDPR Compliance: Anonymizes user data instead of deleting contributions
+    This maintains data integrity while removing personal information
+    Order matters: Anonymize relationships before deleting user record
     """
     statement = select(User).where(User.id == user_id)
     user = session.execute(statement).scalars().first()
@@ -365,39 +373,33 @@ async def permanently_delete_user(user_id: str, session: Session) -> Dict[str, A
         raise HTTPException(status_code=404, detail="User not found")
         
     try:
-        # 1. Anonymize Items (Posts)
-        # Set user_id to NULL for all items posted by this user
+        # 1. Anonymize Items: Set user_id to NULL to preserve items without user link
         for item in user.items:
             item.user_id = None
             
-        # 2. Anonymize Missing Items
-        # Set user_id to NULL for all missing items posted by this user
+        # 2. Anonymize Missing Items: Preserve missing item records
         for missing_item in user.missing_items:
             missing_item.user_id = None
             
-        # 3. Anonymize Claims
-        # Set user_id to NULL for all claims made by this user
+        # 3. Anonymize Claims: Preserve claim records for audit trail
         for claim in user.claims:
             claim.user_id = None
             
-        # 4. Remove from Managed Branches
-        # This relationship is handled via secondary table, clearing the list removes associations
+        # 4. Remove Branch Management Associations
+        # Clear managed branches relationship
         user.managed_branches = []
         
-        # 5. Delete Login Attempts
-        # These are less critical to preserve anonymously, so we can delete them
-        # Alternatively, we could set user_id to NULL if we wanted to keep the IP logs
+        # 5. Delete Login Attempts: Remove authentication logs
         for attempt in user.login_attempts:
             session.delete(attempt)
             
-        # 6. Delete User Sessions
-        # Find and delete any active sessions
+        # 6. Delete User Sessions: Invalidate all active sessions
         session_statement = select(UserSession).where(UserSession.user_id == user_id)
         user_sessions = session.execute(session_statement).scalars().all()
         for user_session in user_sessions:
             session.delete(user_session)
 
-        # 7. Delete the User record
+        # 7. Delete User Record: Finally remove user after anonymizing relationships
         session.delete(user)
         
         session.commit()
@@ -532,9 +534,13 @@ async def create_token_pair(user_id: str, email: str, role: str, role_id: str,
     }
 
 async def refresh_access_token(refresh_token: str, session: Session) -> Dict[str, str]:
-    """Generate new access token using refresh token"""
+    """Generate new access token using refresh token
+    
+    Security: Validates refresh token type and expiration before issuing new access token
+    This enables long-lived sessions without storing tokens on the server
+    """
     try:
-        # Verify refresh token
+        # Security: Verify refresh token is valid and of correct type
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         
         if payload.get("type") != "refresh_token":
@@ -571,7 +577,12 @@ async def refresh_access_token(refresh_token: str, session: Session) -> Dict[str
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 async def get_current_user_with_auto_refresh(token: str, session: Session) -> Tuple[Dict[str, Any], Optional[str]]:
-    """Get current user and optionally return new token if auto-refresh triggered"""
+    """Get current user and optionally return new token if auto-refresh triggered
+    
+    Business logic: Automatically refreshes token if expiration is within threshold
+    This provides seamless user experience without manual token refresh
+    Threshold: AUTO_REFRESH_THRESHOLD_MINUTES (default: 10 minutes)
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         
