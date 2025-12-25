@@ -19,6 +19,7 @@ from app.schemas.item_schema import (
     BulkUpdateRequest,
     BulkApprovalRequest,
     BulkStatusRequest,
+    DisposeItemRequest,
     ItemStatus
 )
 
@@ -657,6 +658,36 @@ async def approve_item(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error approving item: {str(e)}")
+
+@router.post("/{item_id}/dispose", response_model=ItemResponse)
+@require_permission("can_manage_items")
+async def dispose_item(
+    item_id: str,
+    request_body: DisposeItemRequest,
+    request: Request,
+    db: Session = Depends(get_session),
+    item_service: ItemService = Depends(get_item_service),
+    current_user: User = Depends(get_current_user_required),
+    _: None = Depends(require_branch_access())
+):
+    """
+    Dispose an item (change status to disposed with a note)
+    Requires: can_manage_items permission
+    
+    Business rule: Item status is changed to 'disposed' and a disposal note is saved
+    This is used when an item was not received and was disposed of
+    """
+    try:
+        # Get request info for audit logging
+        auth_service = AuthService()
+        ip_address = auth_service._get_client_ip(request)
+        user_agent = request.headers.get("user-agent", "")
+        item = item_service.dispose_item(item_id, request_body.disposal_note, current_user.id, ip_address, user_agent)
+        return item
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error disposing item: {str(e)}")
 
 @router.patch("/{item_id}/update-claims-count", response_model=ItemResponse)
 @require_permission("can_manage_claims")
