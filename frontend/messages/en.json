@@ -22,7 +22,9 @@
     "report": "Report",
     "reportBtn": "Found Something ?",
     "branchesInfo": "Branches Info",
+    "guides": "Guides",
     "login": "Login",
+    "logout": "Logout",
     "signout": "Sign Out"
   },
   "storage": {
@@ -68,6 +70,7 @@
     "main": "Main Page",
     "search": "Search Lost Items",
     "report": "Report Found Item",
+    "guides": "User Guides",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
     "dashboard": "Dashboard",
@@ -94,6 +97,91 @@
     "help": "We can help you",
     "foundSth": "Found something?",
     "helpOwner": "Help its owner"
+  },
+  "guides": {
+    "title": "User Guides",
+    "subtitle": "Learn how to use Mfqod to search for lost items, submit claims, and report missing items.",
+    "section1": {
+      "title": "Searching for Items",
+      "description": "The search page allows you to browse all found items that are waiting to be claimed. You can filter items by type and branch location to help you find what you're looking for.",
+      "image": "/guides/searching-items.jpg",
+      "imageAlt": "Searching for Items Guide",
+      "qa": {
+        "title": "Frequently Asked Questions",
+        "items": [
+          {
+            "question": "How do I search for a lost item?",
+            "answer": "Navigate to the Search page from the main navigation menu. You can browse all available found items or use the filters to narrow down your search by item type and branch location."
+          },
+          {
+            "question": "Can I filter items by location?",
+            "answer": "Yes, you can filter items by branch location using the filter options on the search page. This helps you find items that were found in specific locations."
+          },
+          {
+            "question": "What information is shown for each item?",
+            "answer": "Each item displays its title, description, location (branch), item type, and images if available. Click on an item to view more details."
+          },
+          {
+            "question": "Do I need to be logged in to search?",
+            "answer": "Yes, you need to be logged in to access the search page and view item details. If you're not logged in, you'll be redirected to the login page."
+          }
+        ]
+      }
+    },
+    "section2": {
+      "title": "Submitting a Claim",
+      "description": "If you find an item in the search results that matches your lost property, you can submit a claim. Provide detailed information to help verify that the item belongs to you.",
+      "image": "/guides/submitting-claim.jpg",
+      "imageAlt": "Submitting a Claim Guide",
+      "qa": {
+        "title": "Frequently Asked Questions",
+        "items": [
+          {
+            "question": "How do I submit a claim for an item?",
+            "answer": "When viewing an item's details, click the 'Submit Claim' button. Fill in the claim form with your contact information and details about why you believe this item belongs to you. Be as specific as possible to help verify your claim."
+          },
+          {
+            "question": "What information should I provide in my claim?",
+            "answer": "Provide your name, contact information, and a detailed description explaining why you believe the item is yours. Include any unique features, marks, or details that can help verify your ownership."
+          },
+          {
+            "question": "What happens after I submit a claim?",
+            "answer": "Your claim will be reviewed by the item owner or administrator. You'll receive notifications about the status of your claim. If approved, you can arrange to collect the item from the specified branch location."
+          },
+          {
+            "question": "Can I submit multiple claims?",
+            "answer": "Yes, you can submit claims for multiple items if you believe they match your lost property. Each claim will be reviewed independently."
+          }
+        ]
+      }
+    },
+    "section3": {
+      "title": "Reporting Missing Items",
+      "description": "If you've lost an item, you can report it as missing. This helps others identify your item if it's found and reported in the system.",
+      "image": "/guides/reporting-missing.jpg",
+      "imageAlt": "Reporting Missing Items Guide",
+      "qa": {
+        "title": "Frequently Asked Questions",
+        "items": [
+          {
+            "question": "How do I report a missing item?",
+            "answer": "After logging in, navigate to 'Report Missing Item' from the dashboard or navigation menu. Fill in all required fields including the item title, description, location where it was lost, and upload images if available."
+          },
+          {
+            "question": "What information is required when reporting a missing item?",
+            "answer": "You need to provide: item title, detailed description, the location where you lost it (branch), item type, and optionally upload images. The more details you provide, the better chance of matching it with found items."
+          },
+          {
+            "question": "Can I edit my missing item report?",
+            "answer": "Yes, you can edit your missing item reports from the Missing Items page in your dashboard. Find your report and click on it to view details, then use the 'Edit' button to make changes."
+          },
+          {
+            "question": "Will I be notified if someone finds my item?",
+            "answer": "Yes, if a found item matches your missing item report, you'll receive a notification. Administrators may also link found items to your missing item report."
+          }
+        ]
+      }
+    }
   },
   "report-found": {
     "title": "Report Something You Found",
@@ -124,7 +212,17 @@
     "unnamedUniversity": "Unnamed University",
     "unnamedBranch": "Unnamed Branch",
     "dragDropPlaceholder": "Click or drag images here to upload",
-    "dropImagesHere": "Drop images here"
+    "dropImagesHere": "Drop images here",
+    "hideImages": "Hide images from regular users",
+    "hideImagesDescription": "Only branch managers and admins will be able to see these images. This helps prevent false claims.",
+    "descriptionDisclaimer": "Please avoid mentioning too many details about the item to prevent false claims.",
+    "imageVisibility": "Image Visibility",
+    "show": "Show",
+    "hide": "Hide",
+    "note": "Thank you for helping return lost items to their owners.",
+    "internalDescription": "Special Description for Site Administrators (Optional)",
+    "placeholderInternalDescription": "Enter detailed internal information (visible only to administrators)",
+    "internalDescriptionDisclaimer": "This field is only visible to users with item management permissions"
   },
   "report-missing": {
     "title": "Report Something You Lost",
@@ -165,7 +263,7 @@
     "addressCreationFailed": "Address creation failed",
     "unexpectedError": "An unexpected error occurred",
     "unnamed": "Unnamed",
-    "unnamedOrganization": "Unnamed Organization",
+    "unnamedOrganization": "Unnamed University",
     "unnamedBranch": "Unnamed Branch",
     "dragDropPlaceholder": "Click or drag images here to upload",
     "dropImagesHere": "Drop images here",
@@ -179,7 +277,7 @@
       "typeRequired": "This field is required",
       "placeRequired": "Please select a place",
       "countryRequired": "Please select a country",
-      "organizationRequired": "Please select an organization",
+      "organizationRequired": "Please select a university",
       "itemTypeRequired": "Please select an item type",
       "branchRequired": "Please select a branch"
     }
@@ -265,11 +363,11 @@
     "emailUpdateNote": "Use the 'Save Changes' button to update this user's email address.",
     "userRoleLabel": "User Role",
     "mobileNumber": "Mobile Number",
-    "businessInformation": "Business Information",
+    "businessInformation": "Branch Management Information",
     "assignedBranches": "Assigned Branches",
     "noBranchesAssigned": "No branches assigned.",
     "remove": "Remove",
-    "organization": "Organization",
+    "organization": "University",
     "branch": "Branch",
     "selectBranch": "Select Branch",
     "assignBranch": "Assign Branch",
@@ -287,6 +385,8 @@
     "removeBranchAssignment": "Remove this branch assignment?",
     "branchAssignedSuccessfully": "Branch assigned successfully",
     "branchAssignmentRemoved": "Branch assignment removed",
+    "branchAssignmentPermissionDenied": "Cannot assign branch: This user does not have permission to be assigned as a branch manager.",
+    "failedToAssignBranch": "Failed to assign branch",
     "permanentDeleteWarning": "⚠️ WARNING: Permanently delete user? This CANNOT be undone.",
     "deactivateUserConfirm": "Deactivate (Soft Delete) user?",
     "accountStatus": "Account Status",
@@ -317,6 +417,8 @@
     "userSuccessfullyRemoved": "User successfully removed as branch manager!",
     "errorAssigning": "An error occurred while assigning branch manager",
     "errorRemoving": "An error occurred while removing branch manager",
+    "branchAssignmentPermissionDenied": "Cannot assign branch: This user does not have permission to be assigned as a branch manager.",
+    "failedToAssignBranch": "Failed to assign branch",
     "confirmRemove": "Are you sure you want to remove this user as branch manager?",
     "unnamedBranch": "Unnamed Branch",
     "unknownUniversity": "Unknown University"
@@ -344,8 +446,11 @@
       "reportFoundItem": "Report Found Item",
       "reportMissingItem": "Report Missing Item",
       "missingItems": "Missing Items",
+      "claims": "Claims",
       "transferRequests": "Transfer Requests",
+      "auditLogs": "Audit & Logs",
       "analytics": "Analytics",
+      "help": "How to Use",
       "adminPanel": "Admin Panel",
       "itemTypes": "Item Types",
       "manageUsers": "Manage Users",
@@ -378,8 +483,8 @@
       "adSync": "AD Sync Date"
     },
     "userReports": {
-      "myReports": "My Reports",
-      "reportsDescription": "View all your missing items, found items, and claims",
+      "myReports": "Reports",
+      "reportsDescription": "View all missing items, found items, and claims",
       "missingItems": "Missing Items",
       "foundItems": "Found Items",
       "claims": "Claims",
@@ -399,7 +504,8 @@
       "noFoundItemsDescription": "You haven't reported any found items yet.",
       "noClaims": "No claims",
       "noClaimsDescription": "You haven't made any claims yet.",
-      "edit": "Edit"
+      "edit": "Edit",
+      "cannotEditAssigned": "Cannot edit approved and assigned claim"
     },
     "analytics": {
       "title": "Analytics Dashboard",
@@ -426,7 +532,106 @@
       "metric": "Metric",
       "value": "Value",
       "category": "Category",
-      "count": "Count"
+      "count": "Count",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month",
+      "lastMonth": "Last Month"
+    },
+    "help": {
+      "title": "How to Use",
+      "subtitle": "Learn how to use the Mfqod platform effectively with these helpful guides.",
+      "section1": {
+        "title": "Getting Started",
+        "description": "Welcome to Mfqod! This guide will help you navigate the platform and make the most of its features.",
+        "image": "/guides/getting-started.jpg",
+        "imageAlt": "Getting Started Guide",
+        "qa": {
+          "title": "Frequently Asked Questions",
+          "items": [
+            {
+              "question": "How do I access the dashboard?",
+              "answer": "After logging in, you will be automatically redirected to the dashboard. You can also access it from the navigation menu at any time."
+            },
+            {
+              "question": "What permissions do I need to manage items?",
+              "answer": "You need the 'can_manage_items' permission to access item management features. Contact your administrator if you don't have this permission."
+            },
+            {
+              "question": "How do I navigate between different sections?",
+              "answer": "Use the sidebar navigation menu on the left to access different sections of the dashboard. Click on any menu item to navigate to that section."
+            }
+          ]
+        }
+      },
+      "section2": {
+        "title": "Reporting Items",
+        "description": "Learn how to report found items and missing items. Follow these steps to ensure your reports are complete and accurate.",
+        "image": "/guides/reporting-items.jpg",
+        "imageAlt": "Reporting Items Guide",
+        "qa": {
+          "title": "Frequently Asked Questions",
+          "items": [
+            {
+              "question": "How do I report a found item?",
+              "answer": "Navigate to 'Report Found Item' from the sidebar menu. Fill in all required fields including title, description, location, and upload images if available. Click 'Submit' to create your report."
+            },
+            {
+              "question": "What information is required when reporting?",
+              "answer": "You need to provide: item title, description, location (branch), item type, and at least one image. Additional details help increase the chances of returning the item to its owner."
+            },
+            {
+              "question": "Can I edit a report after submitting?",
+              "answer": "Yes, you can edit your reports from the Items page. Find your item and click on it to view details, then use the 'Edit' button to make changes."
+            }
+          ]
+        }
+      },
+      "section3": {
+        "title": "Managing Items",
+        "description": "Discover how to manage items, update their status, and handle claims efficiently.",
+        "image": "/guides/managing-items.jpg",
+        "imageAlt": "Managing Items Guide",
+        "qa": {
+          "title": "Frequently Asked Questions",
+          "items": [
+            {
+              "question": "How do I filter items by status?",
+              "answer": "Use the status filter buttons at the top of the Items page. You can filter by Pending, Approved, or Cancelled status. The default view shows pending items."
+            },
+            {
+              "question": "What does 'My Managed Items' mean?",
+              "answer": "'My Managed Items' shows only items from branches you manage. 'All Items' shows items from all branches in the system. Use the view mode toggle to switch between these views."
+            },
+            {
+              "question": "How do I approve or cancel an item?",
+              "answer": "Open the item details page and use the status dropdown to change the item status. Select 'Approved' to make it visible in search, or 'Cancelled' to remove it from active listings."
+            }
+          ]
+        }
+      },
+      "section4": {
+        "title": "Search and Claims",
+        "description": "Find out how to search for items and submit claims for items that match your lost property.",
+        "image": "/guides/search-claims.jpg",
+        "imageAlt": "Search and Claims Guide",
+        "qa": {
+          "title": "Frequently Asked Questions",
+          "items": [
+            {
+              "question": "How do I search for a lost item?",
+              "answer": "Use the search page accessible from the main navigation. Enter keywords related to your lost item, such as its type, color, or description. You can also filter by item type and branch location."
+            },
+            {
+              "question": "How do I submit a claim for an item?",
+              "answer": "When you find a matching item in search results, click on it to view details. If it matches your lost item, click the 'Submit Claim' button and provide verification details. The item owner will review your claim."
+            },
+            {
+              "question": "What happens after I submit a claim?",
+              "answer": "Your claim will be reviewed by the item owner or administrator. You'll receive notifications about the status of your claim. If approved, you can arrange to collect the item from the specified location."
+            }
+          ]
+        }
+      }
     },
     "items": {
       "title": "Items Management",
@@ -463,8 +668,7 @@
         "approved": "Approved",
         "cancelled": "Cancelled",
         "pending": "Pending",
-        "on_hold": "On Hold",
-        "received": "Received",
+        "disposed": "It was disposed of",
         "claims": "Claims"
       },
       "location": {
@@ -481,17 +685,16 @@
         "itemInformation": "Item Information",
         "title": "Title",
         "description": "Description",
+        "noDescription": "No description",
         "approvalStatus": "Approval Status",
         "approved": "Approved",
         "cancelled": "Cancelled",
-        "on_hold": "On Hold",
-        "received": "Received",
         "deletionStatus": "Deletion Status",
         "markedForDeletion": "Marked for Deletion",
         "active": "Active",
         "location": "Location",
         "noLocation": "No location specified",
-        "organization": "Organization",
+        "organization": "University",
         "branch": "Branch",
         "locationHistory": "Location History",
         "itemImages": "Item Images",
@@ -514,8 +717,7 @@
           "cancelled": "Cancelled",
           "approved": "Approved",
           "pending": "Pending",
-          "on_hold": "On Hold",
-          "received": "Received"
+          "disposed": "It was disposed of"
         },
         "pending": "Pending",
         "createdBy": "Created By",
@@ -546,6 +748,16 @@
         "transferRequestSubmitted": "Transfer request submitted successfully",
         "transferRequestFailed": "Failed to submit transfer request",
         "optional": "Optional",
+        "disposeItem": "Dispose Item",
+        "disposalNote": "Disposal Note",
+        "howWasDisposed": "How was this item disposed?",
+        "disposalNotePlaceholder": "Describe how the item was disposed...",
+        "uploadDisposalImages": "Upload Supportive Images",
+        "disposalImagesInfo": "Upload images that support the disposal (optional)",
+        "disposing": "Disposing...",
+        "disposeItemFailed": "Failed to dispose item. Please try again.",
+        "disposalNoteRequired": "Disposal note is required",
+        "disposeItemSuccess": "Item has been disposed successfully",
         "notes": "Notes",
         "noClaimsToApprove": "Cannot approve this post. There are no claims for this post. Please create a claim first before approving.",
         "save": "Save Changes",
@@ -559,7 +771,10 @@
         "noClaimsAvailable": "No claims available",
         "noClaimsMessage": "There are no claims for this post. Please create a claim first before approving.",
         "claimer": "Claimer:",
-        "confirm": "Confirm"
+        "confirm": "Confirm",
+        "type": "Type",
+        "email": "Email",
+        "viewDetails": "View Claim Details"
       }
     },
     "transferRequests": {
@@ -584,8 +799,40 @@
       "approvalFailed": "Failed to approve transfer request",
       "transferRejected": "Transfer request rejected",
       "rejectionFailed": "Failed to reject transfer request",
-      "confirmReject": "Are you sure you want to reject this transfer request?",
-      "noPermissionToApprove": "You don't manage this branch"
+      "notes": "Notes"
+    },
+    "auditLogs": {
+      "title": "Audit & Logs",
+      "description": "Track all system activities and changes made by users",
+      "searchPlaceholder": "Search logs, users, or actions...",
+      "refresh": "Refresh",
+      "filters": "Filters",
+      "loading": "Loading...",
+      "noLogs": "No audit logs found",
+      "timeAndUser": "Time & User",
+      "activity": "Activity",
+      "changes": "Changes",
+      "deviceAndLocation": "Device & Location",
+      "logDetails": "Log Details",
+      "entityTypes": {
+        "items": "Items",
+        "transferRequests": "Transfer Requests",
+        "missingItems": "Missing Items"
+      },
+      "actionTypes": {
+        "statusChanged": "Status Changed",
+        "deleted": "Deleted",
+        "restored": "Restored",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "created": "Created"
+      },
+      "connectionTypes": {
+        "cellular": "Cellular",
+        "3g": "3G",
+        "wifi": "WiFi",
+        "unknown": "Unknown"
+      }
     },
     "missingItems": {
       "title": "Missing Items Management",
@@ -661,7 +908,35 @@
         "approving": "Approving...",
         "assignAndApprove": "Assign & approve",
         "validationRequiredApproval": "Pending item and note are required.",
-        "failedToApprove": "Failed to approve missing item"
+        "failedToApprove": "Failed to approve missing item",
+        "untitled": "Untitled",
+        "unknownUser": "Unknown User",
+        "approved": "Approved",
+        "pending": "Pending",
+        "missingItemNumber": "Missing Item",
+        "missingItemInformation": "Missing Item Information",
+        "missingItemSummary": "Missing Item Summary",
+        "missingItemId": "Missing Item ID",
+        "image": "image",
+        "images": "images",
+        "title": "Title",
+        "description": "Description",
+        "noDescription": "No description",
+        "notAvailable": "Not Available",
+        "itemType": "Item Type",
+        "approvalStatus": "Approval Status",
+        "deletionStatus": "Deletion Status",
+        "markedForDeletion": "Marked for Deletion",
+        "active": "Active",
+        "lastUpdated": "Last Updated",
+        "createdBy": "Created By",
+        "createdOn": "Created on",
+        "item": "Item",
+        "note": "Note",
+        "itemStatus": "Item Status",
+        "selectNewStatus": "Select New Status",
+        "assignedItems": "Assigned Items",
+        "created": "Created"
       }
     },
     "claims": {
@@ -734,6 +1009,7 @@
       "emailSentSuccess": "Email sent successfully",
       "emailSendError": "Failed to send email",
       "sendingEmail": "Sending...",
+      "selectBranchRequired": "Please select a branch/office before sending the email",
       "generalOffice": "General Office",
       "characters": "characters",
       "noUserEmail": "User email not available"
@@ -876,6 +1152,7 @@
     "overviewMap": "Overview Map",
     "branchDetails": "Branch Details",
     "unknownUniversity": "Unknown University",
+    "unknownOrganization": "Unknown University",
     "createdOn": "Created on",
     "viewOnMap": "View on Map",
     "loadingMap": "Loading map...",
@@ -896,18 +1173,17 @@
     "descriptionLabel": "Description",
     "descriptionRequired": "Description is required",
     "descriptionPlaceholder": "Enter item description",
+    "itemTypeLabel": "Item Type",
+    "selectItemType": "Select Item Type",
     "approvalStatus": "Approval Status",
     "statusLabel": "Item Status",
     "approved": "Approved",
     "cancelled": "Cancelled",
-    "on_hold": "On Hold",
-    "received": "Received",
     "selectApprovalStatus": "Select approval status",
     "status": {
       "cancelled": "Cancelled",
       "approved": "Approved",
-      "on_hold": "On Hold",
-      "received": "Received"
+      "pending": "Pending"
     },
     "deletionStatus": "Deletion Status",
     "active": "Active",
@@ -925,7 +1201,31 @@
     "loadingBranches": "Loading branches...",
     "noBranchesAvailable": "No branches available",
     "updateItem": "Update Item",
-    "updating": "Updating..."
+    "updating": "Updating...",
+    "existingImages": "Existing Images",
+    "hidden": "Hidden",
+    "visible": "Visible",
+    "hideNewImages": "Hide new images from regular users",
+    "hideNewImagesDescription": "Only branch managers and admins will be able to see newly uploaded images.",
+    "imageVisibility": "Image Visibility",
+    "show": "Show",
+    "hide": "Hide",
+    "internalDescription": "Special Description for Site Administrators (Optional)",
+    "placeholderInternalDescription": "Enter detailed internal information (visible only to administrators)",
+    "internalDescriptionDisclaimer": "This field is only visible to users with item management permissions",
+    "confirmImageVisibilityChange": "Confirm Image Visibility Change",
+    "imageVisibilityChangeDescription": "Changing the image visibility will affect how newly uploaded images are displayed:",
+    "imageVisibilityShowDescription": "Images will be visible to all users including regular users.",
+    "imageVisibilityHideDescription": "Images will only be visible to branch managers and admins. Regular users will not be able to see these images.",
+    "saveChanges": "Save Changes",
+    "cancel": "Cancel",
+    "itemImages": "Item Images",
+    "uploadingImages": "Uploading images...",
+    "someImagesFailed": "Some images failed to upload",
+    "locationHistory": "Location History",
+    "deleteImage": "Delete Image",
+    "confirmDeleteImage": "Are you sure you want to delete this image?",
+    "deleteImageError": "Failed to delete image. Please try again."
   },
   "claims": {
     "title": "Claims",
@@ -944,7 +1244,13 @@
     "assigned": "Assigned",
     "approve": "Approve Claim",
     "reject": "Reject Claim",
-    "errorLoadingClaims": "Error fetching claims."
+    "errorLoadingClaims": "Error fetching claims.",
+    "noImagesAvailable": "No images available",
+    "imageNotFound": "Image not found",
+    "itemStatus": "Item Status",
+    "pending": "Pending",
+    "cancelled": "Cancelled",
+    "viewClaimDetails": "View Claim Details"
   },
   "locationTracking": {
     "title": "Location History",
@@ -1067,5 +1373,15 @@
     "hardDeleteTitle": "Permanently Delete User",
     "hardDeleteDescription": "The user account will be permanently removed. Their posts and claims will be kept but anonymized (unlinked). This action cannot be undone.",
     "deletePermanently": "Permanently Delete"
+  },
+  "common": {
+    "accessDenied": "Access Denied",
+    "accessDeniedDescription": "You don't have permission to access this page. Please contact your administrator if you believe this is an error.",
+    "goToDashboard": "Go to Dashboard",
+    "backToLogin": "Back to Login",
+    "insufficientPermissions": "Access denied. Insufficient permissions.",
+    "loadingPermissions": "Loading permissions...",
+    "noPermissionToReportMissingItems": "You don't have permission to report missing items.",
+    "noPermissionToManageUsers": "You don't have permission to manage users."
   }
 }
