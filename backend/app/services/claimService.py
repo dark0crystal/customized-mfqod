@@ -787,6 +787,7 @@ class ClaimService:
                         moderator_ids.add(user.id)
             
             # Get branch managers for the item's branch(es)
+            from app.models import Branch
             item_branches = self.db.query(Address.branch_id).filter(
                 Address.item_id == claim_with_details.item.id,
                 Address.is_current == True
@@ -794,9 +795,17 @@ class ClaimService:
             
             branch_manager_ids = set()
             branch_managers = []
+            branch_phone1 = None
+            branch_phone2 = None
             if item_branches:
                 branch_ids = [branch[0] for branch in item_branches if branch[0]]
                 if branch_ids:
+                    # Get the first branch for phone numbers (if multiple branches, use first one)
+                    first_branch = self.db.query(Branch).filter(Branch.id == branch_ids[0]).first()
+                    if first_branch:
+                        branch_phone1 = first_branch.phone1
+                        branch_phone2 = first_branch.phone2
+                    
                     # Get branch managers for these branches
                     branch_managers_query = self.db.query(User).join(
                         UserBranchManager, User.id == UserBranchManager.user_id
@@ -832,7 +841,9 @@ class ClaimService:
                 claimer_name=f"{claim_with_details.user.first_name} {claim_with_details.user.last_name}",
                 claimer_email=claim_with_details.user.email,
                 claim_url=claim_url,
-                item_url=item_url
+                item_url=item_url,
+                branch_phone1=branch_phone1,
+                branch_phone2=branch_phone2
             )
             
             logger.info(f"New claim notification sent to {len(recipient_emails)} recipients ({len(moderators)} moderators, {len(branch_managers)} branch managers)")

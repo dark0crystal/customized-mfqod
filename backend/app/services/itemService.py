@@ -7,7 +7,7 @@ import asyncio
 import logging
 
 # Import Models
-from app.models import Item, ItemType as ItemTypeModel, User, Claim, Address, Branch, Organization, Image, ItemStatus
+from app.models import Item, ItemType as ItemTypeModel, User, Claim, Address, Branch, Organization, Image, ItemStatus, MissingItem, MissingItemFoundItem
 from app.schemas.item_schema import (
     CreateItemRequest, 
     UpdateItemRequest, 
@@ -17,7 +17,10 @@ from app.schemas.item_schema import (
     BulkApprovalRequest,
     LocationResponse,
     ItemResponse,
-    ItemDetailResponse
+    ItemDetailResponse,
+    ItemExportResponse,
+    ClaimExportResponse,
+    MissingItemExportResponse
 )
 from app.services.notification_service import send_new_item_alert
 from app.middleware.branch_auth_middleware import get_user_accessible_items, is_branch_manager
@@ -458,6 +461,44 @@ class ItemService:
         
         return self._item_to_response(item)
     
+    def dispose_item(self, item_id: str, disposal_note: str, user_id: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> ItemResponse:
+        """Dispose an item (change status to disposed with a note)
+        Requires: item must exist
+        """
+        item = self.get_item_by_id(item_id)
+        if not item:
+            raise ValueError("Item not found")
+        
+        old_status = item.status
+        
+        # Change status to disposed and save disposal note
+        item.status = ItemStatus.DISPOSED.value
+        item.disposal_note = disposal_note
+        item.updated_at = datetime.now(timezone.utc)
+        
+        self.db.commit()
+        self.db.refresh(item)
+        
+        # Log the status change if user_id is provided
+        if user_id:
+            try:
+                from app.services.auditLogService import AuditLogService
+                audit_service = AuditLogService(self.db)
+                audit_service.create_item_status_change_log(
+                    item_id=item_id,
+                    old_status=old_status,
+                    new_status=item.status,
+                    user_id=user_id,
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+            except Exception as e:
+                logger.error(f"Failed to create audit log for item disposal: {e}")
+        
+        logger.info(f"Item {item_id} disposed (status changed to disposed)")
+        
+        return self._item_to_response(item)
+    
     def approve_item(self, item_id: str, user_id: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> ItemResponse:
         """Approve an item (change status from pending to approved)
         Requires: item status must be 'pending' and item must have an approved claim
@@ -561,7 +602,7 @@ class ItemService:
         if 'status' in update_data:
             status_value = update_data['status']
             # Validate status value
-            if status_value in [ItemStatus.PENDING.value, ItemStatus.APPROVED.value, ItemStatus.CANCELLED.value]:
+            if status_value in [ItemStatus.PENDING.value, ItemStatus.APPROVED.value, ItemStatus.CANCELLED.value, ItemStatus.DISPOSED.value]:
                 item.status = status_value
                 # Update the associated claim's approval status to False when changing from approved to pending
                 if old_status == ItemStatus.APPROVED.value and status_value == ItemStatus.PENDING.value:
@@ -579,6 +620,10 @@ class ItemService:
         # Handle temporary_deletion
         if 'temporary_deletion' in update_data:
             item.temporary_deletion = update_data['temporary_deletion']
+        
+        # Handle disposal_note
+        if 'disposal_note' in update_data:
+            item.disposal_note = update_data['disposal_note']
         
         # Handle approved_claim_id
         if 'approved_claim_id' in update_data:
@@ -927,6 +972,7 @@ class ItemService:
         approved_items = base_query.filter(Item.status == ItemStatus.APPROVED.value).count()
         pending_items = base_query.filter(Item.status == ItemStatus.PENDING.value).count()
         cancelled_items = base_query.filter(Item.status == ItemStatus.CANCELLED.value).count()
+        disposed_items = base_query.filter(Item.status == ItemStatus.DISPOSED.value).count()
         deleted_items = query.filter(Item.temporary_deletion == True).count()
         
         return {
@@ -935,6 +981,7 @@ class ItemService:
             "approved_items": approved_items,
             "pending_items": pending_items,
             "cancelled_items": cancelled_items,
+            "disposed_items": disposed_items,
             "deleted_items": deleted_items
         }
     
@@ -1139,6 +1186,7 @@ class ItemService:
                 status=item.status if item.status else ItemStatus.PENDING.value,
                 is_hidden=item.is_hidden if item.is_hidden is not None else False,
                 approved_claim_id=str(item.approved_claim_id) if item.approved_claim_id else None,
+                disposal_note=item.disposal_note,
                 item_type_id=str(item.item_type_id) if item.item_type_id else None,
                 user_id=str(item.user_id) if item.user_id else None,
                 created_at=item.created_at,
@@ -1225,6 +1273,7 @@ class ItemService:
             status=item.status if item.status else ItemStatus.PENDING.value,
             is_hidden=item.is_hidden if item.is_hidden is not None else False,
             approved_claim_id=item.approved_claim_id,
+            disposal_note=item.disposal_note,
             item_type_id=item.item_type_id,
             user_id=item.user_id,
             created_at=item.created_at,
@@ -1290,3 +1339,124 @@ class ItemService:
         except Exception as e:
             # Log but don't raise - item creation should still succeed
             pass
+    
+    def get_item_export_data(self, item_id: str, include_deleted: bool = False) -> Optional[ItemExportResponse]:
+        """Get complete item data for PDF export including reporter, approved claim, and connected missing items"""
+        # Get item with all relationships loaded
+        query = self.db.query(Item).options(
+            joinedload(Item.item_type),
+            joinedload(Item.user),
+            joinedload(Item.addresses).joinedload(Address.branch).joinedload(Branch.organization),
+            joinedload(Item.missing_item_links).joinedload(MissingItemFoundItem.missing_item).joinedload(MissingItem.item_type),
+            joinedload(Item.missing_item_links).joinedload(MissingItemFoundItem.missing_item).joinedload(MissingItem.user),
+            joinedload(Item.approved_claim).joinedload(Claim.user)
+        ).filter(Item.id == item_id)
+        
+        if not include_deleted:
+            query = query.filter(Item.temporary_deletion == False)
+        
+        item = query.first()
+        
+        if not item:
+            return None
+        
+        # Build location info
+        location = self._build_location_info(item)
+        
+        # Get item type
+        item_type = None
+        if item.item_type:
+            item_type = {
+                "id": item.item_type.id,
+                "name_ar": item.item_type.name_ar,
+                "name_en": item.item_type.name_en,
+                "description_ar": item.item_type.description_ar,
+                "description_en": item.item_type.description_en,
+                "created_at": item.item_type.created_at,
+                "updated_at": item.item_type.updated_at
+            }
+        
+        # Get reporter information
+        reporter = None
+        if item.user:
+            reporter = {
+                "id": item.user.id,
+                "email": item.user.email,
+                "first_name": item.user.first_name,
+                "last_name": item.user.last_name
+            }
+        
+        # Get approved claim if exists
+        approved_claim = None
+        if item.approved_claim_id and item.approved_claim:
+            claim = item.approved_claim
+            user_name = None
+            user_email = None
+            if claim.user:
+                user_name = f"{claim.user.first_name or ''} {claim.user.last_name or ''}".strip() or None
+                user_email = claim.user.email
+            
+            approved_claim = {
+                "id": claim.id,
+                "title": claim.title,
+                "description": claim.description,
+                "approval": claim.approval,
+                "created_at": claim.created_at,
+                "updated_at": claim.updated_at,
+                "user_name": user_name,
+                "user_email": user_email
+            }
+        
+        # Get connected missing items
+        connected_missing_items = []
+        if item.missing_item_links:
+            for link in item.missing_item_links:
+                missing_item = link.missing_item
+                if missing_item:
+                    # Get item type for missing item
+                    missing_item_type = None
+                    if missing_item.item_type:
+                        missing_item_type = {
+                            "id": missing_item.item_type.id,
+                            "name_ar": missing_item.item_type.name_ar,
+                            "name_en": missing_item.item_type.name_en,
+                            "description_ar": missing_item.item_type.description_ar,
+                            "description_en": missing_item.item_type.description_en,
+                            "created_at": missing_item.item_type.created_at,
+                            "updated_at": missing_item.item_type.updated_at
+                        }
+                    
+                    # Get reporter for missing item
+                    missing_item_user_name = None
+                    missing_item_user_email = None
+                    if missing_item.user:
+                        missing_item_user_name = f"{missing_item.user.first_name or ''} {missing_item.user.last_name or ''}".strip() or None
+                        missing_item_user_email = missing_item.user.email
+                    
+                    connected_missing_items.append({
+                        "id": missing_item.id,
+                        "title": missing_item.title,
+                        "description": missing_item.description,
+                        "status": missing_item.status,
+                        "created_at": missing_item.created_at,
+                        "updated_at": missing_item.updated_at,
+                        "item_type": missing_item_type,
+                        "user_name": missing_item_user_name,
+                        "user_email": missing_item_user_email
+                    })
+        
+        return ItemExportResponse(
+            id=item.id,
+            title=item.title,
+            description=item.description,
+            internal_description=item.internal_description,
+            status=item.status if item.status else ItemStatus.PENDING.value,
+            item_type=item_type,
+            location=location,
+            created_at=item.created_at,
+            updated_at=item.updated_at,
+            disposal_note=item.disposal_note,
+            reporter=reporter,
+            approved_claim=approved_claim,
+            connected_missing_items=connected_missing_items
+        )
