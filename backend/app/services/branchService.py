@@ -3,6 +3,7 @@ from sqlalchemy import and_
 from typing import List, Optional
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
+import re
 
 from app.models import Branch, Organization, Address, Item, User, UserBranchManager  
 from app.schemas.branch_schemas import BranchCreate, BranchUpdate, AddressCreate, AddressUpdate
@@ -11,6 +12,26 @@ from app.schemas.branch_schemas import BranchCreate, BranchUpdate, AddressCreate
 class BranchService:
     def __init__(self, db: Session):
         self.db = db
+    
+    def _validate_phone_numbers(self, phone1: Optional[str], phone2: Optional[str]) -> None:
+        """Validate phone numbers: must be exactly 8 digits if provided"""
+        phone_numbers = [p for p in [phone1, phone2] if p is not None and p.strip()]
+        
+        # Check maximum 2 phone numbers
+        if len(phone_numbers) > 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Maximum 2 phone numbers allowed"
+            )
+        
+        # Validate each phone number
+        for phone in phone_numbers:
+            phone = phone.strip()
+            if not re.match(r'^\d{8}$', phone):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Phone number must be exactly 8 digits"
+                )
 
     def create_branch(self, branch_data: BranchCreate) -> Branch:
         """Create a new branch"""
@@ -49,6 +70,9 @@ class BranchService:
                 detail="Branch name already exists for this organization"
             )
         
+        # Validate phone numbers
+        self._validate_phone_numbers(branch_data.phone1, branch_data.phone2)
+        
         db_branch = Branch(
             branch_name_ar=branch_data.branch_name_ar,
             branch_name_en=branch_data.branch_name_en,
@@ -56,6 +80,8 @@ class BranchService:
             description_en=branch_data.description_en,
             longitude=branch_data.longitude,
             latitude=branch_data.latitude,
+            phone1=branch_data.phone1.strip() if branch_data.phone1 else None,
+            phone2=branch_data.phone2.strip() if branch_data.phone2 else None,
             organization_id=branch_data.organization_id
         )
         
@@ -130,8 +156,18 @@ class BranchService:
                 detail="Branch name already exists for this organization"
             )
         
+        # Validate phone numbers if provided
+        phone1 = update_data.get('phone1', db_branch.phone1)
+        phone2 = update_data.get('phone2', db_branch.phone2)
+        if 'phone1' in update_data or 'phone2' in update_data:
+            self._validate_phone_numbers(phone1, phone2)
+        
         for field, value in update_data.items():
-            setattr(db_branch, field, value)
+            if field in ['phone1', 'phone2'] and value:
+                # Strip whitespace from phone numbers
+                setattr(db_branch, field, value.strip())
+            else:
+                setattr(db_branch, field, value)
         
         db_branch.updated_at = datetime.now(timezone.utc)
         
@@ -203,7 +239,8 @@ class BranchService:
                 detail="User not found"
             )
         
-        # Check if user has permission to be a branch manager
+        # Security: Check if user has permission to be a branch manager
+        # Branch managers have elevated access to items in their managed branches
         from app.services import permissionServices
         if not permissionServices.check_user_permission(self.db, user_id, "can_be_branch_manager"):
             raise HTTPException(
@@ -211,7 +248,8 @@ class BranchService:
                 detail="User does not have permission to be assigned as a branch manager"
             )
         
-        # Check if assignment already exists
+        # Business rule: Prevent duplicate branch manager assignments
+        # Each user can only be assigned once per branch
         existing_assignment = self.db.query(UserBranchManager).filter(
             and_(
                 UserBranchManager.user_id == user_id,
@@ -225,7 +263,8 @@ class BranchService:
                 detail="User is already assigned as manager for this branch"
             )
         
-        # Create new assignment
+        # Create branch manager assignment
+        # This grants user access to manage items in this branch
         assignment = UserBranchManager(
             user_id=user_id,
             branch_id=branch_id

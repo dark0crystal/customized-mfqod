@@ -19,6 +19,7 @@ class ItemStatus(str, Enum):
     CANCELLED = "cancelled"
     APPROVED = "approved"
     PENDING = "pending"
+    DISPOSED = "disposed"
 
 # =========================== 
 # Request Schemas
@@ -27,6 +28,7 @@ class ItemStatus(str, Enum):
 class CreateItemRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=255, description="Item title")
     description: str = Field(..., min_length=1, description="Item description/content")
+    internal_description: Optional[str] = Field(None, description="Internal detailed description (visible only to users with can_manage_items permission)")
     user_id: str = Field(..., description="ID of the user creating the item")
     item_type_id: Optional[str] = Field(None, description="ID of the item type")
     status: ItemStatus = Field(default=ItemStatus.PENDING, description="Item status")
@@ -48,6 +50,7 @@ class CreateItemRequest(BaseModel):
 class UpdateItemRequest(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255, description="Item title")
     description: Optional[str] = Field(None, min_length=1, description="Item description/content")
+    internal_description: Optional[str] = Field(None, description="Internal detailed description (visible only to users with can_manage_items permission)")
     item_type_id: Optional[str] = Field(None, description="ID of the item type")
     status: Optional[ItemStatus] = Field(None, description="Item status")
     temporary_deletion: Optional[bool] = Field(None, description="Whether the item is marked for deletion")
@@ -146,11 +149,13 @@ class ItemResponse(BaseModel):
     id: str
     title: str
     description: str
+    internal_description: Optional[str] = None
     claims_count: int
     temporary_deletion: bool
     status: str
     is_hidden: bool = False
     approved_claim_id: Optional[str] = None
+    disposal_note: Optional[str] = None
     item_type_id: Optional[str]
     user_id: Optional[str]
     created_at: datetime
@@ -207,3 +212,6 @@ class BulkApprovalRequest(BaseModel):
 class BulkStatusRequest(BaseModel):
     item_ids: List[str] = Field(..., min_items=1, max_items=100)
     status: ItemStatus = Field(..., description="Status to set for all items")
+
+class DisposeItemRequest(BaseModel):
+    disposal_note: str = Field(..., min_length=1, description="Note describing how the item was disposed")
