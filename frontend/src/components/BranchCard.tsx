@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Building, MapPin, Clock } from 'lucide-react';
+import { Building, MapPin, Clock, Phone } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { formatDateWithLocale } from '@/utils/dateFormatter';
 
@@ -13,6 +13,8 @@ interface Branch {
   description_en?: string;
   longitude?: number;
   latitude?: number;
+  phone1?: string;
+  phone2?: string;
   organization_id: string;
   created_at: string;
   updated_at: string;
@@ -99,6 +101,28 @@ export default function BranchCard({ branch, organization }: BranchCardProps) {
 
         {/* Location Info */}
         <div className="space-y-3">
+          {/* Phone Numbers */}
+          {(branch.phone1 || branch.phone2) && (
+            <div className="space-y-2">
+              {branch.phone1 && (
+                <div className="flex items-center space-x-3 text-sm text-gray-600">
+                  <Phone className="w-4 h-4 text-gray-400" />
+                  <a href={`tel:${branch.phone1}`} className="hover:text-[#3277AE] transition-colors">
+                    {branch.phone1}
+                  </a>
+                </div>
+              )}
+              {branch.phone2 && (
+                <div className="flex items-center space-x-3 text-sm text-gray-600">
+                  <Phone className="w-4 h-4 text-gray-400" />
+                  <a href={`tel:${branch.phone2}`} className="hover:text-[#3277AE] transition-colors">
+                    {branch.phone2}
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Coordinates */}
           {branch.latitude && branch.longitude && (
             <div className="flex items-center space-x-3 text-sm text-gray-600">

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
-import { Mail, MapPin, ArrowRight } from "lucide-react";
+import React, { useState, useEffect, useMemo, use } from "react";
+import { Mail, MapPin, ArrowRight, Download } from "lucide-react";
 import Claims from "./Claims";
 import EditPost from "./EditPost";
 import LocationTracking from "@/components/LocationTracking";
@@ -15,6 +15,9 @@ import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
 import { formatDate } from '@/utils/dateFormatter';
 import { Trash2 } from 'lucide-react';
 import { imageUploadService } from '@/services/imageUploadService';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { format } from 'date-fns';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -167,6 +170,10 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const router = useRouter();
   const t = useTranslations('dashboard.items.detail');
   const tEdit = useTranslations('editPost');
+  const tNavbar = useTranslations('navbar');
+  const tAnalytics = useTranslations('dashboard.analytics');
+  const tItems = useTranslations('dashboard.items');
+  const tMissingItems = useTranslations('dashboard.missingItems.detail');
   const locale = useLocale();
   const { hasPermission } = usePermissions();
   const canManageItems = hasPermission('can_manage_items');
@@ -200,6 +207,18 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const [disposalImages, setDisposalImages] = useState<File[]>([]);
   const [disposalError, setDisposalError] = useState<string | null>(null);
   const [isDisposing, setIsDisposing] = useState(false);
+  
+  // Create object URLs for image previews
+  const disposalImageUrls = useMemo(() => {
+    return disposalImages.map(file => URL.createObjectURL(file));
+  }, [disposalImages]);
+  
+  // Cleanup object URLs on unmount or when images change
+  useEffect(() => {
+    return () => {
+      disposalImageUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [disposalImageUrls]);
 
   // Helper to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -716,6 +735,240 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   // Shortened item ID for display (first 8 characters)
   const shortItemId = item.id.substring(0, 8).toUpperCase();
 
+  // Export item to PDF
+  const exportItemToPDF = async () => {
+    if (!item) return;
+
+    try {
+      // Fetch export data from backend
+      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}/export-data`, {
+        headers: getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch export data');
+      }
+
+      const exportData = await response.json();
+
+      // Create a temporary HTML element with the export data
+      const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.top = '-9999px';
+      tempDiv.style.width = '800px';
+      tempDiv.style.backgroundColor = 'white';
+      tempDiv.style.padding = '20px';
+      tempDiv.style.fontFamily = locale === 'ar' ? 'Arial, sans-serif' : 'Arial, sans-serif';
+      tempDiv.style.direction = locale === 'ar' ? 'rtl' : 'ltr';
+
+      // Build HTML content
+      const brandName = tNavbar('brand-duplicate') || 'MFQOD';
+      const documentTitle = t('itemInformation') || 'ITEM INFORMATION REPORT';
+      const itemId = exportData.id.substring(0, 8).toUpperCase();
+      const createdDate = format(new Date(exportData.created_at), 'MMMM dd, yyyy');
+      const updatedDate = format(new Date(exportData.updated_at), 'MMMM dd, yyyy');
+      
+      const htmlContent = `
+        <!-- Header Section -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; padding-bottom: 15px; border-bottom: 2px solid #3277AE;">
+          <div style="text-align: ${locale === 'ar' ? 'right' : 'left'};">
+            <h1 style="font-size: 32px; margin: 0; color: #3277AE; font-weight: bold;">${brandName}</h1>
+          </div>
+          <div style="text-align: ${locale === 'ar' ? 'left' : 'right'};">
+            <h1 style="font-size: 24px; margin: 0 0 10px 0; color: #3277AE; font-weight: bold;">${documentTitle}</h1>
+            <p style="font-size: 12px; margin: 5px 0; color: #333;">${t('itemId') || 'Item ID'}: ${itemId}</p>
+            <p style="font-size: 12px; margin: 5px 0; color: #333;">${t('created') || 'Created'}: ${createdDate}</p>
+            <p style="font-size: 12px; margin: 5px 0; color: #333;">${t('lastUpdated') || 'Last Updated'}: ${updatedDate}</p>
+          </div>
+        </div>
+        
+        <!-- Two Column Address Section -->
+        <div style="display: flex; justify-content: space-between; margin-bottom: 30px; gap: 20px;">
+          <!-- Reporter Information (Left) -->
+          <div style="flex: 1; text-align: ${locale === 'ar' ? 'right' : 'left'};">
+            <h3 style="font-size: 14px; margin: 0 0 10px 0; color: #3277AE; font-weight: bold;">${t('createdBy') || 'Reporter Information'}:</h3>
+            ${exportData.reporter ? `
+              <p style="margin: 5px 0; font-size: 12px; color: #333;">${((exportData.reporter.first_name || '') + ' ' + (exportData.reporter.last_name || '')).trim() || t('unknownUser') || 'Unknown User'}</p>
+              <p style="margin: 5px 0; font-size: 12px; color: #333;">${exportData.reporter.email || t('notAvailable') || 'N/A'}</p>
+            ` : `
+              <p style="margin: 5px 0; font-size: 12px; color: #333;">${t('notAvailable') || 'N/A'}</p>
+            `}
+          </div>
+          
+          <!-- Item Location (Right) -->
+          <div style="flex: 1; text-align: ${locale === 'ar' ? 'left' : 'right'};">
+            <h3 style="font-size: 14px; margin: 0 0 10px 0; color: #3277AE; font-weight: bold;">${t('location') || 'Item Location'}:</h3>
+            ${exportData.location ? `
+              ${exportData.location.organization_name_ar || exportData.location.organization_name_en ? `
+                <p style="margin: 5px 0; font-size: 12px; color: #333;">${getLocalizedName(exportData.location.organization_name_ar, exportData.location.organization_name_en)}</p>
+              ` : ''}
+              ${exportData.location.branch_name_ar || exportData.location.branch_name_en ? `
+                <p style="margin: 5px 0; font-size: 12px; color: #333;">${getLocalizedName(exportData.location.branch_name_ar, exportData.location.branch_name_en)}</p>
+              ` : ''}
+              ${exportData.location.full_location ? `
+                <p style="margin: 5px 0; font-size: 12px; color: #333;">${exportData.location.full_location}</p>
+              ` : ''}
+            ` : `
+              <p style="margin: 5px 0; font-size: 12px; color: #333;">${t('noLocation') || 'No location specified'}</p>
+            `}
+          </div>
+        </div>
+        
+        <!-- Item Details Table -->
+        <div style="margin-bottom: 30px;">
+          <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+            <thead>
+              <tr style="background-color: #3277AE; color: white;">
+                <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('title') || 'Title'}</th>
+                <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('description') || 'Description'}</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('approvalStatus') || 'Status'}</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${tItems('filters.itemType') || 'Item Type'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'}; font-size: 12px;">${exportData.title || t('notAvailable') || 'N/A'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'}; font-size: 12px; white-space: pre-wrap; max-width: 300px;">${exportData.description || t('noDescription') || 'No description'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 12px;">${exportData.status || t('pending') || 'Pending'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 12px;">${exportData.item_type ? getLocalizedName(exportData.item_type.name_ar, exportData.item_type.name_en) : (t('notAvailable') || 'N/A')}</td>
+              </tr>
+              ${exportData.internal_description ? `
+              <tr>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'}; font-size: 12px; background-color: #f8f9fa; font-weight: bold;" colspan="4">
+                  ${tEdit('internalDescription') || 'Internal Description'}: ${exportData.internal_description}
+                </td>
+              </tr>
+              ` : ''}
+              ${exportData.disposal_note ? `
+              <tr>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'}; font-size: 12px; background-color: #f8f9fa; font-weight: bold;" colspan="4">
+                  ${t('disposalNote') || 'Disposal Note'}: ${exportData.disposal_note}
+                </td>
+              </tr>
+              ` : ''}
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Approved Claim Table -->
+        ${exportData.approved_claim ? `
+        <div style="margin-bottom: 30px;">
+          <h3 style="font-size: 16px; margin-bottom: 10px; color: #333; font-weight: bold;">${locale === 'ar' ? 'المطالبة المعتمدة' : 'Approved Claim'}</h3>
+          <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+            <thead>
+              <tr style="background-color: #3277AE; color: white;">
+                <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('title') || 'Title'}</th>
+                <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('description') || 'Description'}</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('claimer') || 'Claimer'}</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('email') || 'Email'}</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('approvalStatus') || 'Status'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'}; font-size: 12px;">${exportData.approved_claim.title || t('notAvailable') || 'N/A'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'}; font-size: 12px; white-space: pre-wrap; max-width: 250px;">${exportData.approved_claim.description || t('noDescription') || 'No description'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 12px;">${exportData.approved_claim.user_name || t('notAvailable') || 'N/A'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 12px;">${exportData.approved_claim.user_email || t('notAvailable') || 'N/A'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 12px;">${exportData.approved_claim.approval ? (t('approved') || 'Approved') : (t('pending') || 'Pending')}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+        
+        <!-- Connected Missing Items Table -->
+        ${exportData.connected_missing_items && exportData.connected_missing_items.length > 0 ? `
+        <div style="margin-bottom: 30px;">
+          <h3 style="font-size: 16px; margin-bottom: 10px; color: #333; font-weight: bold;">${locale === 'ar' ? 'الأغراض المفقودة المتصلة' : 'Connected Missing Items'}</h3>
+          <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+            <thead>
+              <tr style="background-color: #3277AE; color: white;">
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">S.NO</th>
+                <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('title') || 'Title'}</th>
+                <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('description') || 'Description'}</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('status') || 'Status'}</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${tItems('filters.itemType') || 'Item Type'}</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${locale === 'ar' ? 'المبلغ' : 'Reporter'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${exportData.connected_missing_items.map((missingItem: any, index: number) => `
+              <tr>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 12px;">${index + 1}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'}; font-size: 12px;">${missingItem.title || t('notAvailable') || 'N/A'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'}; font-size: 12px; white-space: pre-wrap; max-width: 200px;">${missingItem.description || t('noDescription') || 'No description'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 12px;">${missingItem.status || t('pending') || 'Pending'}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 12px;">${missingItem.item_type ? getLocalizedName(missingItem.item_type.name_ar, missingItem.item_type.name_en) : (t('notAvailable') || 'N/A')}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 12px;">${missingItem.user_name || t('notAvailable') || 'N/A'}</td>
+              </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+        
+        <!-- Signature Section -->
+        <div style="margin-top: 50px; display: flex; justify-content: space-between; border-top: 1px solid #ddd; padding-top: 20px;">
+          <div style="flex: 1; text-align: ${locale === 'ar' ? 'right' : 'left'};">
+            <p style="margin: 0 0 5px 0; font-size: 12px; font-weight: bold;">${t('createdBy') || 'Reported By'}:</p>
+            <div style="border-bottom: 1px solid #333; width: 200px; height: 40px; margin-bottom: 5px;"></div>
+            <p style="margin: 0; font-size: 10px; color: #666;">${locale === 'ar' ? 'التوقيع والتاريخ' : 'Signature & Date'}</p>
+          </div>
+          <div style="flex: 1; text-align: ${locale === 'ar' ? 'left' : 'right'};">
+            <p style="margin: 0 0 5px 0; font-size: 12px; font-weight: bold;">${locale === 'ar' ? 'تم الاستلام بواسطة' : 'Received By'}:</p>
+            <div style="border-bottom: 1px solid #333; width: 200px; height: 40px; margin-bottom: 5px; margin-left: ${locale === 'ar' ? 'auto' : '0'}; margin-right: ${locale === 'ar' ? '0' : 'auto'};"></div>
+            <p style="margin: 0; font-size: 10px; color: #666;">${locale === 'ar' ? 'التوقيع والتاريخ' : 'Signature & Date'}</p>
+          </div>
+        </div>
+      `;
+
+      tempDiv.innerHTML = htmlContent;
+      document.body.appendChild(tempDiv);
+
+      // Convert HTML to canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+      });
+
+      // Remove temporary element
+      document.body.removeChild(tempDiv);
+
+      // Create PDF from canvas
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 295; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Save the PDF
+      const filename = `item-${shortItemId}-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
+      pdf.save(filename);
+
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert(t('exportPDFError') || 'Error generating PDF. Please try again.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -728,36 +981,45 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           </div>
           <div className="flex items-center justify-between">
             <span className="text-gray-600">{t('created')} {formatDate(item.created_at)}</span>
-            {showEditForm ? (
-              canManageItems && (
-                <div className="flex gap-3">
+            <div className="flex gap-3">
+              <button
+                onClick={exportItemToPDF}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium transition-colors hover:bg-gray-50 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                {tAnalytics('exportPDF') || 'Export PDF'}
+              </button>
+              {showEditForm ? (
+                canManageItems && (
+                  <>
+                    <button
+                      onClick={() => setShowEditForm(false)}
+                      className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium transition-colors hover:bg-gray-50"
+                    >
+                      {t('cancel')}
+                    </button>
+                    <button
+                      id="save-changes-button"
+                      type="button"
+                      className="px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+                      style={{ backgroundColor: '#3277AE' }}
+                    >
+                      {t('save') || 'Save Changes'}
+                    </button>
+                  </>
+                )
+              ) : (
+                canManageItems && (
                   <button
-                    onClick={() => setShowEditForm(false)}
-                    className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium transition-colors hover:bg-gray-50"
-                  >
-                    {t('cancel')}
-                  </button>
-                  <button
-                    id="save-changes-button"
-                    type="button"
-                    className="px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90 disabled:opacity-50"
+                    onClick={() => setShowEditForm(!showEditForm)}
+                    className="px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90"
                     style={{ backgroundColor: '#3277AE' }}
                   >
-                    {t('save') || 'Save Changes'}
+                    {t('editItem')}
                   </button>
-                </div>
-              )
-            ) : (
-              canManageItems && (
-                <button
-                  onClick={() => setShowEditForm(!showEditForm)}
-                  className="px-4 py-2 rounded-lg text-white font-medium transition-colors hover:opacity-90"
-                  style={{ backgroundColor: '#3277AE' }}
-                >
-                  {t('editItem')}
-                </button>
-              )
-            )}
+                )
+              )}
+            </div>
           </div>
         </div>
 
@@ -1463,6 +1725,8 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                     <h3 className="text-xl font-semibold text-gray-900">{t('disposeItem')}</h3>
                     <button
                       onClick={() => {
+                        // Clean up object URLs before closing
+                        disposalImageUrls.forEach(url => URL.revokeObjectURL(url));
                         setShowDisposeModal(false);
                         setDisposalNote('');
                         setDisposalImages([]);
@@ -1495,7 +1759,18 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                         }}
                         placeholder={t('disposalNotePlaceholder') || 'Describe how the item was disposed...'}
                         rows={4}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none"
+                        style={{
+                          '--tw-ring-color': '#3277AE'
+                        } as React.CSSProperties & { [key: string]: string }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = '#3277AE';
+                          e.currentTarget.style.boxShadow = '0 0 0 2px rgba(50, 119, 174, 0.2)';
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = '#d1d5db';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
                         required
                       />
                       <p className="mt-1 text-xs text-gray-500">{t('howWasDisposed')}</p>
@@ -1541,13 +1816,30 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                         </div>
                       </div>
                       {disposalImages.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                           {disposalImages.map((file, index) => (
-                            <div key={index} className="text-xs text-gray-600 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 flex items-center gap-2">
-                              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              <span>{file.name}</span>
+                            <div key={`${file.name}-${index}`} className="relative group aspect-square">
+                              <img
+                                src={disposalImageUrls[index]}
+                                alt={file.name}
+                                className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Revoke the object URL before removing
+                                  URL.revokeObjectURL(disposalImageUrls[index]);
+                                  const newImages = disposalImages.filter((_, i) => i !== index);
+                                  setDisposalImages(newImages);
+                                }}
+                                className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg z-10"
+                                aria-label="Remove image"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -1558,6 +1850,8 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                   <div className="flex gap-3 mt-6">
                     <button
                       onClick={() => {
+                        // Clean up object URLs before closing
+                        disposalImageUrls.forEach(url => URL.revokeObjectURL(url));
                         setShowDisposeModal(false);
                         setDisposalNote('');
                         setDisposalImages([]);
