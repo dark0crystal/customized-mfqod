@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
+import re
 
 
 # Branch Schemas
@@ -11,7 +12,21 @@ class BranchBase(BaseModel):
     description_en: Optional[str] = Field(None, max_length=1000)
     longitude: Optional[float] = Field(None, ge=-180, le=180)
     latitude: Optional[float] = Field(None, ge=-90, le=90)
+    phone1: Optional[str] = Field(None, max_length=8)
+    phone2: Optional[str] = Field(None, max_length=8)
     organization_id: str = Field(..., min_length=1)
+    
+    @field_validator('phone1', 'phone2')
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        # Remove any whitespace
+        v = v.strip()
+        # Check if it's exactly 8 digits
+        if not re.match(r'^\d{8}$', v):
+            raise ValueError('Phone number must be exactly 8 digits')
+        return v
 
 class BranchCreate(BranchBase):
     pass
@@ -23,7 +38,21 @@ class BranchUpdate(BaseModel):
     description_en: Optional[str] = Field(None, max_length=1000)
     longitude: Optional[float] = Field(None, ge=-180, le=180)
     latitude: Optional[float] = Field(None, ge=-90, le=90)
+    phone1: Optional[str] = Field(None, max_length=8)
+    phone2: Optional[str] = Field(None, max_length=8)
     organization_id: Optional[str] = Field(None, min_length=1)
+    
+    @field_validator('phone1', 'phone2')
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        # Remove any whitespace
+        v = v.strip()
+        # Check if it's exactly 8 digits
+        if not re.match(r'^\d{8}$', v):
+            raise ValueError('Phone number must be exactly 8 digits')
+        return v
 
 class BranchResponse(BranchBase):
     id: str
