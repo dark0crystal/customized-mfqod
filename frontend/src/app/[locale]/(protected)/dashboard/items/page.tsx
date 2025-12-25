@@ -420,6 +420,16 @@ export default function ItemsPage() {
               >
                 {t("status.cancelled") || "Cancelled"}
               </button>
+              <button
+                onClick={() => handleStatusChange('disposed')}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                  selectedStatus === 'disposed'
+                    ? 'bg-[#3277AE] text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {t("status.disposed") || "It was disposed of"}
+              </button>
             </div>
           </div>
 

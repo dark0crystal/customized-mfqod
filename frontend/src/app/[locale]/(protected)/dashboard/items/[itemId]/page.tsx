@@ -14,6 +14,7 @@ import HydrationSafeWrapper from '@/components/HydrationSafeWrapper';
 import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
 import { formatDate } from '@/utils/dateFormatter';
 import { Trash2 } from 'lucide-react';
+import { imageUploadService } from '@/services/imageUploadService';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -74,7 +75,8 @@ const getImageUrl = (imageUrl: string): string => {
 enum ItemStatus {
   CANCELLED = "cancelled",
   APPROVED = "approved",
-  PENDING = "pending"
+  PENDING = "pending",
+  DISPOSED = "disposed"
 }
 
 interface ItemData {
@@ -82,11 +84,12 @@ interface ItemData {
   title: string;
   description: string;
   internal_description?: string;  // Internal description visible only to authorized users
-  status?: string;  // Item status: cancelled, approved, pending
+  status?: string;  // Item status: cancelled, approved, pending, disposed
   approval: boolean;  // DEPRECATED: kept for backward compatibility
   temporary_deletion: boolean;
   is_hidden?: boolean;  // Whether item images are hidden from regular users
   approved_claim_id?: string | null;  // ID of the approved claim
+  disposal_note?: string;  // Note describing how the item was disposed
   created_at: string;
   updated_at: string;
   claims_count?: number;
@@ -192,6 +195,11 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const [showImageVisibilityModal, setShowImageVisibilityModal] = useState(false);
   const [pendingImageVisibility, setPendingImageVisibility] = useState<string | null>(null);
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
+  const [showDisposeModal, setShowDisposeModal] = useState(false);
+  const [disposalNote, setDisposalNote] = useState<string>('');
+  const [disposalImages, setDisposalImages] = useState<File[]>([]);
+  const [disposalError, setDisposalError] = useState<string | null>(null);
+  const [isDisposing, setIsDisposing] = useState(false);
 
   // Helper to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -319,6 +327,12 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     // Get the current status (use item.status if available, otherwise use the status state)
     const currentStatus = item?.status || status;
     
+    // If changing to disposed, show disposal modal
+    if (newStatus === 'disposed') {
+      setShowDisposeModal(true);
+      return; // Don't update status yet - wait for disposal note
+    }
+    
     // If changing from approved to pending, check if there's a connected claim
     if (currentStatus === 'approved' && newStatus === 'pending') {
       // Check if item has an approved claim connected
@@ -419,6 +433,62 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
       console.error('Error updating status:', err);
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleDisposeSubmit = async () => {
+    if (!item) return;
+    
+    // Validate disposal note
+    if (!disposalNote.trim()) {
+      setDisposalError(t('disposalNoteRequired') || 'Disposal note is required');
+      return;
+    }
+    
+    setIsDisposing(true);
+    setDisposalError(null);
+    
+    try {
+      // Upload images first if any
+      if (disposalImages.length > 0) {
+        for (const file of disposalImages) {
+          try {
+            await imageUploadService.uploadImageToItem(resolvedParams.itemId, file);
+          } catch (err) {
+            console.error('Error uploading disposal image:', err);
+            // Continue even if image upload fails
+          }
+        }
+      }
+      
+      // Call disposal endpoint
+      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}/dispose`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          disposal_note: disposalNote
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || t('disposeItemFailed') || 'Failed to dispose item');
+      }
+      
+      const updatedData = await response.json();
+      setItem(updatedData);
+      setStatus('disposed');
+      setPreviousStatus('disposed');
+      setShowDisposeModal(false);
+      setDisposalNote('');
+      setDisposalImages([]);
+      
+      // Show success message
+      alert(t('disposeItemSuccess') || 'Item has been disposed successfully');
+    } catch (err) {
+      setDisposalError(err instanceof Error ? err.message : t('disposeItemFailed') || 'Failed to dispose item');
+    } finally {
+      setIsDisposing(false);
     }
   };
 
@@ -738,13 +808,15 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                     <label className="block text-sm font-medium text-gray-500 mb-1">{t('approvalStatus')}</label>
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
                           item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
-                            item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
-                              item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                            item.status === ItemStatus.DISPOSED ? 'bg-gray-100 text-gray-800' :
+                              item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
+                                item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
                       }`}>
                       {item.status === ItemStatus.APPROVED ? t('approved') :
                             item.status === ItemStatus.CANCELLED ? t('cancelled') :
-                              item.status === ItemStatus.PENDING ? (t('pending') || 'Pending') :
-                                item.approval ? t('approved') : (t('pending') || 'Pending')}
+                              item.status === ItemStatus.DISPOSED ? t('status.disposed') || 'It was disposed of' :
+                                item.status === ItemStatus.PENDING ? (t('pending') || 'Pending') :
+                                  item.approval ? t('approved') : (t('pending') || 'Pending')}
                     </span>
                   </div>
 
@@ -758,6 +830,16 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                       {item.temporary_deletion ? t('markedForDeletion') : t('active')}
                     </span>
                   </div>
+
+                  {/* Disposal Note - Only show if item is disposed */}
+                  {item.status === ItemStatus.DISPOSED && item.disposal_note && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">{t('disposalNote')}</label>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <p className="text-base text-gray-900 whitespace-pre-wrap">{item.disposal_note}</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Location */}
                   <div>
@@ -880,7 +962,8 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                       options={[
                         { value: 'cancelled', label: t('status.cancelled') || t('cancelled') },
                         { value: 'approved', label: t('status.approved') || t('approved') },
-                        { value: 'pending', label: t('status.pending') || 'Pending' }
+                        { value: 'pending', label: t('status.pending') || 'Pending' },
+                        { value: 'disposed', label: t('status.disposed') || 'It was disposed of' }
                       ]}
                       value={pendingStatusChange && !selectedClaimId ? previousStatus : status}
                       onChange={handleStatusChange}
@@ -907,13 +990,15 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                   <h3 className="text-lg font-semibold text-gray-900">{t('itemStatus')}</h3>
                   <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
                       item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
-                        item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
-                          item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                        item.status === ItemStatus.DISPOSED ? 'bg-gray-100 text-gray-800' :
+                          item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
+                            item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
                     }`}>
                     {item.status === ItemStatus.APPROVED ? t('approved') :
                           item.status === ItemStatus.CANCELLED ? t('cancelled') :
-                            item.status === ItemStatus.PENDING ? (t('pending') || 'Pending') :
-                              item.approval ? t('approved') : t('pending')}
+                            item.status === ItemStatus.DISPOSED ? t('status.disposed') || 'It was disposed of' :
+                              item.status === ItemStatus.PENDING ? (t('pending') || 'Pending') :
+                                item.approval ? t('approved') : t('pending')}
                   </span>
                 </div>
               </div>
@@ -1364,6 +1449,154 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                       className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                       {isUpdatingVisibility ? (tEdit('updating') || 'Updating...') : tEdit('saveChanges')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Disposal Modal */}
+            {showDisposeModal && (
+              <div className="fixed inset-0 flex items-center justify-center z-50 p-4 bg-black bg-opacity-50">
+                <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-semibold text-gray-900">{t('disposeItem')}</h3>
+                    <button
+                      onClick={() => {
+                        setShowDisposeModal(false);
+                        setDisposalNote('');
+                        setDisposalImages([]);
+                        setDisposalError(null);
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {disposalError && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-800">{disposalError}</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('disposalNote')} <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        value={disposalNote}
+                        onChange={(e) => {
+                          setDisposalNote(e.target.value);
+                          setDisposalError(null);
+                        }}
+                        placeholder={t('disposalNotePlaceholder') || 'Describe how the item was disposed...'}
+                        rows={4}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                      <p className="mt-1 text-xs text-gray-500">{t('howWasDisposed')}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('uploadDisposalImages')} {t('optional')}
+                      </label>
+                      <div className="relative">
+                        <div 
+                          className="border-2 border-dashed rounded-lg p-8 text-center transition-colors duration-200 bg-gray-50 hover:bg-blue-50"
+                          style={{ borderColor: '#3277AE' }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = '#2a5f8f';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = '#3277AE';
+                          }}
+                        >
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              setDisposalImages(files);
+                            }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            id="disposal-images-input"
+                          />
+                          <div className="flex flex-col items-center justify-center">
+                            <svg className="w-10 h-10 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#3277AE' }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            <p className="text-sm font-medium mb-1" style={{ color: '#3277AE' }}>
+                              {t('uploadDisposalImages')}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {t('disposalImagesInfo')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      {disposalImages.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {disposalImages.map((file, index) => (
+                            <div key={index} className="text-xs text-gray-600 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 flex items-center gap-2">
+                              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <span>{file.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={() => {
+                        setShowDisposeModal(false);
+                        setDisposalNote('');
+                        setDisposalImages([]);
+                        setDisposalError(null);
+                      }}
+                      disabled={isDisposing}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {t('cancel')}
+                    </button>
+                    <button
+                      onClick={handleDisposeSubmit}
+                      disabled={isDisposing || !disposalNote.trim()}
+                      className="flex-1 px-4 py-2 text-white rounded-lg transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      style={{ 
+                        backgroundColor: isDisposing || !disposalNote.trim() ? undefined : '#3277AE'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isDisposing && disposalNote.trim()) {
+                          e.currentTarget.style.backgroundColor = '#2a5f8f';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isDisposing && disposalNote.trim()) {
+                          e.currentTarget.style.backgroundColor = '#3277AE';
+                        }
+                      }}
+                    >
+                      {isDisposing ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          {t('disposing')}
+                        </>
+                      ) : (
+                        t('disposeItem')
+                      )}
                     </button>
                   </div>
                 </div>
