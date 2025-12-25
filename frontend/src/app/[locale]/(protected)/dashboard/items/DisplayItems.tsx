@@ -19,7 +19,8 @@ interface LocationData {
 enum ItemStatus {
   CANCELLED = "cancelled",
   APPROVED = "approved",
-  PENDING = "pending"
+  PENDING = "pending",
+  DISPOSED = "disposed"
 }
 
 interface Item {
@@ -226,11 +227,13 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                           item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
                           item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
                           item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
+                          item.status === ItemStatus.DISPOSED ? 'bg-gray-100 text-gray-800' :
                           item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
                         }`}>
                           {item.status === ItemStatus.APPROVED ? t("status.approved") :
                            item.status === ItemStatus.PENDING ? (t("status.pending") || "Pending") :
                            item.status === ItemStatus.CANCELLED ? t("status.cancelled") :
+                           item.status === ItemStatus.DISPOSED ? (t("status.disposed") || "It was disposed of") :
                            item.approval ? t("status.approved") : (t("status.pending") || "Pending")}
                         </span>
                       </div>

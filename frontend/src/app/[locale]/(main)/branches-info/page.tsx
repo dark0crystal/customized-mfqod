@@ -17,6 +17,8 @@ interface Branch {
   description_en?: string;
   longitude?: number;
   latitude?: number;
+  phone1?: string;
+  phone2?: string;
   organization_id: string;
   created_at: string;
   updated_at: string;

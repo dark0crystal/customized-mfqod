@@ -16,6 +16,8 @@ interface Branch {
   description_en?: string;
   longitude?: number;
   latitude?: number;
+  phone1?: string;
+  phone2?: string;
   organization_id: string;
   created_at: string;
   updated_at: string;
@@ -43,6 +45,8 @@ interface BranchFormData {
   description_en: string;
   longitude: number | '' | undefined;
   latitude: number | '' | undefined;
+  phone1: string;
+  phone2: string;
   organization_id: string;
 }
 
@@ -168,6 +172,8 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
     description_en: '',
     longitude: '',
     latitude: '',
+    phone1: '',
+    phone2: '',
     organization_id: ''
   });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -201,6 +207,8 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
         description_en: branch.description_en || '',
         longitude: branch.longitude || '',
         latitude: branch.latitude || '',
+        phone1: branch.phone1 || '',
+        phone2: branch.phone2 || '',
         organization_id: branch.organization_id || ''
       });
     } else {
@@ -211,6 +219,8 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
         description_en: '',
         longitude: '',
         latitude: '',
+        phone1: '',
+        phone2: '',
         organization_id: '' 
       });
     }
@@ -226,6 +236,20 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
       return;
     }
     
+    // Validate phone numbers
+    const phoneNumbers = [formData.phone1, formData.phone2].filter(p => p && p.trim());
+    if (phoneNumbers.length > 2) {
+      alert('Maximum 2 phone numbers allowed');
+      return;
+    }
+    
+    for (const phone of phoneNumbers) {
+      if (!/^\d{8}$/.test(phone.trim())) {
+        alert('Phone number must be exactly 8 digits');
+        return;
+      }
+    }
+    
     setLoading(true);
     
     try {
@@ -233,7 +257,9 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
       const submitData = {
         ...formData,
         longitude: formData.longitude === '' ? undefined : Number(formData.longitude),
-        latitude: formData.latitude === '' ? undefined : Number(formData.latitude)
+        latitude: formData.latitude === '' ? undefined : Number(formData.latitude),
+        phone1: formData.phone1.trim() || undefined,
+        phone2: formData.phone2.trim() || undefined
       };
       
       if (branch) {
@@ -363,6 +389,41 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Phone 1
+              </label>
+              <input
+                type="text"
+                value={formData.phone1}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 8);
+                  setFormData({ ...formData, phone1: value });
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="8 digits"
+                maxLength={8}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Phone 2
+              </label>
+              <input
+                type="text"
+                value={formData.phone2}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 8);
+                  setFormData({ ...formData, phone2: value });
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="8 digits"
+                maxLength={8}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 {t('longitude')}
               </label>
               <input
@@ -463,6 +524,12 @@ const BranchCard = ({ branch, onEdit, onDelete, organizations, locale }: {
                locale === 'en' && branch.description_en ? branch.description_en :
                branch.description_ar || branch.description_en}
             </p>
+          )}
+          {(branch.phone1 || branch.phone2) && (
+            <div className="text-xs text-gray-600 mt-1">
+              {branch.phone1 && <p>📞 {branch.phone1}</p>}
+              {branch.phone2 && <p>📞 {branch.phone2}</p>}
+            </div>
           )}
           {(branch.longitude && branch.latitude) && (
             <p className="text-xs text-gray-500 mt-1">
