@@ -39,9 +39,14 @@ class TokenManager {
   private isRefreshing = false;
   private baseUrl: string;
   private checkInterval: NodeJS.Timeout | null = null;
+  private isMonitoringPaused = false;
+  private retryCount = 0;
+  private maxRetries = 3;
+  private lastWarningMinutes: number | null = null;
 
   constructor() {
     this.baseUrl = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
+    this.setupVisibilityHandling();
     this.startTokenMonitoring();
   }
 
@@ -166,11 +171,15 @@ class TokenManager {
 
     // Check token status every 2 minutes
     this.checkInterval = setInterval(() => {
-      this.checkTokenStatus();
+      if (!this.isMonitoringPaused) {
+        this.checkTokenStatus();
+      }
     }, 2 * 60 * 1000);
 
-    // Check immediately
-    this.checkTokenStatus();
+    // Check immediately if not paused
+    if (!this.isMonitoringPaused) {
+      this.checkTokenStatus();
+    }
   }
 
   stopTokenMonitoring(): void {
@@ -180,15 +189,41 @@ class TokenManager {
     }
   }
 
+  private setupVisibilityHandling(): void {
+    // Only run in browser environment
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    // Pause monitoring when tab becomes hidden
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.isMonitoringPaused = true;
+        console.log('Token monitoring paused (tab inactive)');
+      } else {
+        this.isMonitoringPaused = false;
+        console.log('Token monitoring resumed (tab active)');
+        // Check token status immediately when tab becomes visible
+        this.checkTokenStatus();
+      }
+    });
+  }
+
   private async checkTokenStatus(): Promise<void> {
-    if (!this.isAuthenticated() || this.isRefreshing) return;
+    if (!this.isAuthenticated() || this.isRefreshing || this.isMonitoringPaused) return;
 
     try {
       const tokenInfo = await this.getTokenInfo();
       
-      // Show warning if token expires soon
+      // Reset retry count on successful check
+      this.retryCount = 0;
+      
+      // Show warning if token expires soon (only show once per minute value)
       if (tokenInfo.minutes_remaining <= 5 && tokenInfo.minutes_remaining > 0) {
-        this.showSessionWarning(tokenInfo.minutes_remaining);
+        if (this.lastWarningMinutes !== tokenInfo.minutes_remaining) {
+          this.showSessionWarning(tokenInfo.minutes_remaining);
+          this.lastWarningMinutes = tokenInfo.minutes_remaining;
+        }
+      } else {
+        this.lastWarningMinutes = null;
       }
       
       // Refresh if needed
@@ -203,17 +238,37 @@ class TokenManager {
         const now = Date.now();
         const expiresAt = new Date(tokenInfo.expires_at).getTime();
         if (expiresAt < now) {
-          this.handleAuthFailure();
+          this.handleSessionExpired();
         }
       }
     } catch (error) {
-      // Don't clear tokens on network errors - just log the error
+      // Don't clear tokens on network/CORS errors - retry with exponential backoff
       console.error('Error checking token status:', error);
+      
       // Only clear tokens if it's a clear authentication error, not a network issue
-      if (error instanceof Error && error.message.includes('401')) {
+      if (error instanceof Error && error.message.includes('401') && !this.isCorsOrNetworkError(error)) {
         this.handleAuthFailure();
+      } else if (this.retryCount < this.maxRetries) {
+        // Retry with exponential backoff for network errors
+        this.retryCount++;
+        const delay = Math.min(1000 * Math.pow(2, this.retryCount - 1), 30000); // Max 30 seconds
+        console.log(`Retrying token check in ${delay}ms (attempt ${this.retryCount}/${this.maxRetries})`);
+        setTimeout(() => {
+          if (!this.isMonitoringPaused) {
+            this.checkTokenStatus();
+          }
+        }, delay);
       }
     }
+  }
+
+  private isCorsOrNetworkError(error: Error | unknown): boolean {
+    if (!(error instanceof Error)) return false;
+    const message = error.message.toLowerCase();
+    return message.includes('cors') || 
+           message.includes('network') || 
+           message.includes('fetch') ||
+           message.includes('failed to fetch');
   }
 
   async getTokenInfo(): Promise<TokenInfo> {
@@ -276,18 +331,13 @@ class TokenManager {
         needs_refresh: false,
       };
     } catch (error) {
-      // Distinguish between network errors and authentication errors
+      // Distinguish between CORS errors, network errors, and authentication errors
       if (error instanceof Error) {
-        // Network errors (fetch failures) - don't clear tokens
-        if (error.message.includes('fetch') || error.message.includes('Network')) {
-          console.error('Network error getting token info:', error);
-          return {
-            expires_at: null,
-            seconds_remaining: 0,
-            minutes_remaining: 0,
-            is_expired: false,
-            needs_refresh: false,
-          };
+        // CORS errors - don't clear tokens, will retry
+        if (this.isCorsOrNetworkError(error)) {
+          console.error('CORS/Network error getting token info:', error.message);
+          // Re-throw to trigger retry logic in checkTokenStatus
+          throw error;
         }
         
         // Authentication errors (no token, refresh failed) - already handled by makeAuthenticatedRequest
@@ -303,15 +353,9 @@ class TokenManager {
         }
       }
 
-      // Unknown errors - log and return default
+      // Unknown errors - log and re-throw to trigger retry logic
       console.error('Error getting token info:', error);
-      return {
-        expires_at: null,
-        seconds_remaining: 0,
-        minutes_remaining: 0,
-        is_expired: false,
-        needs_refresh: false,
-      };
+      throw error;
     }
   }
 
@@ -335,34 +379,46 @@ class TokenManager {
       'Authorization': `Bearer ${token}`,
     };
 
-    // Make request
-    let response = await fetch(url, { ...options, headers });
+    try {
+      // Make request
+      let response = await fetch(url, { ...options, headers });
 
-    // Handle 401 errors with token refresh
-    if (response.status === 401 && !this.isRefreshing) {
-      try {
-        // Refresh token and retry
-        token = await this.refreshAccessToken();
-        const newHeaders = {
-          ...options.headers,
-          'Authorization': `Bearer ${token}`,
-        };
-        
-        response = await fetch(url, { ...options, headers: newHeaders });
-      } catch (refreshError) {
-        this.handleAuthFailure();
-        throw refreshError;
+      // Handle 401 errors with token refresh
+      if (response.status === 401 && !this.isRefreshing) {
+        try {
+          // Refresh token and retry
+          token = await this.refreshAccessToken();
+          const newHeaders = {
+            ...options.headers,
+            'Authorization': `Bearer ${token}`,
+          };
+          
+          response = await fetch(url, { ...options, headers: newHeaders });
+        } catch (refreshError) {
+          // Only handle auth failure if it's not a network/CORS error
+          if (!(refreshError instanceof Error) || !this.isCorsOrNetworkError(refreshError)) {
+            this.handleAuthFailure();
+          }
+          throw refreshError;
+        }
       }
-    }
 
-    // Check for auto-refreshed token in headers
-    const newToken = response.headers.get('X-New-Token');
-    if (newToken) {
-      this.setTokens(newToken);
-      console.log('Token auto-refreshed via header');
-    }
+      // Check for auto-refreshed token in headers
+      const newToken = response.headers.get('X-New-Token');
+      if (newToken) {
+        this.setTokens(newToken);
+        console.log('Token auto-refreshed via header');
+      }
 
-    return response;
+      return response;
+    } catch (error) {
+      // Re-throw CORS/network errors so they can be handled by retry logic
+      if (error instanceof Error && this.isCorsOrNetworkError(error)) {
+        throw error;
+      }
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   // =======================================
@@ -426,24 +482,77 @@ class TokenManager {
   private handleAuthFailure(): void {
     console.log('Authentication failed, clearing tokens');
     this.clearTokens();
+    this.showSessionExpiredMessage();
     
     // Only redirect in browser environment
     if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
-      window.location.href = '/auth/login';
+      // Small delay to allow message to be seen
+      setTimeout(() => {
+        window.location.href = '/auth/login';
+      }, 2000);
+    }
+  }
+
+  private handleSessionExpired(): void {
+    console.log('Session expired, clearing tokens');
+    this.clearTokens();
+    this.showSessionExpiredMessage();
+    
+    // Only redirect in browser environment
+    if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
+      // Small delay to allow message to be seen
+      setTimeout(() => {
+        window.location.href = '/auth/login';
+      }, 2000);
     }
   }
 
   private showSessionWarning(minutes: number): void {
-    console.log(`Session expires in ${minutes} minutes`);
+    const message = `Your session will expire in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}. Continue using the app to stay logged in.`;
+    console.warn(message);
     
-    // You can integrate with your notification system here
-    // For example, using react-hot-toast:
-    // toast.warning(`Session expires in ${minutes} minutes. Continue using the app to stay logged in.`);
+    // Show browser notification if available
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification('Session Expiring Soon', {
+        body: message,
+        icon: '/favicon.ico',
+        tag: 'session-warning', // Replace previous notifications with same tag
+      });
+    }
+    
+    // Show alert as fallback (less intrusive than blocking alert)
+    // You can replace this with a toast notification library if available
+    // For example: toast.warning(message);
+  }
+
+  private showSessionExpiredMessage(): void {
+    const message = 'Your session has expired due to inactivity. Please log in again.';
+    console.error(message);
+    
+    // Show browser notification if available
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification('Session Expired', {
+        body: message,
+        icon: '/favicon.ico',
+        tag: 'session-expired',
+      });
+    }
+    
+    // Show alert as fallback
+    // You can replace this with a toast notification library if available
+    if (typeof window !== 'undefined') {
+      alert(message);
+    }
   }
 
   // Cleanup method
   destroy(): void {
     this.stopTokenMonitoring();
+    // Remove visibility change listener if needed
+    if (typeof document !== 'undefined') {
+      // Note: We can't easily remove the listener without storing a reference
+      // This is acceptable as the singleton persists for the app lifetime
+    }
   }
 }
 
