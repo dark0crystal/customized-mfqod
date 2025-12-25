@@ -16,6 +16,7 @@ export default function Footer() {
   const quickLinks = [
     { href: "/dashboard/report-missing-item", label: `${t("report")}`, requiresAuth: true },
     { href: "/search", label: `${t("search")}`, requiresAuth: false },
+    { href: "/guides", label: `${t("guides")}`, requiresAuth: false },
   ];
 
   const privacyLinks = [

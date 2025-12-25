@@ -41,7 +41,8 @@ type UserData = {
 
 export default function EditUserRole({ userId }: { userId: string }) {
   const t = useTranslations('editUserRole');
-  const { hasPermission, userRole, isLoading: permissionsLoading } = usePermissions();
+  // Remove unused userRole to fix the lint error
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [currentRole, setCurrentRole] = useState<string | null>(null);

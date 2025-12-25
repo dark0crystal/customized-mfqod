@@ -139,6 +139,8 @@ export default function MissingItemsPage() {
     setMissingItemImages(newImages);
   };
 
+  // This function is not used but kept here in case it's needed in the future.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openAssignModal = async (missingItem: MissingItem) => {
     // Only allow assign if user has permission
     if (!hasManageMissingItemsPermission) {
@@ -232,8 +234,11 @@ export default function MissingItemsPage() {
         return;
       }
       const data = await res.json();
-      const itemsArray = Array.isArray(data) ? data : data.items || data.results || [];
-      const simplified = itemsArray.map((item: any) => ({
+      // Fixed: Specify the correct type instead of 'any' for 'item'
+      const itemsArray: Array<{ id: string; title?: string }> = Array.isArray(data)
+        ? data
+        : data.items || data.results || [];
+      const simplified = itemsArray.map((item) => ({
         id: item.id,
         title: item.title || t("unnamed"),
       }));
