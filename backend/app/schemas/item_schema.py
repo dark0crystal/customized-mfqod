@@ -215,3 +215,62 @@ class BulkStatusRequest(BaseModel):
 
 class DisposeItemRequest(BaseModel):
     disposal_note: str = Field(..., min_length=1, description="Note describing how the item was disposed")
+
+# =========================== 
+# Export Schemas
+# ===========================
+
+class ClaimExportResponse(BaseModel):
+    """Claim information for export"""
+    id: str
+    title: str
+    description: str
+    approval: bool
+    created_at: datetime
+    updated_at: datetime
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+class MissingItemExportResponse(BaseModel):
+    """Missing item information for export"""
+    id: str
+    title: str
+    description: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    item_type: Optional[ItemTypeResponse] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+class ItemExportResponse(BaseModel):
+    """Complete item data for PDF export"""
+    # Item information (without images)
+    id: str
+    title: str
+    description: str
+    internal_description: Optional[str] = None
+    status: str
+    item_type: Optional[ItemTypeResponse] = None
+    location: Optional[LocationResponse] = None
+    created_at: datetime
+    updated_at: datetime
+    disposal_note: Optional[str] = None
+    
+    # Reporter information
+    reporter: Optional[UserBasicResponse] = None
+    
+    # Approved claim (if exists)
+    approved_claim: Optional[ClaimExportResponse] = None
+    
+    # Connected missing items
+    connected_missing_items: List[MissingItemExportResponse] = []
+    
+    class Config:
+        from_attributes = True

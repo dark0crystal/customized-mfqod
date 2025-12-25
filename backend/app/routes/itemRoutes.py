@@ -20,7 +20,8 @@ from app.schemas.item_schema import (
     BulkApprovalRequest,
     BulkStatusRequest,
     DisposeItemRequest,
-    ItemStatus
+    ItemStatus,
+    ItemExportResponse
 )
 
 # Import permission decorators
@@ -466,6 +467,29 @@ async def get_item(
         return item
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving item: {str(e)}")
+
+@router.get("/{item_id}/export-data", response_model=ItemExportResponse)
+async def get_item_export_data(
+    item_id: str,
+    request: Request,
+    include_deleted: bool = Query(False, description="Include soft-deleted items"),
+    db: Session = Depends(get_session),
+    item_service: ItemService = Depends(get_item_service),
+    current_user = Depends(get_current_user_required)
+):
+    """
+    Get complete item data for PDF export including reporter, approved claim, and connected missing items
+    Requires: Authentication (user must be logged in)
+    """
+    try:
+        export_data = item_service.get_item_export_data(item_id, include_deleted)
+        if not export_data:
+            raise HTTPException(status_code=404, detail="Item not found")
+        return export_data
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving item export data: {str(e)}")
 
 # =========================== 
 # Update Operations
