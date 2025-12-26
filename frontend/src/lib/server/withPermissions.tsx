@@ -4,7 +4,6 @@
  */
 
 import { ReactNode } from 'react';
-import { redirect } from 'next/navigation';
 import { requirePermission } from './permissions';
 
 interface WithPermissionsProps {

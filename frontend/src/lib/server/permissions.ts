@@ -46,7 +46,7 @@ export function decodeToken(token: string): any {
       Buffer.from(base64, 'base64').toString('utf-8')
     );
     return JSON.parse(jsonPayload);
-  } catch (error) {
+  } catch {
     return null;
   }
 }

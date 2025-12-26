@@ -48,7 +48,7 @@ export class ImageUploadService {
     try {
       const { tokenManager } = require('@/utils/tokenManager');
       token = tokenManager.getAccessToken();
-    } catch (error) {
+    } catch {
       // Fallback to cookie parsing if tokenManager is not available
       const cookies = document.cookie.split(';');
       for (const cookie of cookies) {
@@ -121,7 +121,7 @@ export class ImageUploadService {
           } else {
             reject(this.parseError(response));
           }
-        } catch (error) {
+        } catch {
           reject({
             error: 'PARSE_ERROR',
             message: 'Failed to parse server response',
@@ -239,7 +239,7 @@ export class ImageUploadService {
           } else {
             reject(this.parseError(response));
           }
-        } catch (error) {
+        } catch {
           reject({
             error: 'PARSE_ERROR',
             message: 'Failed to parse server response',
@@ -381,7 +381,7 @@ export class ImageUploadService {
           } else {
             reject(this.parseError(response));
           }
-        } catch (error) {
+        } catch {
           reject({
             error: 'PARSE_ERROR',
             message: 'Failed to parse server response',
