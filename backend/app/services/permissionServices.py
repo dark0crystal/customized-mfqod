@@ -280,7 +280,11 @@ def get_user_permissions(session: Session, user_id: str) -> List[Permission]:
 # Check if User has Full Access
 # ============================= 
 def has_full_access(session: Session, user_id: str) -> bool:
-    """Check if user has all permissions (full system access)"""
+    """Check if user has all permissions (full system access)
+    
+    Security: Determines if user is a super admin by checking if they have all permissions
+    Super admins bypass all permission checks and have full system access
+    """
     # Get all permissions in system
     all_permissions = get_all_permissions(session)
     
@@ -288,25 +292,30 @@ def has_full_access(session: Session, user_id: str) -> bool:
     if not all_permissions:
         return False
     
-    # Get user's permissions
+    # Get user's permissions through their role
     user_permissions = get_user_permissions(session, user_id)
     
     # Convert to sets of permission names for comparison
     all_permission_names = {perm.name for perm in all_permissions}
     user_permission_names = {perm.name for perm in user_permissions}
     
-    # Check if user has all permissions
+    # Security: User has full access if they have all permissions
     return user_permission_names == all_permission_names and len(all_permission_names) > 0
 
 # ============================= 
 # Check User Permission
 # ============================= 
 def check_user_permission(session: Session, user_id: str, permission_name: str) -> bool:
-    """Check if a user has a specific permission through their role"""
+    """Check if a user has a specific permission through their role
+    
+    Security: Core permission checking function used throughout the application
+    Super admins (users with all permissions) automatically pass all checks
+    Regular users are checked against their role's permissions
+    """
     from app.models import User, Role
     from sqlalchemy.orm import joinedload
     
-    # Get user with role and permissions (eagerly loaded)
+    # Eagerly load user with role and permissions to avoid lazy loading issues
     user_statement = select(User).options(
         joinedload(User.role).joinedload(Role.permissions)
     ).where(User.id == user_id)
@@ -315,11 +324,12 @@ def check_user_permission(session: Session, user_id: str, permission_name: str) 
     if not user or not user.role:
         return False
     
-    # Full access bypass: If user has all permissions, grant access to everything
+    # Security: Super admins bypass all permission checks
+    # This provides full system access without checking individual permissions
     if has_full_access(session, user_id):
         return True
     
-    # Check if user's role has the permission
+    # Security: Check if user's role has the requested permission
     for permission in user.role.permissions:
         if permission.name == permission_name:
             return True
