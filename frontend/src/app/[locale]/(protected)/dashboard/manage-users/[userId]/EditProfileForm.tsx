@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useTranslations } from "next-intl";
 import { tokenManager } from "@/utils/tokenManager";
 import { usePermissions } from "@/PermissionsContext";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -19,7 +18,6 @@ const schema = z.object({
 type FormFields = z.infer<typeof schema>;
 
 export default function EditProfileForm({ userId }: { userId: string }) {
-    const t = useTranslations('manageUsers');
     const { hasPermission } = usePermissions();
     const [isLoading, setIsLoading] = useState(true);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);

@@ -4,16 +4,16 @@ import { z } from "zod";
 import { SubmitHandler, useForm } from "react-hook-form";
 import { useState, useEffect, useCallback } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Link } from "@/i18n/navigation";
 import { usePermissions } from "@/PermissionsContext";
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
-const schema = z.object({
+// Schema used for type inference
+const _schema = z.object({
   org: z.string().nonempty("Please select an organization"),
   branch: z.string().nonempty("Please select a branch"),
 });
 
-type FormFields = z.infer<typeof schema>;
+type FormFields = z.infer<typeof _schema>;
 
 interface Organization {
   id: string;
@@ -105,27 +105,6 @@ export default function EditUserManagement({ userId }: { userId: string }) {
     }
     fetchUserManagedBranches();
   }, [userId]);
-
-  // Check permissions
-  if (permissionsLoading) {
-    return (
-      <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
-        <LoadingSpinner size="md" className="h-64" />
-      </div>
-    );
-  }
-
-  if (!hasPermission('can_manage_users')) {
-    return (
-      <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
-        <div className="text-center py-12">
-          <div className="text-red-500 text-4xl mb-4">🔒</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">{tCommon('accessDenied')}</h3>
-          <p className="text-gray-600">{tCommon('noPermissionToManageUsers')}</p>
-        </div>
-      </div>
-    );
-  }
 
   // Fetch branches when organization changes
   useEffect(() => {
@@ -237,6 +216,27 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       setErrorMessage(error.message || t('errorRemoving'));
     }
   };
+
+  // Check permissions (after all hooks)
+  if (permissionsLoading) {
+    return (
+      <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
+        <LoadingSpinner size="md" className="h-64" />
+      </div>
+    );
+  }
+
+  if (!hasPermission('can_manage_users')) {
+    return (
+      <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5">
+        <div className="text-center py-12">
+          <div className="text-red-500 text-4xl mb-4">🔒</div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{tCommon('accessDenied')}</h3>
+          <p className="text-gray-600">{tCommon('noPermissionToManageUsers')}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-white border border-gray-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6">

@@ -12,6 +12,7 @@ import { usePermissions } from '@/PermissionsContext';
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import HydrationSafeWrapper from '@/components/HydrationSafeWrapper';
 import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
+import Image from 'next/image';
 import { formatDate } from '@/utils/dateFormatter';
 import { Trash2 } from 'lucide-react';
 import { imageUploadService } from '@/services/imageUploadService';
@@ -173,7 +174,6 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const tNavbar = useTranslations('navbar');
   const tAnalytics = useTranslations('dashboard.analytics');
   const tItems = useTranslations('dashboard.items');
-  const tMissingItems = useTranslations('dashboard.missingItems.detail');
   const locale = useLocale();
   const { hasPermission } = usePermissions();
   const canManageItems = hasPermission('can_manage_items');
@@ -1518,14 +1518,16 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                               
                               {/* Image Square */}
                               {claim.images && claim.images.length > 0 && (
-                                <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
-                                  <img
+                                <div className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
+                                  <Image
                                     src={getImageUrl(claim.images[0].url)}
                                     alt={`Claim image`}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    fill
+                                    className="object-cover"
+                                    onError={() => {
+                                      // Image will be hidden if it fails to load
                                     }}
+                                    unoptimized={getImageUrl(claim.images[0].url).startsWith('http') || getImageUrl(claim.images[0].url).startsWith('data:')}
                                   />
                                 </div>
                               )}
@@ -1819,10 +1821,12 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                         <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                           {disposalImages.map((file, index) => (
                             <div key={`${file.name}-${index}`} className="relative group aspect-square">
-                              <img
+                              <Image
                                 src={disposalImageUrls[index]}
                                 alt={file.name}
-                                className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
+                                fill
+                                className="object-cover rounded-lg border-2 border-gray-200"
+                                unoptimized
                               />
                               <button
                                 type="button"
