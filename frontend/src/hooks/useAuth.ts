@@ -29,9 +29,11 @@ export function useAuth(): UseAuthReturn {
         setUser(currentUser)
         setIsLoading(false)
         
-        // If not authenticated and not on login page, redirect
+        // If not authenticated and not on login page, redirect with returnUrl
         if (!isAuth && typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
-          router.push('/auth/login')
+          const currentPath = window.location.pathname
+          const returnUrl = encodeURIComponent(currentPath)
+          router.push(`/auth/login?returnUrl=${returnUrl}`)
         }
       } catch (err) {
         console.error('Auth initialization error:', err)

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { tokenManager } from '@/utils/tokenManager'
 import { PermissionsProvider } from '@/PermissionsContext'
 
@@ -11,6 +11,7 @@ interface ProtectedLayoutProps {
 
 export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -19,10 +20,11 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
     setIsAuthenticated(authStatus)
     
     if (!authStatus) {
-      // Redirect to login page if not authenticated
-      router.push('/auth/login')
+      // Redirect to login page with returnUrl parameter
+      const returnUrl = encodeURIComponent(pathname || '/')
+      router.push(`/auth/login?returnUrl=${returnUrl}`)
     }
-  }, [router])
+  }, [router, pathname])
 
   // Show loading while checking authentication
   if (isAuthenticated === null) {

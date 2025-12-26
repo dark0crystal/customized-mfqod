@@ -67,8 +67,10 @@ export default function middleware(request: NextRequest) {
       // Extract locale from pathname
       const locale = getLocaleFromPathname(pathname);
       
-      // Create login URL with locale preserved
+      // Create login URL with locale preserved and returnUrl parameter
       const loginUrl = new URL(`/${locale}/auth/login`, request.url);
+      // Store the original pathname as returnUrl so user can be redirected back after login
+      loginUrl.searchParams.set('returnUrl', pathname);
       
       // Create response with redirect
       const response = NextResponse.redirect(loginUrl);

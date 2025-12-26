@@ -4,17 +4,18 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { tokenManager } from "@/utils/tokenManager" // Import the token manager
 
 export default function Login() {
   const t = useTranslations("auth.login")
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const router = useRouter()
 
   const loginSchema = z.object({
     identifier: z.string().min(3, t("validation.usernameOrEmailRequired")),
@@ -31,13 +32,15 @@ export default function Login() {
     resolver: zodResolver(loginSchema),
   })
 
-  // Check if user is already authenticated
+  // Check if user is already authenticated and redirect if so
   useEffect(() => {
     if (tokenManager.isAuthenticated()) {
-      // User is already logged in, redirect to dashboard
-      router.push("/dashboard")
+      // User is already logged in, redirect to returnUrl or main page
+      const returnUrl = searchParams.get('returnUrl')
+      const destination = returnUrl ? decodeURIComponent(returnUrl) : '/'
+      router.push(destination)
     }
-  }, [router])
+  }, [router, searchParams])
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
@@ -51,9 +54,13 @@ export default function Login() {
       setSuccess(t("loginSuccess"))
       console.log("Login success:", result)
       
-      // Redirect user after successful login
+      // Redirect to returnUrl if provided, otherwise redirect to main page
+      const returnUrl = searchParams.get('returnUrl')
+      const destination = returnUrl ? decodeURIComponent(returnUrl) : '/'
+      
+      // Small delay to show success message
       setTimeout(() => {
-        router.push("/dashboard")
+        router.push(destination)
       }, 1000)
       
     } catch (err) {

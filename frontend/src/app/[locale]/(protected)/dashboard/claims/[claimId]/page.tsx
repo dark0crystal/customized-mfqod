@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, use, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from '@/i18n/navigation';
@@ -93,6 +93,9 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingImages, setUploadingImages] = useState<string[]>([]);
   const [deletingImages, setDeletingImages] = useState<string[]>([]);
+  const [pendingImages, setPendingImages] = useState<File[]>([]);
+  const [pendingImageUrls, setPendingImageUrls] = useState<string[]>([]);
+  const pendingImageUrlsRef = useRef<string[]>([]);
   
   // Email notification state
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -119,6 +122,22 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
       fetchBranches();
     }
   }, [resolvedParams.claimId, canSendEmail]);
+
+  // Cleanup object URLs when pending images change or component unmounts
+  useEffect(() => {
+    // Cleanup old URLs first
+    pendingImageUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+    
+    // Create new object URLs for pending images
+    const urls = pendingImages.map(file => URL.createObjectURL(file));
+    pendingImageUrlsRef.current = urls;
+    setPendingImageUrls(urls);
+
+    // Cleanup function for when component unmounts
+    return () => {
+      urls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [pendingImages]);
 
   const fetchClaimDetails = async () => {
     setLoading(true);
@@ -154,6 +173,7 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
 
     setIsSaving(true);
     try {
+      // First, save the claim data (title and description)
       const response = await fetch(`${API_BASE_URL}/api/claims/${resolvedParams.claimId}`, {
         method: 'PUT',
         headers: getAuthHeaders(),
@@ -170,6 +190,28 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
 
       const updatedClaim = await response.json();
       setClaim({ ...claim, ...updatedClaim });
+
+      // Then, upload pending images if any
+      if (pendingImages.length > 0) {
+        setUploadingImages(prev => [...prev, ...pendingImages.map((_, idx) => `pending-${idx}`)]);
+        try {
+          await Promise.all(
+            pendingImages.map(async (file) => {
+              await imageUploadService.uploadImage(file, 'claim', resolvedParams.claimId);
+            })
+          );
+          // Clear pending images after successful upload
+          setPendingImages([]);
+          // Refresh claim data to get updated images
+          await fetchClaimDetails();
+        } catch (err) {
+          console.error('Error uploading images:', err);
+          alert(t('errorUploadingImage') || 'Failed to upload some images');
+        } finally {
+          setUploadingImages([]);
+        }
+      }
+
       setIsEditing(false);
     } catch (err) {
       console.error('Error updating claim:', err);
@@ -184,26 +226,19 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
       setEditedTitle(claim.title);
       setEditedDescription(claim.description);
     }
+    // Clear pending images when canceling
+    setPendingImages([]);
     setIsEditing(false);
   };
 
-  const handleImageUpload = async (file: File) => {
+  const handleImageUpload = (file: File) => {
     if (!claim) return;
+    // Add file to pending images instead of uploading immediately
+    setPendingImages(prev => [...prev, file]);
+  };
 
-    const imageId = `uploading-${Date.now()}`;
-    setUploadingImages(prev => [...prev, imageId]);
-
-    try {
-      await imageUploadService.uploadImage(file, 'claim', resolvedParams.claimId);
-
-      // Refresh claim data to get updated images
-      await fetchClaimDetails();
-    } catch (err) {
-      console.error('Error uploading image:', err);
-      alert(t('errorUploadingImage') || 'Failed to upload image');
-    } finally {
-      setUploadingImages(prev => prev.filter(id => id !== imageId));
-    }
+  const handleRemovePendingImage = (index: number) => {
+    setPendingImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleImageDelete = async (imageId: string) => {
@@ -477,6 +512,44 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                 <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                   <p className="text-sm text-blue-700">
                     {t('uploading') || 'Uploading...'} {uploadingImages.length} {t('image') || 'image(s)'}
+                  </p>
+                </div>
+              )}
+
+              {/* Pending Images Preview */}
+              {isEditing && pendingImages.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    {t('pendingImages') || 'Pending Images'} ({pendingImages.length})
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {pendingImages.map((file, index) => (
+                      <div key={index} className="relative group">
+                        <div className="relative h-20 rounded-lg overflow-hidden bg-gray-100 border-2 border-dashed border-blue-300">
+                          {pendingImageUrls[index] && (
+                            <Image
+                              src={pendingImageUrls[index]}
+                              alt={`Pending image ${index + 1}`}
+                              fill
+                              className="object-cover"
+                            />
+                          )}
+                          <button
+                            onClick={() => handleRemovePendingImage(index)}
+                            className="absolute top-1 right-1 p-1 bg-red-600 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                            title={t('removeImage') || 'Remove image'}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                          <div className="absolute bottom-0 left-0 right-0 bg-blue-500 bg-opacity-75 text-white text-xs px-1 py-0.5 text-center">
+                            {t('pending') || 'Pending'}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {t('pendingImagesNote') || 'These images will be uploaded when you click "Save Changes"'}
                   </p>
                 </div>
               )}
