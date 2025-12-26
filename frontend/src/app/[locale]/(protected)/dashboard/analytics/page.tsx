@@ -19,7 +19,6 @@ import {
 } from 'recharts';
 import { format, subDays } from 'date-fns';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { analyticsApi } from '@/utils/api';
 import { tokenManager } from '@/utils/tokenManager';
 import { useTranslations, useLocale } from 'next-intl';

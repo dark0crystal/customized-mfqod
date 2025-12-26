@@ -17,7 +17,7 @@ export default async function GuidesPage() {
       if (Array.isArray(items)) {
         return items as QAItem[];
       }
-    } catch (error) {
+    } catch {
       // If translation key doesn't exist, return empty array
       return [];
     }

@@ -1,6 +1,5 @@
 "use client"
 import { useState, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
 import UserInfo from './UserInfo';
 import UserReports from './UserReports';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -16,7 +15,6 @@ const maskToken = (token: string | null): string => {
 
 export default  function Dashboard(){
     const [isLoading, setIsLoading] = useState(true);
-    const t = useTranslations('dashboard.sideNavbar');
     const { permissions, userRole, roleId, isAuthenticated, isLoading: permissionsLoading } = usePermissions();
     
     useEffect(() => {

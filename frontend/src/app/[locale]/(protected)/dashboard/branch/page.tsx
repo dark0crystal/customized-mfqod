@@ -254,12 +254,12 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
     
     try {
       // Prepare data with proper coordinate handling
-      const submitData = {
+      const submitData: BranchFormData = {
         ...formData,
         longitude: formData.longitude === '' ? undefined : Number(formData.longitude),
         latitude: formData.latitude === '' ? undefined : Number(formData.latitude),
-        phone1: formData.phone1.trim() || undefined,
-        phone2: formData.phone2.trim() || undefined
+        phone1: formData.phone1.trim() || '',
+        phone2: formData.phone2.trim() || ''
       };
       
       if (branch) {
