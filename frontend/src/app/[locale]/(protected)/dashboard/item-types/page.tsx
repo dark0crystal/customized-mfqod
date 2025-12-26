@@ -8,13 +8,13 @@ import { formatDateOnly } from '@/utils/dateFormatter';
 const ItemTypesManager = () => {
   const locale = useLocale();
   const t = useTranslations("dashboard.itemTypes");
-  const [itemTypes, setItemTypes] = useState([]);
+  const [itemTypes, setItemTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
+  const [editingItem, setEditingItem] = useState<{ id: string; [key: string]: any } | null>(null);
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
 
   // Helper function to get localized name
@@ -84,14 +84,21 @@ const ItemTypesManager = () => {
       const data = await response.json();
       setItemTypes(data);
     } catch (err) {
-      setError(t("errors.failedToFetch", { error: err.message }));
+      setError(t("errors.failedToFetch", { error: err instanceof Error ? err.message : String(err) }));
     } finally {
       setLoading(false);
     }
   };
 
   // Create new item type
-  const createItemType = async (payload) => {
+  const createItemType = async (payload: {
+    name_ar: string;
+    name_en: string;
+    description_ar?: string;
+    description_en?: string;
+    category?: string;
+    is_active?: boolean;
+  }) => {
     setLoading(true);
     setError('');
     try {
@@ -106,19 +113,26 @@ const ItemTypesManager = () => {
         throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
       
-      const newItemType = await response.json();
+      const newItemType: any = await response.json();
       setItemTypes([...itemTypes, newItemType]);
       setSuccess(t("success.created"));
       resetForm();
     } catch (err) {
-      setError(t("errors.failedToCreate", { error: err.message }));
+      setError(t("errors.failedToCreate", { error: err instanceof Error ? err.message : String(err) }));
     } finally {
       setLoading(false);
     }
   };
 
   // Update item type
-  const updateItemType = async (id, payload) => {
+  const updateItemType = async (id: string, payload: {
+    name_ar: string;
+    name_en: string;
+    description_ar?: string;
+    description_en?: string;
+    category?: string;
+    is_active?: boolean;
+  }) => {
     setLoading(true);
     setError('');
     try {
@@ -140,14 +154,14 @@ const ItemTypesManager = () => {
       setSuccess(t("success.updated"));
       resetForm();
     } catch (err) {
-      setError(t("errors.failedToUpdate", { error: err.message }));
+      setError(t("errors.failedToUpdate", { error: err instanceof Error ? err.message : String(err) }));
     } finally {
       setLoading(false);
     }
   };
 
   // Delete item type
-  const deleteItemType = async (id) => {
+  const deleteItemType = async (id: string) => {
     if (!window.confirm(t("confirmDelete"))) {
       return;
     }
@@ -168,7 +182,7 @@ const ItemTypesManager = () => {
       setItemTypes(itemTypes.filter(item => item.id !== id));
       setSuccess(t("success.deleted"));
     } catch (err) {
-      setError(t("errors.failedToDelete", { error: err.message }));
+      setError(t("errors.failedToDelete", { error: err instanceof Error ? err.message : String(err) }));
     } finally {
       setLoading(false);
     }
@@ -177,10 +191,8 @@ const ItemTypesManager = () => {
   // Reset form
   const resetForm = () => {
     setFormData({
-      name: '',
       name_ar: '',
       name_en: '',
-      description: '',
       description_ar: '',
       description_en: '',
       category: '',
@@ -358,8 +370,8 @@ const ItemTypesManager = () => {
                   {t("form.description")}
                 </label>
                 <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  value={formData.description_ar}
+                  onChange={(e) => setFormData({...formData, description_ar: e.target.value})}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder={t("form.descriptionPlaceholder")}

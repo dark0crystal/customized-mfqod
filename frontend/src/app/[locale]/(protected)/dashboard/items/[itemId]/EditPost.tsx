@@ -11,6 +11,7 @@ import imageUploadService, { UploadProgress, UploadError } from '@/services/imag
 import { X } from 'lucide-react';
 import CustomDropdown from '@/components/ui/CustomDropdown';
 import { usePermissions } from '@/PermissionsContext';
+import Image from 'next/image';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -558,11 +559,13 @@ export default function EditPost({ params, onSave }: EditPostProps) {
               <h3 className="text-md font-medium text-gray-700 mb-3">{t('existingImages') || 'Existing Images'}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {item.images.map((image) => (
-                  <div key={image.id} className="relative border border-gray-200 rounded-lg overflow-hidden group">
-                    <img
+                  <div key={image.id} className="relative border border-gray-200 rounded-lg overflow-hidden group h-32">
+                    <Image
                       src={`${API_BASE_URL}${image.url}`}
                       alt={image.description || 'Item image'}
-                      className="w-full h-32 object-cover"
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 50vw, 33vw"
                     />
                     <button
                       type="button"

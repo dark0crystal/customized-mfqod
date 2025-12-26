@@ -91,41 +91,6 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
     return nameAr || nameEn || '';
   };
 
-  // Helper to format location with localized organization and branch names
-  const getLocationDisplay = (location?: LocationData): string => {
-    if (!location) return t("location.notSpecified");
-    
-    const orgName = getLocalizedName(
-      location.organization_name_ar,
-      location.organization_name_en
-    );
-    
-    const branchName = getLocalizedName(
-      location.branch_name_ar,
-      location.branch_name_en
-    );
-    
-    // Build the location string with proper localization - only show locale-specific names
-    const parts = [];
-    
-    // Add organization name if available (only in selected locale)
-    if (orgName) {
-      parts.push(orgName);
-    }
-    
-    // Add branch name if available and different from organization (only in selected locale)
-    if (branchName && branchName !== orgName) {
-      parts.push(branchName);
-    }
-    
-    // Add full location if available and not already included
-    if (location.full_location && !parts.some(part => location.full_location?.includes(part))) {
-      parts.push(location.full_location);
-    }
-    
-    return parts.length > 0 ? parts.join(', ') : t("location.notSpecified");
-  };
-
   const getImageUrl = (itemId: string) => {
     const itemImages = images?.[itemId] && images[itemId].length > 0 ? images[itemId] : null;
     if (itemImages && itemImages[0]?.url) {

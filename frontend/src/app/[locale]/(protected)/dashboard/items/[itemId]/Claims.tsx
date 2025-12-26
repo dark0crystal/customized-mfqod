@@ -5,6 +5,7 @@ import { useRouter } from '@/i18n/navigation';
 import { ExternalLink } from 'lucide-react';
 import { tokenManager } from '@/utils/tokenManager';
 import { formatDateOnly } from '@/utils/dateFormatter';
+import Image from 'next/image';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -221,15 +222,17 @@ export default function Claims({ postId }: { postId: string }) {
                                 }`}
                               >
                                 {imageUrl && !hasFailed ? (
-                                  <img
+                                  <Image
                                     src={imageUrl}
                                     alt={`Claim image ${image.id}`}
-                                    className={`w-full h-full object-cover ${
+                                    fill
+                                    className={`object-cover ${
                                       isItemApproved ? 'opacity-60' : ''
                                     }`}
                                     onError={() => {
                                       setFailedImages(prev => new Set(prev).add(imageKey));
                                     }}
+                                    unoptimized={imageUrl.startsWith('http') || imageUrl.startsWith('data:')}
                                   />
                                 ) : (
                                   <div className={`flex items-center justify-center w-full h-full text-xs text-center p-2 ${
