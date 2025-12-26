@@ -1,7 +1,6 @@
 import createMiddleware from 'next-intl/middleware';
 import { NextRequest, NextResponse } from 'next/server';
 import { routing } from './i18n/routing';
-import { requiresAuthentication, getRoutePermission } from './lib/server/routePermissions';
 
 // Create the internationalization middleware
 const intlMiddleware = createMiddleware(routing);
@@ -26,7 +25,7 @@ function isAuthenticated(request: NextRequest): boolean {
     }
     
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -58,20 +57,8 @@ function getLocaleFromPathname(pathname: string): string {
   return 'ar'; // Default locale
 }
 
-// Function to remove locale from pathname
-function removeLocaleFromPathname(pathname: string): string {
-  const segments = pathname.split('/').filter(Boolean);
-  if (segments.length > 0 && (segments[0] === 'en' || segments[0] === 'ar')) {
-    return '/' + segments.slice(1).join('/');
-  }
-  return pathname;
-}
-
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
-  // Remove locale to check route permissions
-  const pathWithoutLocale = removeLocaleFromPathname(pathname);
   
   // Check if this is a protected route
   if (isProtectedRoute(pathname)) {

@@ -3,7 +3,6 @@ import { getTranslations } from "next-intl/server"
 import { SearchButton } from "@/components/buttons/SearchButton"
 import FoundButton from "@/components/buttons/FoundButton"
 import NewCardsSection from "@/components/NewCardsSection"
-import ReturnedItemsSection from "@/components/ReturnedItemsSection"
 
 export default async function Home() {
   const t = await getTranslations("HomePage")
