@@ -50,7 +50,7 @@ const getAuthHeaders = (): HeadersInit => {
 export default function UnifiedEditUserForm({ userId }: { userId: string }) {
     const t = useTranslations('manageUsers'); // Using manageUsers namespace for general labels
     const locale = useLocale();
-    const { hasPermission, userRole: currentUserRole } = usePermissions();
+    const { hasPermission } = usePermissions();
 
     // --- State ---
     const [isLoading, setIsLoading] = useState(true);
@@ -74,7 +74,6 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
         register,
         handleSubmit,
         setValue,
-        watch,
         formState: { errors },
     } = useForm<ProfileFormFields>({
         resolver: zodResolver(profileSchema),
@@ -463,7 +462,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                     <button
                         type="submit"
                         disabled={isSaving || isLoading}
-                        onClick={(e) => {
+                        onClick={() => {
                             console.log('Submit button clicked');
                             console.log('Form errors:', errors);
                             console.log('Form state:', { isSaving, isLoading });

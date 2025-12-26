@@ -32,14 +32,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
-  if (!images || images.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-32 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-        <p className="text-gray-500">No images to display</p>
-      </div>
-    );
-  }
-
   const handleImageClick = (index: number) => {
     setExpandedIndex(index);
   };
@@ -121,6 +113,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       default: return "grid-cols-3";
     }
   };
+
+  if (!images || images.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+        <p className="text-gray-500">No images to display</p>
+      </div>
+    );
+  }
 
   return (
     <div className={`image-gallery ${className}`}>

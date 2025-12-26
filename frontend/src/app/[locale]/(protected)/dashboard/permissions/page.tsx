@@ -14,7 +14,6 @@ const PermissionsManager = () => {
   const [editingPermissionId, setEditingPermissionId] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', description: '' });
   const [newPermission, setNewPermission] = useState({ name: '', description: '' });
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 

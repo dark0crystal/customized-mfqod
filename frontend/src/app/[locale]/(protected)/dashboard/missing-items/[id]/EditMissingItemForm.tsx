@@ -1,22 +1,29 @@
 "use client";
 
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import ReactConfetti from "react-confetti";
-import CompressorFileInput from "@/components/forms/CompressorFileInput";
 import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
-import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
 import { Link } from '@/i18n/navigation';
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import Image from "next/image";
 import ImageCarousel, { CarouselImage } from "@/components/ImageCarousel";
 import { usePermissions } from "@/PermissionsContext";
 
 // Zod schema for form validation
-const missingItemFormSchema = z.object({
+type MissingItemFormFields = {
+  title: string;
+  content: string;
+  type: string;
+  place: string;
+  country: string;
+  orgnization: string;
+  item_type_id: string;
+};
+
+// Schema used for type inference
+const _missingItemFormSchema: z.ZodType<MissingItemFormFields> = z.object({
   title: z.string().min(1, "This field is required"),
   content: z.string().min(1, "Please provide additional details"),
   type: z.string().min(1, "This field is required"),
@@ -26,32 +33,8 @@ const missingItemFormSchema = z.object({
   item_type_id: z.string().min(1, "Please select an item type"),
 });
 
-type MissingItemFormFields = z.infer<typeof missingItemFormSchema>;
-
 // Type definitions
 interface ItemType {
-  id: string;
-  name_ar?: string;
-  name_en?: string;
-  description_ar?: string;
-  description_en?: string;
-}
-
-interface Branch {
-  id: string;
-  branch_name_ar?: string;
-  branch_name_en?: string;
-  description_ar?: string;
-  description_en?: string;
-  longitude?: number;
-  latitude?: number;
-  organization_id?: string;
-  organization?: Organization;
-  created_at?: string;
-  updated_at?: string;
-}
-
-interface Organization {
   id: string;
   name_ar?: string;
   name_en?: string;
@@ -120,14 +103,11 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [missingItem, setMissingItem] = useState<MissingItem | null>(null);
-  const [compressedFiles, setCompressedFiles] = useState<File[]>([]);
   const [confetti, setConfetti] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [orgSelectDisabled, setOrgSelectDisabled] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
-  const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
 
   const c = useTranslations("report-missing");
   
@@ -160,7 +140,6 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
     register,
     handleSubmit,
     formState: { errors, isSubmitting, isDirty },
-    reset,
     setValue,
     watch
   } = useForm<MissingItemFormFields>({
@@ -297,7 +276,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
         try {
           const errorData = await updateResponse.json();
           errorMessage = errorData.detail || errorMessage;
-        } catch (e) {
+        } catch {
           console.error('Could not parse error response');
         }
         throw new Error(errorMessage);
