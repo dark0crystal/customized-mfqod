@@ -10,6 +10,8 @@ const lalezarFont = Lalezar({
   weight: "400",
   subsets: ["latin"],
   display: "swap",
+  fallback: ["system-ui", "arial", "sans-serif"],
+  adjustFontFallback: true,
 });
 
 export default function Brand() {
