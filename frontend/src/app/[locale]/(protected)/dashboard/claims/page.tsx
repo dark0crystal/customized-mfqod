@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 import Link from 'next/link';
-import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
 import { formatDateOnly } from '@/utils/dateFormatter';
 import { usePermissions } from '@/PermissionsContext';
 

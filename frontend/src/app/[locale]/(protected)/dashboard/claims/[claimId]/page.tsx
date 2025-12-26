@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from '@/i18n/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { tokenManager } from '@/utils/tokenManager';
-import { formatDate, formatDateOnly } from '@/utils/dateFormatter';
+import { formatDateOnly } from '@/utils/dateFormatter';
 import { ArrowLeft, Edit2, Save, X, Upload, Trash2, Mail, MapPin, Send } from 'lucide-react';
 import ImageCarousel, { CarouselImage } from '@/components/ImageCarousel';
 import imageUploadService from '@/services/imageUploadService';
@@ -282,7 +282,7 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
         throw new Error(errorData.detail || t('emailSendError') || 'Failed to send email');
       }
 
-      const result = await response.json();
+      await response.json();
       setEmailSent(true);
       setEmailNote('');
       setSelectedBranchId('');
