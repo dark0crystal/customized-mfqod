@@ -86,10 +86,10 @@ class ADConfig:
     
     # Service Account for LDAP Binding (RFC 2251 compliant) - SQU specific
     BIND_USER: str = os.getenv("AD_BIND_USER", "CN=ServiceAccount,OU=Service Accounts,DC=squ,DC=edu,DC=om")
-    BIND_PASSWORD: str = os.getenv("AD_BIND_PASSWORD", "your-service-account-password")
+    BIND_PASSWORD: str = os.getenv("AD_BIND_PASSWORD", "service-account-password")
     
     # JWT Configuration for Application Tokens
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-super-secret-jwt-key-change-this-in-production")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "secret-jwt-key")
     ALGORITHM: str = "HS256"
     TOKEN_EXPIRY_HOURS: int = int(os.getenv("JWT_EXPIRY_HOURS", "8"))
     
