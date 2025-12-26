@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useTranslations } from 'next-intl';
+import Image from 'next/image';
 
 export default function UserProfile() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -11,6 +12,8 @@ export default function UserProfile() {
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const t = useTranslations('navbar');
+  const [imageError, setImageError] = useState(false);
+  const [dropdownImageError, setDropdownImageError] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -82,24 +85,14 @@ export default function UserProfile() {
       >
         {/* Profile Image */}
         <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 transition-colors" style={{ borderColor: '#3277AE', backgroundColor: '#3277AE' }}>
-          {userImage ? (
-            <img
-              src={userImage}
-              alt={displayName}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                // Fallback to default if image fails to load
-                const target = e.target as HTMLImageElement;
-                target.src = defaultProfileImage;
-              }}
-            />
-          ) : (
-            <img
-              src={defaultProfileImage}
-              alt="Default profile"
-              className="w-full h-full object-cover"
-            />
-          )}
+          <Image
+            src={userImage && !imageError ? userImage : defaultProfileImage}
+            alt={displayName}
+            fill
+            className="object-cover"
+            onError={() => setImageError(true)}
+            unoptimized={userImage?.startsWith('http') || userImage?.startsWith('data:')}
+          />
         </div>
         
         {/* Dropdown Arrow */}
@@ -122,23 +115,14 @@ export default function UserProfile() {
             <div className="px-4 py-4 border-b border-gray-200 bg-gray-50">
               <div className="flex items-center space-x-3">
                 <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 flex-shrink-0" style={{ borderColor: '#3277AE', backgroundColor: '#3277AE' }}>
-                  {userImage ? (
-                    <img
-                      src={userImage}
-                      alt={displayName}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = defaultProfileImage;
-                      }}
-                    />
-                  ) : (
-                    <img
-                      src={defaultProfileImage}
-                      alt="Default profile"
-                      className="w-full h-full object-cover"
-                    />
-                  )}
+                  <Image
+                    src={userImage && !dropdownImageError ? userImage : defaultProfileImage}
+                    alt={displayName}
+                    fill
+                    className="object-cover"
+                    onError={() => setDropdownImageError(true)}
+                    unoptimized={userImage?.startsWith('http') || userImage?.startsWith('data:')}
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">

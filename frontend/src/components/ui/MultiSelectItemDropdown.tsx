@@ -231,7 +231,7 @@ export default function MultiSelectItemDropdown({
                 {searchQuery ? "No items found" : emptyMessage}
               </div>
             ) : (
-              filteredItems.map((item, index) => {
+              filteredItems.map((item) => {
                 const isSelected = selectedIds.includes(item.id);
                 const itemImage = item.images && item.images.length > 0 
                   ? getImageUrl(item.images[0].url) 
