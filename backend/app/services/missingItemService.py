@@ -701,14 +701,28 @@ class MissingItemService:
         branch_name = branch.branch_name_en or branch.branch_name_ar or 'branch'
         user_name = missing_item.user.first_name or "User"
         
+        # Get branch phone numbers
+        branch_phone1 = branch.phone1
+        branch_phone2 = branch.phone2
+        
         subject = f"Update on your missing item: {missing_item.title}"
+        
+        # Build phone contact info
+        phone_info = ""
+        if branch_phone1 or branch_phone2:
+            phone_info = "\n\nBranch Contact Numbers:\n"
+            if branch_phone1:
+                phone_info += f"Phone 1: {branch_phone1}\n"
+            if branch_phone2:
+                phone_info += f"Phone 2: {branch_phone2}\n"
         
         # Text version with item links
         text_body = (
             f"Hello {user_name},\n\n"
             f"We have identified possible matches for your reported missing item \"{missing_item.title}\".\n\n"
-            f"Branch to visit: {branch_name}\n\n"
-            f"Items to review:\n"
+            f"Branch to visit: {branch_name}"
+            + phone_info + "\n"
+            + f"Items to review:\n"
             + "\n".join(item_links_text) + "\n\n"
             + f"Note: {note or 'No additional note provided.'}\n\n"
             + "Please visit the branch with proof of ownership.\n\n"
@@ -725,6 +739,8 @@ class MissingItemService:
             
             <div style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
                 <strong>Branch to visit:</strong> {branch_name}
+                {f'<br><strong>Phone 1:</strong> <a href="tel:{branch_phone1}">{branch_phone1}</a>' if branch_phone1 else ''}
+                {f'<br><strong>Phone 2:</strong> <a href="tel:{branch_phone2}">{branch_phone2}</a>' if branch_phone2 else ''}
             </div>
             
             <div style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
@@ -910,6 +926,13 @@ class MissingItemService:
                 if item_type:
                     item_type_name = item_type.name
             
+            # Get branch information if available (for branch managers)
+            branch_phone1 = None
+            branch_phone2 = None
+            # Note: Missing items don't have direct branch association, but branch managers
+            # receive these notifications, so we could get branch info from managers if needed
+            # For now, we'll leave it as None since missing items aren't branch-specific
+            
             # Send notification to admin
             await send_new_missing_item_alert(
                 admin_emails=[admin_email],
@@ -918,7 +941,9 @@ class MissingItemService:
                 item_type=item_type_name,
                 reporter_name=f"{user.first_name} {user.last_name}".strip(),
                 reporter_email=user.email,
-                missing_item_url=None
+                missing_item_url=None,
+                branch_phone1=branch_phone1,
+                branch_phone2=branch_phone2
             )
         except Exception as e:
             # Log error but don't raise it

@@ -569,7 +569,9 @@ async def send_new_claim_alert(
     claimer_name: str,
     claimer_email: str,
     claim_url: Optional[str] = None,
-    item_url: Optional[str] = None
+    item_url: Optional[str] = None,
+    branch_phone1: Optional[str] = None,
+    branch_phone2: Optional[str] = None
 ) -> bool:
     """Send new claim alert to moderators"""
     template_data = {
@@ -579,7 +581,9 @@ async def send_new_claim_alert(
         "claimer_name": claimer_name,
         "claimer_email": claimer_email,
         "claim_url": claim_url,
-        "item_url": item_url
+        "item_url": item_url,
+        "branch_phone1": branch_phone1,
+        "branch_phone2": branch_phone2
     }
     
     return await notification_service.send_templated_email(
@@ -622,7 +626,9 @@ async def send_new_missing_item_alert(
     item_type: str,
     reporter_name: str,
     reporter_email: str,
-    missing_item_url: Optional[str] = None
+    missing_item_url: Optional[str] = None,
+    branch_phone1: Optional[str] = None,
+    branch_phone2: Optional[str] = None
 ) -> bool:
     """Send new missing item alert to admins"""
     template_data = {
@@ -631,7 +637,9 @@ async def send_new_missing_item_alert(
         "item_type": item_type,
         "reporter_name": reporter_name,
         "reporter_email": reporter_email,
-        "missing_item_url": missing_item_url
+        "missing_item_url": missing_item_url,
+        "branch_phone1": branch_phone1,
+        "branch_phone2": branch_phone2
     }
     
     return await notification_service.send_templated_email(
