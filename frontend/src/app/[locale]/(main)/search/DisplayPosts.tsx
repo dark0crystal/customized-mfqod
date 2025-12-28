@@ -97,19 +97,14 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
     // Build the location string with proper localization - only show locale-specific names
     const parts = [];
 
-    // Add organization name if available (only in selected locale)
-    if (orgName) {
-      parts.push(orgName);
-    }
-
-    // Add branch name if available and different from organization (only in selected locale)
-    if (branchName && branchName !== orgName) {
+    // Add branch name first if available (only in selected locale)
+    if (branchName) {
       parts.push(branchName);
     }
 
-    // Add full location if available and not already included
-    if (location.full_location && !parts.some(part => location.full_location?.includes(part))) {
-      parts.push(location.full_location);
+    // Add organization name if available and different from branch (only in selected locale)
+    if (orgName && orgName !== branchName) {
+      parts.push(orgName);
     }
 
     return parts.length > 0 ? parts.join(', ') : t("location-not-specified");
