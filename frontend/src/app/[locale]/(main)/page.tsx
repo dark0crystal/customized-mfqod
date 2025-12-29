@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server"
 import { SearchButton } from "@/components/buttons/SearchButton"
 import FoundButton from "@/components/buttons/FoundButton"
 import NewCardsSection from "@/components/NewCardsSection"
+import SplashScreen from "@/components/SplashScreen"
 
 export default async function Home() {
   const t = await getTranslations("HomePage")
@@ -10,6 +11,7 @@ export default async function Home() {
 
   return (
     <main className="overflow-hidden flex flex-col justify-center "> 
+      <SplashScreen />
       <div className="relative h-fit w-screen  mt-20 p-4 overflow-hidden">
         <div className='flex justify-center my-2 items-center'>
         </div>
