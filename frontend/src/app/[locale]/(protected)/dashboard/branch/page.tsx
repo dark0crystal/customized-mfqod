@@ -45,8 +45,8 @@ interface BranchFormData {
   description_en: string;
   longitude: number | '' | undefined;
   latitude: number | '' | undefined;
-  phone1: string;
-  phone2: string;
+  phone1?: string | null;
+  phone2?: string | null;
   organization_id: string;
 }
 
@@ -236,15 +236,14 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
       return;
     }
     
-    // Validate phone numbers
-    const phoneNumbers = [formData.phone1, formData.phone2].filter(p => p && p.trim());
-    if (phoneNumbers.length > 2) {
-      alert('Maximum 2 phone numbers allowed');
-      return;
-    }
+    // Validate phone numbers - only validate if they have content
+    const phone1Trimmed = formData.phone1?.trim() || '';
+    const phone2Trimmed = formData.phone2?.trim() || '';
+    const phoneNumbers = [phone1Trimmed, phone2Trimmed].filter(p => p && p.length > 0);
     
+    // Validate each phone number that has content (must be exactly 8 digits)
     for (const phone of phoneNumbers) {
-      if (!/^\d{8}$/.test(phone.trim())) {
+      if (!/^\d{8}$/.test(phone)) {
         alert('Phone number must be exactly 8 digits');
         return;
       }
@@ -254,12 +253,13 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
     
     try {
       // Prepare data with proper coordinate handling
-      const submitData: BranchFormData = {
+      // Send null for empty phone fields instead of empty strings
+      const submitData: any = {
         ...formData,
         longitude: formData.longitude === '' ? undefined : Number(formData.longitude),
         latitude: formData.latitude === '' ? undefined : Number(formData.latitude),
-        phone1: formData.phone1.trim() || '',
-        phone2: formData.phone2.trim() || ''
+        phone1: phone1Trimmed || null,
+        phone2: phone2Trimmed || null
       };
       
       if (branch) {

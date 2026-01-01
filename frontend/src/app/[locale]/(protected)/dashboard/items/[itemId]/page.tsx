@@ -348,8 +348,35 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     
     // If changing to disposed, show disposal modal
     if (newStatus === 'disposed') {
+      setPendingStatusChange(newStatus);
       setShowDisposeModal(true);
       return; // Don't update status yet - wait for disposal note
+    }
+    
+    // If changing from disposed to any other status, handle claim connection removal
+    if (currentStatus === 'disposed' && newStatus !== 'disposed') {
+      // If changing from disposed to approved, show claim selection modal
+      if (newStatus === 'approved') {
+        // Fetch claims first to check if any exist
+        const claimsList = await fetchClaims();
+        
+        // If no claims exist, prevent the status change
+        if (claimsList.length === 0) {
+          alert(t('noClaimsToApprove') || 'Cannot approve this post. There are no claims for this post. Please create a claim first before approving.');
+          return; // Don't update status - it stays as 'disposed'
+        }
+        
+        // If claims exist, show modal to select a claim
+        setPendingStatusChange(newStatus);
+        setShowClaimModal(true);
+        return; // Don't update status yet - it stays as 'disposed'
+      } else {
+        // For other status changes from disposed (pending, cancelled), remove claim connection
+        // Update status normally - handleStatusUpdate will clear approved_claim_id
+        setPreviousStatus(status);
+        setStatus(newStatus);
+        return;
+      }
     }
     
     // If changing from approved to pending, check if there's a connected claim
@@ -391,6 +418,59 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
 
   const handleStatusUpdate = async () => {
     if (!item) return;
+    
+    // If there's a pending status change to disposed, show disposal modal
+    if (pendingStatusChange === 'disposed' && !showDisposeModal) {
+      setShowDisposeModal(true);
+      return;
+    }
+    
+    // Handle status change from disposed to other statuses
+    const currentStatus = item.status || status;
+    if (currentStatus === 'disposed' && status !== 'disposed') {
+      // If changing from disposed to approved, ensure we have a selected claim
+      if (status === 'approved') {
+        if (!selectedClaimId && !showClaimModal) {
+          // Trigger the claim selection flow
+          await handleStatusChange(status);
+          return;
+        }
+        if (!selectedClaimId) {
+          alert(t('noClaimForApproved') || 'Cannot approve this item. Please select a claim first.');
+          return;
+        }
+      } else {
+        // For other status changes from disposed (pending, cancelled), clear approved_claim_id
+        setIsUpdating(true);
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
+            method: 'PATCH',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+              status: status,
+              approved_claim_id: null  // Remove claim connection
+            }),
+          });
+
+          if (response.ok) {
+            const updatedData = await response.json();
+            setItem(updatedData);
+            setStatus(updatedData.status || status);
+            setPreviousStatus(updatedData.status || status);
+            setPendingStatusChange(null);
+          } else {
+            const errorData = await response.json();
+            alert(errorData.detail || t('updateStatusError') || 'Failed to update status');
+          }
+        } catch (err) {
+          console.error('Error updating status:', err);
+          alert(t('updateStatusError') || 'Failed to update status');
+        } finally {
+          setIsUpdating(false);
+        }
+        return;
+      }
+    }
     
     // If trying to change from pending to approved without a claim, handle it
     if (previousStatus === 'pending' && status === 'approved' && !item.approved_claim_id) {
@@ -498,6 +578,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
       setItem(updatedData);
       setStatus('disposed');
       setPreviousStatus('disposed');
+      setPendingStatusChange(null);
       setShowDisposeModal(false);
       setDisposalNote('');
       setDisposalImages([]);
@@ -518,26 +599,41 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     }
     // Close modal and proceed with status update
     setShowClaimModal(false);
-    setPendingStatusChange(null);
     
     // Update status and proceed with update
     setIsUpdating(true);
     try {
+      // Get the current status to determine if we're changing from disposed
+      const currentStatus = item?.status || status;
+      const targetStatus = pendingStatusChange || 'approved';
+      
+      // If changing from disposed, we need to clear approved_claim_id first, then set the new one
+      const updatePayload: {
+        status: string;
+        approved_claim_id: string;
+      } = {
+        status: targetStatus,
+        approved_claim_id: selectedClaimId
+      };
+      
+      // If changing from disposed, explicitly clear the old connection
+      if (currentStatus === 'disposed') {
+        updatePayload.approved_claim_id = selectedClaimId; // Set new claim
+      }
+      
       const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
-        body: JSON.stringify({
-          status: 'approved',
-          approved_claim_id: selectedClaimId
-        }),
+        body: JSON.stringify(updatePayload),
       });
 
       if (response.ok) {
         const updatedData = await response.json();
         setItem(updatedData);
-        setStatus('approved');
-        setPreviousStatus('approved');
+        setStatus(targetStatus);
+        setPreviousStatus(targetStatus);
         setSelectedClaimId('');
+        setPendingStatusChange(null);
       } else {
         const errorData = await response.json();
         alert(errorData.detail || t('updateStatusError') || 'Failed to update status');
@@ -552,7 +648,9 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
 
   const handleCancelClaimSelection = () => {
     // Revert status to previous (status was never actually changed)
-    setStatus(previousStatus);
+    // Get the original status from item or previousStatus
+    const originalStatus = item?.status || previousStatus;
+    setStatus(originalStatus);
     setShowClaimModal(false);
     setPendingStatusChange(null);
     setSelectedClaimId('');
@@ -770,13 +868,27 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
       const updatedDate = format(new Date(exportData.updated_at), 'MMMM dd, yyyy');
       
       const htmlContent = `
-        <!-- Header Section -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; padding-bottom: 15px; border-bottom: 2px solid #3277AE;">
-          <div style="text-align: ${locale === 'ar' ? 'right' : 'left'};">
-            <h1 style="font-size: 32px; margin: 0; color: #3277AE; font-weight: bold;">${brandName}</h1>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
+        </style>
+        <!-- Brand Logo Section -->
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 30px; padding-bottom: 25px; border-bottom: 2px solid #3277AE;">
+          <!-- Brand Name -->
+          <div style="display: inline-flex; align-items: center;">
+            <div style="font-size: 32px; font-weight: 400; font-family: 'Lalezar', 'Arial', sans-serif; color: #000000; line-height: 1; white-space: nowrap;">
+              ${brandName}
+            </div>
           </div>
-          <div style="text-align: ${locale === 'ar' ? 'left' : 'right'};">
+          
+         
+        </div>
+        
+        <!-- Document Title and Info Section -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+          <div style="text-align: ${locale === 'ar' ? 'right' : 'left'}; flex: 1;">
             <h1 style="font-size: 24px; margin: 0 0 10px 0; color: #3277AE; font-weight: bold;">${documentTitle}</h1>
+          </div>
+          <div style="text-align: ${locale === 'ar' ? 'left' : 'right'}; flex: 1;">
             <p style="font-size: 12px; margin: 5px 0; color: #333;">${t('itemId') || 'Item ID'}: ${itemId}</p>
             <p style="font-size: 12px; margin: 5px 0; color: #333;">${t('created') || 'Created'}: ${createdDate}</p>
             <p style="font-size: 12px; margin: 5px 0; color: #333;">${t('lastUpdated') || 'Last Updated'}: ${updatedDate}</p>
@@ -819,7 +931,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
         <div style="margin-bottom: 30px;">
           <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
             <thead>
-              <tr style="background-color: #3277AE; color: white;">
+              <tr style="background-color: #fafaf9; color: #333;">
                 <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('title') || 'Title'}</th>
                 <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('description') || 'Description'}</th>
                 <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('approvalStatus') || 'Status'}</th>
@@ -857,7 +969,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           <h3 style="font-size: 16px; margin-bottom: 10px; color: #333; font-weight: bold;">${locale === 'ar' ? 'المطالبة المعتمدة' : 'Approved Claim'}</h3>
           <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
             <thead>
-              <tr style="background-color: #3277AE; color: white;">
+              <tr style="background-color: #fafaf9; color: #333;">
                 <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('title') || 'Title'}</th>
                 <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('description') || 'Description'}</th>
                 <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('claimer') || 'Claimer'}</th>
@@ -884,7 +996,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           <h3 style="font-size: 16px; margin-bottom: 10px; color: #333; font-weight: bold;">${locale === 'ar' ? 'الأغراض المفقودة المتصلة' : 'Connected Missing Items'}</h3>
           <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
             <thead>
-              <tr style="background-color: #3277AE; color: white;">
+              <tr style="background-color: #fafaf9; color: #333;">
                 <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">S.NO</th>
                 <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('title') || 'Title'}</th>
                 <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('description') || 'Description'}</th>
@@ -894,7 +1006,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
               </tr>
             </thead>
             <tbody>
-              ${exportData.connected_missing_items.map((missingItem: any, index: number) => `
+              ${exportData.connected_missing_items.map((missingItem: { title?: string; description?: string; status?: string; item_type?: { name_ar?: string; name_en?: string }; user_name?: string }, index: number) => `
               <tr>
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 12px;">${index + 1}</td>
                 <td style="padding: 10px; border: 1px solid #ddd; text-align: ${locale === 'ar' ? 'right' : 'left'}; font-size: 12px;">${missingItem.title || t('notAvailable') || 'N/A'}</td>
@@ -924,15 +1036,28 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
         </div>
       `;
 
+      // Ensure Lalezar font is loaded
+      if (!document.querySelector('link[href*="Lalezar"]')) {
+        const fontLink = document.createElement('link');
+        fontLink.href = 'https://fonts.googleapis.com/css2?family=Lalezar&display=swap';
+        fontLink.rel = 'stylesheet';
+        document.head.appendChild(fontLink);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for font to load
+      }
+      
       tempDiv.innerHTML = htmlContent;
       document.body.appendChild(tempDiv);
+      
+      // Wait for fonts to be ready
+      await document.fonts.ready;
 
       // Convert HTML to canvas
       const canvas = await html2canvas(tempDiv, {
         scale: 2,
         useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false
       });
 
       // Remove temporary element
@@ -1205,13 +1330,15 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                   <h3 className="text-lg font-semibold text-gray-900">{t('itemStatus')}</h3>
                   <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
                       item.status === ItemStatus.CANCELLED ? 'bg-red-100 text-red-800' :
-                        item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
-                          item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                        item.status === ItemStatus.DISPOSED ? 'bg-gray-100 text-gray-800' :
+                          item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
+                            item.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
                     }`}>
                     {item.status === ItemStatus.APPROVED ? t('approved') :
                           item.status === ItemStatus.CANCELLED ? t('cancelled') :
-                            item.status === ItemStatus.PENDING ? (t('pending') || 'Pending') :
-                              item.approval ? t('approved') : t('pending')}
+                            item.status === ItemStatus.DISPOSED ? (t('status.disposed') || 'It was disposed of') :
+                              item.status === ItemStatus.PENDING ? (t('pending') || 'Pending') :
+                                item.approval ? t('approved') : t('pending')}
                   </span>
                 </div>
 
@@ -1730,6 +1857,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                         // Clean up object URLs before closing
                         disposalImageUrls.forEach(url => URL.revokeObjectURL(url));
                         setShowDisposeModal(false);
+                        setPendingStatusChange(null);
                         setDisposalNote('');
                         setDisposalImages([]);
                         setDisposalError(null);
@@ -1857,6 +1985,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                         // Clean up object URLs before closing
                         disposalImageUrls.forEach(url => URL.revokeObjectURL(url));
                         setShowDisposeModal(false);
+                        setPendingStatusChange(null);
                         setDisposalNote('');
                         setDisposalImages([]);
                         setDisposalError(null);

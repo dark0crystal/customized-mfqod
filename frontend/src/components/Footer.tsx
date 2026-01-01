@@ -130,9 +130,9 @@ export default function Footer() {
             <Image
               src="/dsalogo.png"
               alt="Deanship of Student's Affairs Logo"
-              width={240}
-              height={120}
-              className="h-28 w-auto sm:h-32 sm:w-auto lg:h-36 lg:w-auto"
+              width={320}
+              height={160}
+              className="h-36 w-auto sm:h-40 sm:w-auto lg:h-44 lg:w-auto"
               priority
             />
           </div>

@@ -131,6 +131,7 @@ export default function AnalyticsPage() {
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [loading, setLoading] = useState(false);
   const t = useTranslations('dashboard.analytics');
+  const tNavbar = useTranslations('navbar');
   const locale = useLocale();
 
   // Helper function to translate period labels
@@ -215,8 +216,24 @@ export default function AnalyticsPage() {
       tempDiv.style.fontFamily = locale === 'ar' ? 'Arial, sans-serif' : 'Arial, sans-serif';
       tempDiv.style.direction = locale === 'ar' ? 'rtl' : 'ltr';
       
+      // Get brand name
+      const brandName = tNavbar('brand-duplicate') || 'MFQOD';
+      
       // Build HTML content
       const htmlContent = `
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
+        </style>
+        <!-- Brand Logo Section -->
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 30px; padding-bottom: 25px; border-bottom: 2px solid #3277AE;">
+          <!-- Brand Name -->
+          <div style="display: inline-flex; align-items: center;">
+            <div style="font-size: 32px; font-weight: 400; font-family: 'Lalezar', 'Arial', sans-serif; color: #000000; line-height: 1; white-space: nowrap;">
+              ${brandName}
+            </div>
+          </div>
+        </div>
+        
         <div style="text-align: center; margin-bottom: 30px;">
           <h1 style="font-size: 24px; margin-bottom: 10px; color: #333;">${getPDFText('pdfTitle')}</h1>
           <p style="font-size: 14px; color: #666;">${getPDFText('period')}: ${format(new Date(startDate), 'dd/MM/yyyy')} - ${format(new Date(endDate), 'dd/MM/yyyy')}</p>
@@ -226,7 +243,7 @@ export default function AnalyticsPage() {
           <h2 style="font-size: 18px; margin-bottom: 15px; color: #333;">${getPDFText('summaryStatistics')}</h2>
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
             <thead>
-              <tr style="background-color: #1380a3; color: white;">
+              <tr style="background-color: #fafaf9; color: #333;">
                 <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd;">${getPDFText('metric')}</th>
                 <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">${getPDFText('value')}</th>
               </tr>
@@ -260,7 +277,7 @@ export default function AnalyticsPage() {
           <h2 style="font-size: 18px; margin-bottom: 15px; color: #333;">${getPDFText('itemsByCategory') || 'Items by Category'}</h2>
           <table style="width: 100%; border-collapse: collapse;">
             <thead>
-              <tr style="background-color: #1380a3; color: white;">
+              <tr style="background-color: #fafaf9; color: #333;">
                 <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd;">${getPDFText('itemType') || 'Item Type'}</th>
                 <th style="padding: 12px; text-align: center; border: 1px solid #ddd;">${getPDFText('count') || 'Count'}</th>
               </tr>
@@ -281,15 +298,28 @@ export default function AnalyticsPage() {
         </div>
       `;
       
+      // Ensure Lalezar font is loaded
+      if (!document.querySelector('link[href*="Lalezar"]')) {
+        const fontLink = document.createElement('link');
+        fontLink.href = 'https://fonts.googleapis.com/css2?family=Lalezar&display=swap';
+        fontLink.rel = 'stylesheet';
+        document.head.appendChild(fontLink);
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for font to load
+      }
+      
       tempDiv.innerHTML = htmlContent;
       document.body.appendChild(tempDiv);
+      
+      // Wait for fonts to be ready
+      await document.fonts.ready;
       
       // Convert HTML to canvas
       const canvas = await html2canvas(tempDiv, {
         scale: 2,
         useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false
       });
       
       // Remove temporary element
