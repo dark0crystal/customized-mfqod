@@ -13,6 +13,7 @@ interface ItemType {
   id: string;
   name_ar?: string;
   name_en?: string;
+  image_url?: string;
 }
 
 interface Branch {
@@ -251,9 +252,10 @@ export default function Search() {
         <div className="space-y-6">
           {/* Desktop Filters - Top */}
           <div className="hidden lg:block">
-            <div className="bg-gray-100 rounded-lg border border-gray-300">
-              <div className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex justify-center">
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed shadow-md backdrop-blur-sm" style={{ maxWidth: '1098px', width: '100%', borderColor: 'rgba(50, 119, 174, 0.5)' }}>
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Item Type Filter */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -309,6 +311,7 @@ export default function Search() {
                     </div>
                   </div>
                 </div>
+                </div>
               </div>
             </div>
           </div>
@@ -350,7 +353,7 @@ export default function Search() {
                 </button>
               </div>
             ) : (
-              <DisplayPosts items={items} images={itemImages} />
+              <DisplayPosts items={items} images={itemImages} itemTypes={itemTypes} />
             )}
           </div>
         </div>

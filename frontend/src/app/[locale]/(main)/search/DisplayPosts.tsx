@@ -20,6 +20,7 @@ interface Item {
   description: string;
   location?: LocationData;
   is_hidden?: boolean;
+  item_type_id?: string;
 }
 
 interface ItemImage {
@@ -29,12 +30,20 @@ interface ItemImage {
   imageable_id: string;
 }
 
+interface ItemType {
+  id: string;
+  name_ar?: string;
+  name_en?: string;
+  image_url?: string;
+}
+
 interface DisplayPostsProps {
   items: Item[];
   images: Record<string, ItemImage[]>;
+  itemTypes?: ItemType[];
 }
 
-export default function DisplayPosts({ items, images }: DisplayPostsProps) {
+export default function DisplayPosts({ items, images, itemTypes = [] }: DisplayPostsProps) {
   const t = useTranslations("card");
   const locale = useLocale();
   const router = useRouter();
@@ -110,7 +119,7 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
     return parts.length > 0 ? parts.join(', ') : t("location-not-specified");
   };
 
-  const getImageUrl = (itemId: string) => {
+  const getImageUrl = (itemId: string, itemTypeId?: string) => {
     // Backend already filters images based on user permissions and is_hidden status
     // If images are returned, user has permission to see them
     const itemImages = images?.[itemId] && images[itemId].length > 0 ? images[itemId] : null;
@@ -131,6 +140,25 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
 
       return `${baseUrl}${imageUrl}`;
     }
+    
+    // If item has no images, check for item type default image
+    if (itemTypeId && itemTypes.length > 0) {
+      const itemType = itemTypes.find(type => type.id === itemTypeId);
+      if (itemType?.image_url) {
+        let imageUrl = itemType.image_url;
+        
+        // Ensure the imageUrl starts with a forward slash
+        if (!imageUrl.startsWith('/')) {
+          imageUrl = '/' + imageUrl;
+        }
+        
+        // Get base URL and ensure it doesn't end with a slash
+        const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
+        
+        return `${baseUrl}${imageUrl}`;
+      }
+    }
+    
     return null;
   };
 
@@ -139,7 +167,7 @@ export default function DisplayPosts({ items, images }: DisplayPostsProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 [@media(min-width:1150px)]:grid-cols-3 gap-6 justify-items-center">
         {items.length > 0 ? (
           items.map((item, index) => {
-            const imageUrl = getImageUrl(item.id);
+            const imageUrl = getImageUrl(item.id, item.item_type_id);
             const isExpanded = expandedItemId === item.id;
 
             return (
