@@ -88,6 +88,7 @@ class ItemTypeResponse(BaseModel):
     name_en: Optional[str] = None
     description_ar: Optional[str] = None
     description_en: Optional[str] = None
+    image_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     

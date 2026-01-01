@@ -123,6 +123,11 @@ UPLOAD_DIR = "../storage/uploads/images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/static/images", StaticFiles(directory=UPLOAD_DIR), name="images")
 
+# Create the directory for item type images if it doesn't exist
+ITEM_TYPES_IMAGES_DIR = "../storage/uploads/itemTypesImages"
+os.makedirs(ITEM_TYPES_IMAGES_DIR, exist_ok=True)
+app.mount("/static/item-types-images", StaticFiles(directory=ITEM_TYPES_IMAGES_DIR), name="item-types-images")
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize application on startup"""

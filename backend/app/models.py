@@ -30,6 +30,7 @@ class ItemStatus(enum.Enum):
     CANCELLED = "cancelled"
     APPROVED = "approved"
     PENDING = "pending"
+    DISPOSED = "disposed"
     
     @classmethod
     def _missing_(cls, value):
@@ -225,6 +226,7 @@ class ItemType(Base):
     name_en: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     description_ar: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     description_en: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     items: Mapped[List["Item"]] = relationship("Item", back_populates="item_type")
     missing_items: Mapped[List["MissingItem"]] = relationship("MissingItem", back_populates="item_type")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)

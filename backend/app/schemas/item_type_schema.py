@@ -20,6 +20,7 @@ class ItemTypeResponse(BaseModel):
     name_en: Optional[str]
     description_ar: Optional[str]
     description_en: Optional[str]
+    image_url: Optional[str]
     created_at: datetime
     updated_at: datetime
 

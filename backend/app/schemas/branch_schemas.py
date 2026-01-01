@@ -23,6 +23,9 @@ class BranchBase(BaseModel):
             return v
         # Remove any whitespace
         v = v.strip()
+        # Treat empty strings as None (optional field)
+        if not v:
+            return None
         # Check if it's exactly 8 digits
         if not re.match(r'^\d{8}$', v):
             raise ValueError('Phone number must be exactly 8 digits')
@@ -49,6 +52,9 @@ class BranchUpdate(BaseModel):
             return v
         # Remove any whitespace
         v = v.strip()
+        # Treat empty strings as None (optional field)
+        if not v:
+            return None
         # Check if it's exactly 8 digits
         if not re.match(r'^\d{8}$', v):
             raise ValueError('Phone number must be exactly 8 digits')

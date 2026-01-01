@@ -412,13 +412,19 @@ async def upload_multiple_images(
         logging.error(f"Upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
-@router.delete("/images/{image_id}")
+@router.delete("/{image_id}")
 async def delete_image(
     image_id: str,
+    request: Request,
     db: Session = Depends(get_session),
     image_service: ImageService = Depends(get_image_service)
 ):
     try:
+        # Authenticate user
+        user_id = extract_user_from_token(request)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
         image = image_service.get_image_by_id(image_id)
         if not image:
             raise HTTPException(status_code=404, detail="Image not found")
