@@ -3,6 +3,11 @@ from app.models import ItemType
 from app.schemas.item_type_schema import CreateItemTypeRequest, UpdateItemTypeRequest
 from datetime import datetime, timezone
 import uuid
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+ITEM_TYPES_IMAGES_DIR = "../storage/uploads/itemTypesImages"
 
 class ItemTypeService:
     def __init__(self, db: Session):
@@ -41,6 +46,18 @@ class ItemTypeService:
 
     def delete_item_type(self, item_type_id: str) -> bool:
         item_type = self.get_item_type_by_id(item_type_id)
+        
+        # Delete associated image file if exists
+        if item_type.image_url:
+            try:
+                image_path = item_type.image_url.replace("/static/item-types-images/", "")
+                file_path = os.path.join(ITEM_TYPES_IMAGES_DIR, image_path)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    logger.info(f"Deleted image file for item type {item_type_id}: {file_path}")
+            except Exception as e:
+                logger.warning(f"Failed to delete image file for item type {item_type_id}: {e}")
+        
         self.db.delete(item_type)
         self.db.commit()
         return True

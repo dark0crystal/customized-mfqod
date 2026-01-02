@@ -993,21 +993,62 @@ class ItemService:
         - Branch managers see pending items in their managed branches
         - Regular users see 0 (no pending items access)
         """
-        # Base query: All pending, non-deleted items
+        logger.info(f"🔍 [Pending Items Badge] Calculating count for user_id: {user_id}")
+        
+        # Base query: All pending, non-deleted items (explicitly exclude disposed and other statuses)
         query = self.db.query(Item).filter(
             Item.status == ItemStatus.PENDING.value,
+            Item.status.isnot(None),  # Ensure status is not NULL
+            Item.status != ItemStatus.DISPOSED.value,  # Explicitly exclude disposed items
+            Item.status != ItemStatus.APPROVED.value,  # Explicitly exclude approved items
+            Item.status != ItemStatus.CANCELLED.value,  # Explicitly exclude cancelled items
             Item.temporary_deletion == False
         )
         
+        logger.info(f"🔎 [Pending Items Badge] Base query filters:")
+        logger.info(f"  ✅ status == {ItemStatus.PENDING.value}")
+        logger.info(f"  ✅ status is not NULL")
+        logger.info(f"  ❌ status != {ItemStatus.DISPOSED.value} (exclude disposed)")
+        logger.info(f"  ❌ status != {ItemStatus.APPROVED.value} (exclude approved)")
+        logger.info(f"  ❌ status != {ItemStatus.CANCELLED.value} (exclude cancelled)")
+        logger.info(f"  ✅ temporary_deletion == False")
+        
         # Security: Super admins bypass branch filtering
         is_admin = permissionServices.has_full_access(self.db, user_id)
+        logger.info(f"👤 [Pending Items Badge] User is admin: {is_admin}")
         
         if is_admin:
-            logger.info(f"Super admin user {user_id} - returning all pending items count")
-            return query.count()
+            # Get all items to log their details
+            items = query.all()
+            count = len(items)
+            
+            logger.info(f"👑 [Pending Items Badge] Super admin user {user_id} - found {count} pending items")
+            logger.info(f"📊 [Pending Items Badge] Item details:")
+            
+            if count == 0:
+                logger.info(f"  ⚠️ No pending items found")
+            else:
+                for idx, item in enumerate(items, 1):
+                    logger.info(f"  📦 Item #{idx}:")
+                    logger.info(f"    🆔 ID: {item.id}")
+                    logger.info(f"    📝 Title: {item.title}")
+                    logger.info(f"    📄 Description: {item.description[:100] if item.description else 'N/A'}{'...' if item.description and len(item.description) > 100 else ''}")
+                    logger.info(f"    📌 Status: {item.status}")
+                    logger.info(f"    🗑️ Temporary Deletion: {item.temporary_deletion}")
+                    logger.info(f"    📅 Created At: {item.created_at}")
+                    logger.info(f"    🔄 Updated At: {item.updated_at}")
+                    logger.info(f"    👤 User ID: {item.user_id or 'N/A'}")
+                    logger.info(f"    🏷️ Item Type ID: {item.item_type_id or 'N/A'}")
+                    logger.info(f"    🔗 Approved Claim ID: {item.approved_claim_id or 'N/A'}")
+                    logger.info(f"    📊 Claims Count: {item.claims_count}")
+                    logger.info(f"    ---")
+            
+            logger.info(f"✅ [Pending Items Badge] Returning count: {count}")
+            return count
         
         # Security: Branch managers see only items from their managed branches
         is_bm = is_branch_manager(user_id, self.db)
+        logger.info(f"🏢 [Pending Items Badge] User is branch manager: {is_bm}")
         
         if is_bm:
             # Get user's managed branches and filter items by those branches
@@ -1018,6 +1059,8 @@ class ItemService:
                 ).all()
             ]
             
+            logger.info(f"📍 [Pending Items Badge] Managed branch IDs: {managed_branch_ids}")
+            
             if managed_branch_ids:
                 # Get items in managed branches (only current addresses)
                 item_ids_in_branches = [
@@ -1027,14 +1070,52 @@ class ItemService:
                     ).distinct().all()
                 ]
                 
+                logger.info(f"📋 [Pending Items Badge] Item IDs in managed branches: {len(item_ids_in_branches)} items")
+                
                 if item_ids_in_branches:
                     # Filter out None values to prevent SQL errors
                     item_ids_in_branches = [item_id for item_id in item_ids_in_branches if item_id is not None]
                     if item_ids_in_branches:
-                        return query.filter(Item.id.in_(item_ids_in_branches)).count()
+                        # Get all items to log their details
+                        filtered_query = query.filter(Item.id.in_(item_ids_in_branches))
+                        items = filtered_query.all()
+                        count = len(items)
+                        
+                        logger.info(f"✅ [Pending Items Badge] Branch manager {user_id} - found {count} pending items in managed branches")
+                        logger.info(f"📊 [Pending Items Badge] Item details:")
+                        
+                        if count == 0:
+                            logger.info(f"  ⚠️ No pending items found in managed branches")
+                        else:
+                            for idx, item in enumerate(items, 1):
+                                logger.info(f"  📦 Item #{idx}:")
+                                logger.info(f"    🆔 ID: {item.id}")
+                                logger.info(f"    📝 Title: {item.title}")
+                                logger.info(f"    📄 Description: {item.description[:100] if item.description else 'N/A'}{'...' if item.description and len(item.description) > 100 else ''}")
+                                logger.info(f"    📌 Status: {item.status}")
+                                logger.info(f"    🗑️ Temporary Deletion: {item.temporary_deletion}")
+                                logger.info(f"    📅 Created At: {item.created_at}")
+                                logger.info(f"    🔄 Updated At: {item.updated_at}")
+                                logger.info(f"    👤 User ID: {item.user_id or 'N/A'}")
+                                logger.info(f"    🏷️ Item Type ID: {item.item_type_id or 'N/A'}")
+                                logger.info(f"    🔗 Approved Claim ID: {item.approved_claim_id or 'N/A'}")
+                                logger.info(f"    📊 Claims Count: {item.claims_count}")
+                                logger.info(f"    ---")
+                        
+                        logger.info(f"✅ [Pending Items Badge] Returning count: {count}")
+                        return count
             
             # Branch manager with no managed branches or no items in branches
+            logger.info(f"⚠️ [Pending Items Badge] Branch manager {user_id} - no items in managed branches")
+            logger.info(f"📊 [Pending Items Badge] Item details: No items found")
+            logger.info(f"✅ [Pending Items Badge] Returning count: 0")
             return 0
+        
+        # Regular user - no access
+        logger.info(f"👤 [Pending Items Badge] Regular user {user_id} - no access to pending items")
+        logger.info(f"📊 [Pending Items Badge] Item details: No items (no permission)")
+        logger.info(f"✅ [Pending Items Badge] Returning count: 0")
+        return 0
         
         # Regular users: Get accessible items (own items + items in managed branches)
         try:
