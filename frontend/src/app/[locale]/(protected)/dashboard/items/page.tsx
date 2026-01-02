@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { useTranslations, useLocale } from 'next-intl';
+import { HelpCircle } from 'lucide-react';
 import DisplayItems from './DisplayItems';
+import OnboardingTour, { TourStep } from '@/components/OnboardingTour';
 
 // Define the Item type
 type Item = {
@@ -78,6 +80,7 @@ export default function ItemsPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [viewMode, setViewMode] = useState<'managed' | 'all'>('managed');
   const [selectedStatus, setSelectedStatus] = useState<string>('pending'); // Default to pending
+  const [isTourOpen, setIsTourOpen] = useState(false);
 
   // Helper function to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
@@ -367,6 +370,65 @@ export default function ItemsPage() {
     fetchItems({ showAll: false, status: 'pending' });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Define tour steps
+  const tourSteps: TourStep[] = [
+    {
+      id: 'welcome',
+      title: t('tour.steps.welcome.title'),
+      description: t('tour.steps.welcome.description'),
+      position: 'center',
+    },
+    {
+      id: 'statusFilters',
+      target: '[data-tour="status-filters"]',
+      title: t('tour.steps.statusFilters.title'),
+      description: t('tour.steps.statusFilters.description'),
+      position: 'bottom',
+    },
+    {
+      id: 'searchFilter',
+      target: '#search-input',
+      title: t('tour.steps.searchFilter.title'),
+      description: t('tour.steps.searchFilter.description'),
+      position: 'bottom',
+    },
+    {
+      id: 'itemTypeFilter',
+      target: '#item-type-filter',
+      title: t('tour.steps.itemTypeFilter.title'),
+      description: t('tour.steps.itemTypeFilter.description'),
+      position: 'bottom',
+    },
+    {
+      id: 'branchFilter',
+      target: '#branch-filter',
+      title: t('tour.steps.branchFilter.title'),
+      description: t('tour.steps.branchFilter.description'),
+      position: 'bottom',
+    },
+    {
+      id: 'dateRangeFilters',
+      target: '[data-tour="date-range-filters"]',
+      title: t('tour.steps.dateRangeFilters.title'),
+      description: t('tour.steps.dateRangeFilters.description'),
+      position: 'bottom',
+    },
+    {
+      id: 'clearFilters',
+      target: '[data-tour="clear-filters"]',
+      title: t('tour.steps.clearFilters.title'),
+      description: t('tour.steps.clearFilters.description'),
+      position: 'bottom',
+    },
+    {
+      id: 'itemsGrid',
+      target: '[data-tour="items-grid"]',
+      title: t('tour.steps.itemsGrid.title'),
+      description: t('tour.steps.itemsGrid.description'),
+      position: 'top',
+    },
+  ];
+
   return (
     <div className="relative w-full min-h-[88vh]">
       {/* Header with title and filters */}
@@ -375,17 +437,30 @@ export default function ItemsPage() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{t("myItems")}</h1>
             
-            {/* Clear Filters Button */}
-            <button
-              onClick={clearAllFilters}
-              className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 self-start lg:self-auto whitespace-nowrap"
-            >
-              {t("filters.clearAllFilters")}
-            </button>
+            <div className="flex items-center gap-3 self-start lg:self-auto">
+              {/* Help Guide Button */}
+              <button
+                onClick={() => setIsTourOpen(true)}
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-white bg-[#3277AE] hover:bg-[#2a5f94] rounded-lg transition-colors duration-200 flex items-center gap-2 whitespace-nowrap"
+                title={t("tour.helpGuide") || "Help Guide"}
+              >
+                <HelpCircle className="h-4 w-4" />
+                <span>{t("tour.helpGuide") || "Help Guide"}</span>
+              </button>
+              
+              {/* Clear Filters Button */}
+              <button
+                onClick={clearAllFilters}
+                data-tour="clear-filters"
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 whitespace-nowrap"
+              >
+                {t("filters.clearAllFilters")}
+              </button>
+            </div>
           </div>
 
           {/* Status Filter Buttons */}
-          <div className="mb-4">
+          <div className="mb-4" data-tour="status-filters">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               {t("filters.itemStatus") || "Item Status"}
             </label>
@@ -502,7 +577,7 @@ export default function ItemsPage() {
             </div>
 
             {/* Date Range Filters */}
-            <div className="sm:col-span-2 lg:col-span-1 min-w-0">
+            <div className="sm:col-span-2 lg:col-span-1 min-w-0" data-tour="date-range-filters">
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 {t("filters.dateRange")}
               </label>
@@ -540,7 +615,7 @@ export default function ItemsPage() {
       {/* Main content */}
       <div className="w-full px-2 sm:px-4 py-4 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
-          <div className="w-full pb-20">
+          <div className="w-full pb-20" data-tour="items-grid">
             {loading ? (
               <div className="text-center text-gray-500 py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3277AE] mx-auto"></div>
@@ -556,6 +631,14 @@ export default function ItemsPage() {
           </div>
         </div>
       </div>
+
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+        steps={tourSteps}
+        translationKey="dashboard.items.tour"
+      />
     </div>
   );
 }

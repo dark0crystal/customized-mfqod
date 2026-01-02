@@ -33,11 +33,23 @@ export function usePendingItemsCount() {
     try {
       setLoading(true);
       setError(null);
+      console.log('🔄 [Pending Items Badge] Fetching pending items count...', {
+        hasPermission: hasManageItemsPermission,
+        requestId: currentRequestId
+      });
       const pendingCount = await getPendingItemsCount();
+      
+      console.log('📥 [Pending Items Badge] Received pending items count:', {
+        count: pendingCount,
+        requestId: currentRequestId,
+        isCurrentRequest: currentRequestId === requestIdRef.current,
+        isMounted: isMountedRef.current
+      });
       
       // Only update state if this is still the current request and component is mounted
       if (currentRequestId === requestIdRef.current && isMountedRef.current) {
         setCount(pendingCount);
+        console.log('✅ [Pending Items Badge] Badge count updated to:', pendingCount);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch pending items count';

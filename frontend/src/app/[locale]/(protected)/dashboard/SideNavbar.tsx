@@ -88,6 +88,15 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
   const { count: pendingMissingItemsCount } = usePendingMissingItemsCount();
   const { count: pendingTransferRequestsCount } = usePendingTransferRequestsCount();
   
+  // Log badge counts for debugging
+  useEffect(() => {
+    console.log('🏷️ [Pending Items Badge] Current badge counts:', {
+      pendingItemsCount,
+      pendingMissingItemsCount,
+      pendingTransferRequestsCount
+    });
+  }, [pendingItemsCount, pendingMissingItemsCount, pendingTransferRequestsCount]);
+  
   const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
   // Fetch fresh user data on mount and when pathname changes
@@ -497,6 +506,17 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
     const badgeCount = item.id === 'missing-items' ? pendingMissingItemsCount : pendingItemsCount;
     const shouldShowBadge = item.showBadge && badgeCount > 0 && item.id !== 'transfer-requests';
     const shouldShowTransferBadge = item.showBadge && pendingTransferRequestsCount > 0 && item.id === 'transfer-requests';
+    
+    // Log badge calculation for debugging (only for items menu item)
+    if (item.id === 'items' && item.showBadge) {
+      console.log('🎯 [Pending Items Badge] Badge calculation for items menu:', {
+        itemId: item.id,
+        badgeCount,
+        pendingItemsCount,
+        shouldShowBadge,
+        showBadge: item.showBadge
+      });
+    }
 
     return (
       <div key={item.id} className="mb-1">
@@ -629,7 +649,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 overflow-y-auto">
+      <nav className="flex-1 p-4 overflow-y-auto" data-tour="sidebar-navigation">
         <div className="space-y-1">
           {navigationItems.map((item) => renderNavItem(item))}
         </div>

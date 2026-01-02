@@ -38,20 +38,26 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000
  */
 export async function getPendingItemsCount(): Promise<number> {
   try {
+    console.log('🌐 [Pending Items Badge] Making API request to:', `${API_BASE_URL}/api/items/pending-count`);
     const response = await fetch(`${API_BASE_URL}/api/items/pending-count`, {
       method: "GET",
       headers: getAuthHeaders(),
       credentials: "include",
     });
 
+    console.log('📡 [Pending Items Badge] API response status:', response.status, response.statusText);
+
     if (!response.ok) {
       throw new Error(`Failed to fetch pending items count: ${response.statusText}`);
     }
 
     const data = await response.json();
-    return data.count || 0;
+    console.log('📦 [Pending Items Badge] API response data:', data);
+    const count = data.count || 0;
+    console.log('🔢 [Pending Items Badge] Returning count:', count);
+    return count;
   } catch (error) {
-    console.error("Error fetching pending items count:", error);
+    console.error("❌ [Pending Items Badge] Error fetching pending items count:", error);
     return 0;
   }
 }
