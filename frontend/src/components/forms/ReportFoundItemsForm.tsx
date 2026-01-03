@@ -45,6 +45,7 @@ interface Branch {
   organization_id: string;
   created_at?: string;
   updated_at?: string;
+  organization?: Organization;
 }
 
 interface Organization {
@@ -75,11 +76,11 @@ const getAuthHeaders = (): HeadersInit => {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  
+
   return headers;
 };
 
@@ -87,7 +88,7 @@ const getAuthHeaders = (): HeadersInit => {
 
 export default function ReportFoundItem() {
   const locale = useLocale();
-  
+
   // API configuration
   const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
@@ -120,11 +121,11 @@ export default function ReportFoundItem() {
   const canManageItems = hasPermission('can_manage_items');
 
   // useForm with empty orgnization by default, will set after fetch
-  const { 
-    register, 
-    handleSubmit, 
-    formState: { errors, isSubmitting }, 
-    reset, 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
     setValue,
     watch
   } = useForm<ItemFormFields>({
@@ -146,17 +147,17 @@ export default function ReportFoundItem() {
   const uploadImages = async (itemId: string, files: File[]): Promise<string[]> => {
     const uploadedImagePaths: string[] = [];
     const errors: UploadError[] = [];
-    
+
     for (const file of files) {
       try {
         const result = await imageUploadService.uploadImageToItem(
-          itemId, 
+          itemId,
           file,
           (progress) => {
             setUploadProgress(progress);
           }
         );
-        
+
         if (result.success) {
           uploadedImagePaths.push(result.data.url);
         }
@@ -165,11 +166,11 @@ export default function ReportFoundItem() {
         errors.push(error as UploadError);
       }
     }
-    
+
     if (errors.length > 0) {
       setUploadErrors(errors);
     }
-    
+
     return uploadedImagePaths;
   };
 
@@ -189,13 +190,13 @@ export default function ReportFoundItem() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        
+
         // Fetch user's managed branches only (not all branches)
         const branchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
           method: 'GET',
           headers: getAuthHeaders(),
         });
-        
+
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
           // branchesData contains only branches managed by the current user
@@ -207,7 +208,7 @@ export default function ReportFoundItem() {
             );
           }
           setBranches(filteredBranches);
-          
+
           // Extract unique organizations from managed branches
           const orgMap = new Map();
           branchesData.forEach((branch: Branch) => {
@@ -223,7 +224,7 @@ export default function ReportFoundItem() {
               }
             }
           });
-          
+
           const uniqueOrganizations = Array.from(orgMap.values());
           setOrganizations(uniqueOrganizations);
 
@@ -238,7 +239,7 @@ export default function ReportFoundItem() {
 
           // If only one organization, disable the select
           setOrgSelectDisabled(uniqueOrganizations.length === 1);
-          
+
           // If only one branch available, select it
           if (filteredBranches.length === 1) {
             setValue("branch_id", filteredBranches[0].id);
@@ -256,7 +257,7 @@ export default function ReportFoundItem() {
           method: 'GET',
           headers: getAuthHeaders(),
         });
-        
+
         if (itemTypesResponse.ok) {
           const itemTypesData = await itemTypesResponse.json();
           setItemTypes(itemTypesData);
@@ -293,7 +294,7 @@ export default function ReportFoundItem() {
           method: 'GET',
           headers: getAuthHeaders(),
         });
-        
+
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
           // branchesData contains only branches managed by the current user
@@ -306,7 +307,7 @@ export default function ReportFoundItem() {
           }
           // Set branches state - this will only contain managed branches (filtered by org if selected)
           setBranches(filteredBranches);
-          
+
           // If only one branch available and matches organization, select it
           if (filteredBranches.length === 1 && watchedOrganization) {
             setValue("branch_id", filteredBranches[0].id);
@@ -399,7 +400,7 @@ export default function ReportFoundItem() {
         console.log("Uploading images...");
         uploadedImagePaths = await uploadImages(itemId, compressedFiles);
         console.log("Images uploaded:", uploadedImagePaths);
-        
+
         // Clear upload progress after completion
         setUploadProgress(null);
       }
@@ -478,7 +479,7 @@ export default function ReportFoundItem() {
       <div className="max-w-4xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
         <div className="flex justify-center items-center h-64 flex-col">
           <div className="text-lg text-red-600 mb-4">{authError}</div>
-          <button 
+          <button
             onClick={() => router.push("/login")}
             className="px-4 py-2 text-white rounded-lg transition-colors"
             style={{ backgroundColor: '#3277AE' }}
@@ -502,7 +503,7 @@ export default function ReportFoundItem() {
           numberOfPieces={200}
         />
       )}
-      
+
       <h2 className="text-lg md:text-2xl font-bold text-center mb-5" style={{ color: '#3277AE' }}>
         {c("title")}
       </h2>
@@ -620,16 +621,16 @@ export default function ReportFoundItem() {
           <label className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
             {c("uploadImagesOptional")}
           </label>
-          <CompressorFileInput 
-            onFilesSelected={setCompressedFiles} 
-            showValidation={true} 
+          <CompressorFileInput
+            onFilesSelected={setCompressedFiles}
+            showValidation={true}
             maxFiles={5}
             showOptimizationSettings={false}
             compressionQuality={0.7}
             maxWidth={1200}
             maxHeight={1200}
           />
-          
+
           {/* Upload Progress */}
           {uploadProgress && (
             <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -638,8 +639,8 @@ export default function ReportFoundItem() {
                 <span className="text-sm text-blue-700">{uploadProgress.percentage}%</span>
               </div>
               <div className="w-full bg-blue-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${uploadProgress.percentage}%` }}
                 ></div>
               </div>
@@ -707,9 +708,9 @@ export default function ReportFoundItem() {
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           >
             <option value="">
-              {!watchedOrganization 
+              {!watchedOrganization
                 ? c("selectOrganizationFirst")
-                : branches.length === 0 
+                : branches.length === 0
                   ? c("noBranchesAvailable")
                   : c("selectBranch")
               }
@@ -743,12 +744,12 @@ export default function ReportFoundItem() {
             <p className="mt-2 text-sm text-red-500">{errors.country.message}</p>
           )}
         </div>
-        
+
         {/* Submit Button */}
         <div className="text-center">
-          <button 
-            type="submit" 
-            disabled={isSubmitting || isProcessing || isLoading || !!authError} 
+          <button
+            type="submit"
+            disabled={isSubmitting || isProcessing || isLoading || !!authError}
             className="w-full p-3 text-white font-semibold rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             style={{ backgroundColor: '#3277AE', "--tw-ring-color": "#3277AE" } as React.CSSProperties}
             onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.backgroundColor = '#2563eb'; }}
@@ -767,7 +768,7 @@ export default function ReportFoundItem() {
             )}
           </button>
         </div>
-        
+
         {/* Note */}
         <div className="text-center">
           <p className="text-sm text-gray-600">{c("note")}</p>

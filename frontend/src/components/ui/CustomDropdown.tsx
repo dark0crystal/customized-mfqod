@@ -85,7 +85,7 @@ export default function CustomDropdown({
       </button>
 
       {isOpen && (
-        <div className={`absolute z-50 w-full mt-1 border rounded-lg shadow-md max-h-60 overflow-y-auto ${
+        <div className={`absolute z-[100] w-full mt-1 border rounded-lg shadow-md max-h-60 overflow-y-auto ${
           variant === 'light' 
             ? 'bg-gray-50 border-gray-300' 
             : 'bg-white border-gray-300'

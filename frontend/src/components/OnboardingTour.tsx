@@ -164,18 +164,68 @@ export default function OnboardingTour({
     return null;
   }
 
-  // Calculate modal position based on target element, ensuring it stays within viewport
+  // Check if modal overlaps with highlighted element
+  const checkOverlap = (
+    modalTop: number,
+    modalLeft: number,
+    modalWidth: number,
+    modalHeight: number,
+    elementRect: DOMRect
+  ): boolean => {
+    const modalRight = modalLeft + modalWidth;
+    const modalBottom = modalTop + modalHeight;
+
+    return !(
+      modalRight < elementRect.left ||
+      modalLeft > elementRect.right ||
+      modalBottom < elementRect.top ||
+      modalTop > elementRect.bottom
+    );
+  };
+
+  // Get actual modal bounds from position and transform
+  const getModalBounds = (
+    top: number | string,
+    left: number | string,
+    transform: string,
+    modalWidth: number,
+    modalHeight: number
+  ): { top: number; left: number; right: number; bottom: number } => {
+    let actualTop = typeof top === 'string' ? parseFloat(top) : top;
+    let actualLeft = typeof left === 'string' ? parseFloat(left) : left;
+
+    if (transform.includes('translate(-50%')) {
+      actualLeft -= modalWidth / 2;
+    } else if (transform.includes('translate(-100%')) {
+      actualLeft -= modalWidth;
+    }
+
+    if (transform.includes('translateY(-50%') || transform.includes('translate(-50%, -50%')) {
+      actualTop -= modalHeight / 2;
+    } else if (transform.includes('translateY(-100%') || transform.includes('translate(-50%, -100%')) {
+      actualTop -= modalHeight;
+    }
+
+    return {
+      top: actualTop,
+      left: actualLeft,
+      right: actualLeft + modalWidth,
+      bottom: actualTop + modalHeight,
+    };
+  };
+
+  // Calculate modal position based on target element, ensuring it stays within viewport and doesn't cover content
   const getModalPosition = () => {
-    const modalHeight = 400; // Approximate modal height
-    const modalWidth = 400; // Approximate modal width
+    const modalHeight = 400;
+    const modalWidth = 400;
     const spacing = 20;
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
     const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
-    const padding = 16; // Minimum padding from viewport edges
+    const padding = 16;
 
     // Default center position
-    let top = '50%';
-    let left = '50%';
+    let top: string | number = '50%';
+    let left: string | number = '50%';
     let transform = 'translate(-50%, -50%)';
 
     if (!highlightedElement || !currentStepData.position) {
@@ -183,89 +233,114 @@ export default function OnboardingTour({
     }
 
     const rect = highlightedElement.getBoundingClientRect();
-    let calculatedTop = 0;
-    let calculatedLeft = 0;
+    const preferredPosition = currentStepData.position;
 
-    switch (currentStepData.position) {
+    // Try preferred position first
+    let candidateTop = 0;
+    let candidateLeft = 0;
+    let candidateTransform = '';
+
+    switch (preferredPosition) {
       case 'top':
-        calculatedTop = rect.top - modalHeight - spacing;
-        calculatedLeft = rect.left + rect.width / 2;
-        transform = 'translate(-50%, -100%)';
-        
-        // If modal goes above viewport, position it below the element instead
-        if (calculatedTop < padding) {
-          calculatedTop = rect.bottom + spacing;
-          transform = 'translate(-50%, 0)';
-        }
+        candidateTop = rect.top - modalHeight - spacing;
+        candidateLeft = rect.left + rect.width / 2;
+        candidateTransform = 'translate(-50%, -100%)';
         break;
       case 'bottom':
-        calculatedTop = rect.bottom + spacing;
-        calculatedLeft = rect.left + rect.width / 2;
-        transform = 'translate(-50%, 0)';
-        
-        // If modal goes below viewport, position it above the element instead
-        if (calculatedTop + modalHeight > viewportHeight - padding) {
-          calculatedTop = rect.top - modalHeight - spacing;
-          transform = 'translate(-50%, -100%)';
-        }
+        candidateTop = rect.bottom + spacing;
+        candidateLeft = rect.left + rect.width / 2;
+        candidateTransform = 'translate(-50%, 0)';
         break;
       case 'left':
-        calculatedTop = rect.top + rect.height / 2;
-        calculatedLeft = rect.left - modalWidth - spacing;
-        transform = 'translate(-100%, -50%)';
-        
-        // If modal goes left of viewport, position it to the right instead
-        if (calculatedLeft < padding) {
-          calculatedLeft = rect.right + spacing;
-          transform = 'translate(0, -50%)';
-        }
+        candidateTop = rect.top + rect.height / 2;
+        candidateLeft = rect.left - modalWidth - spacing;
+        candidateTransform = 'translate(-100%, -50%)';
         break;
       case 'right':
-        calculatedTop = rect.top + rect.height / 2;
-        calculatedLeft = rect.right + spacing;
-        transform = 'translate(0, -50%)';
-        
-        // If modal goes right of viewport, position it to the left instead
-        if (calculatedLeft + modalWidth > viewportWidth - padding) {
-          calculatedLeft = rect.left - modalWidth - spacing;
-          transform = 'translate(-100%, -50%)';
-        }
+        candidateTop = rect.top + rect.height / 2;
+        candidateLeft = rect.right + spacing;
+        candidateTransform = 'translate(0, -50%)';
         break;
-      case 'center':
       default:
-        calculatedTop = viewportHeight / 2;
-        calculatedLeft = viewportWidth / 2;
+        top = '50%';
+        left = '50%';
         transform = 'translate(-50%, -50%)';
-        break;
+        return { top, left, transform };
     }
 
-    // Ensure modal stays within horizontal bounds
-    if (calculatedLeft < padding) {
-      calculatedLeft = padding;
-      transform = transform.replace(/translate\([^)]+\)/, 'translate(0, -50%)');
-    } else if (calculatedLeft + modalWidth > viewportWidth - padding) {
-      calculatedLeft = viewportWidth - modalWidth - padding;
-      transform = transform.replace(/translate\([^)]+\)/, 'translate(-100%, -50%)');
+    // Get actual bounds for candidate position
+    const candidateBounds = getModalBounds(candidateTop, candidateLeft, candidateTransform, modalWidth, modalHeight);
+
+    // Check if candidate position is valid (within viewport and no overlap)
+    const withinViewport =
+      candidateBounds.top >= padding &&
+      candidateBounds.bottom <= viewportHeight - padding &&
+      candidateBounds.left >= padding &&
+      candidateBounds.right <= viewportWidth - padding;
+
+    const noOverlap = !checkOverlap(
+      candidateBounds.top,
+      candidateBounds.left,
+      modalWidth,
+      modalHeight,
+      rect
+    );
+
+    if (withinViewport && noOverlap) {
+      top = candidateTop;
+      left = candidateLeft;
+      transform = candidateTransform;
+    } else {
+      // Try alternative positions
+      const alternatives: Array<{ top: number; left: number; transform: string }> = [];
+
+      if (preferredPosition === 'top' || preferredPosition === 'bottom') {
+        // Try left and right
+        alternatives.push(
+          { top: rect.top + rect.height / 2, left: rect.left - modalWidth - spacing, transform: 'translate(-100%, -50%)' },
+          { top: rect.top + rect.height / 2, left: rect.right + spacing, transform: 'translate(0, -50%)' }
+        );
+      } else {
+        // Try top and bottom
+        alternatives.push(
+          { top: rect.top - modalHeight - spacing, left: rect.left + rect.width / 2, transform: 'translate(-50%, -100%)' },
+          { top: rect.bottom + spacing, left: rect.left + rect.width / 2, transform: 'translate(-50%, 0)' }
+        );
+      }
+
+      // Try center as last resort
+      alternatives.push({
+        top: viewportHeight / 2,
+        left: viewportWidth / 2,
+        transform: 'translate(-50%, -50%)',
+      });
+
+      // Find first valid alternative
+      for (const alt of alternatives) {
+        const altBounds = getModalBounds(alt.top, alt.left, alt.transform, modalWidth, modalHeight);
+        const altWithinViewport =
+          altBounds.top >= padding &&
+          altBounds.bottom <= viewportHeight - padding &&
+          altBounds.left >= padding &&
+          altBounds.right <= viewportWidth - padding;
+        const altNoOverlap = !checkOverlap(altBounds.top, altBounds.left, modalWidth, modalHeight, rect);
+
+        if (altWithinViewport && altNoOverlap) {
+          top = alt.top;
+          left = alt.left;
+          transform = alt.transform;
+          break;
+        }
+      }
     }
 
-    // Ensure modal stays within vertical bounds
-    if (calculatedTop < padding) {
-      calculatedTop = padding;
-      transform = transform.replace(/translate\([^)]+\)/, 'translate(-50%, 0)');
-    } else if (calculatedTop + modalHeight > viewportHeight - padding) {
-      calculatedTop = viewportHeight - modalHeight - padding;
-      transform = transform.replace(/translate\([^)]+\)/, 'translate(-50%, -100%)');
-    }
-
-    // If still outside bounds, use center position
-    if (calculatedTop < 0 || calculatedTop + modalHeight > viewportHeight ||
-        calculatedLeft < 0 || calculatedLeft + modalWidth > viewportWidth) {
+    // Final clamp to ensure it's within viewport (even if it overlaps)
+    const finalBounds = getModalBounds(top, left, transform, modalWidth, modalHeight);
+    if (finalBounds.top < padding || finalBounds.bottom > viewportHeight - padding ||
+        finalBounds.left < padding || finalBounds.right > viewportWidth - padding) {
       top = '50%';
       left = '50%';
       transform = 'translate(-50%, -50%)';
-    } else {
-      top = `${calculatedTop}px`;
-      left = `${calculatedLeft}px`;
     }
 
     return { top, left, transform };
@@ -312,7 +387,22 @@ export default function OnboardingTour({
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                {t(`steps.${currentStepData.id}.title`, { defaultValue: currentStepData.title })}
+                {(() => {
+                  // Try to get translation, but prefer the prop value if translation key is returned
+                  try {
+                    const translationKey = `steps.${currentStepData.id}.title`;
+                    const translated = t(translationKey);
+                    // If next-intl returns the key (translation not found), use the prop value
+                    // Also check if it's a valid translation (not the full path)
+                    if (translated && !translated.includes('dashboard.') && translated !== translationKey) {
+                      return translated;
+                    }
+                  } catch {
+                    // Translation failed, use prop value
+                  }
+                  // Use the prop value (already translated in the parent component)
+                  return currentStepData.title;
+                })()}
               </h2>
               <p className="text-sm text-gray-500 mt-1">
                 {t('stepIndicator', { current: currentStep + 1, total: steps.length })}
@@ -331,7 +421,22 @@ export default function OnboardingTour({
         {/* Content */}
         <div className="p-6">
           <p className="text-gray-700 leading-relaxed">
-            {t(`steps.${currentStepData.id}.description`, { defaultValue: currentStepData.description })}
+            {(() => {
+              // Try to get translation, but prefer the prop value if translation key is returned
+              try {
+                const translationKey = `steps.${currentStepData.id}.description`;
+                const translated = t(translationKey);
+                // If next-intl returns the key (translation not found), use the prop value
+                // Also check if it's a valid translation (not the full path)
+                if (translated && !translated.includes('dashboard.') && translated !== translationKey) {
+                  return translated;
+                }
+              } catch {
+                // Translation failed, use prop value
+              }
+              // Use the prop value (already translated in the parent component)
+              return currentStepData.description;
+            })()}
           </p>
         </div>
 
