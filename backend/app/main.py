@@ -47,15 +47,21 @@ if config.ENABLE_GLOBAL_RATE_LIMIT:
     logger.info(f"Global rate limiting enabled - Public: {config.PUBLIC_API_RATE_LIMIT_PER_MINUTE}/min, Authenticated: {config.AUTHENTICATED_API_RATE_LIMIT_PER_MINUTE}/min")
 
 # CORS Configuration
-origins = [
-    "http://localhost:3000",  # Your Next.js frontend
-    "http://127.0.0.1:3000",  # Alternative localhost
-    "http://localhost:3001",  # In case you use different port
-    "http://localhost:3002",  # Current frontend port
-    "http://127.0.0.1:3002",  # Alternative localhost for current port
-    # Add your production frontend URL here when deploying
-    # "https://yourdomain.com"
-]
+# Get allowed origins from environment variable or use defaults
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+if cors_origins_env:
+    origins = [origin.strip() for origin in cors_origins_env.split(",")]
+else:
+    origins = [
+        "http://localhost:3000",  # Your Next.js frontend
+        "http://127.0.0.1:3000",  # Alternative localhost
+        "http://localhost:3001",  # In case you use different port
+        "http://localhost:3002",  # Current frontend port
+        "http://127.0.0.1:3002",  # Alternative localhost for current port
+        "http://frontend:3000",  # Docker service name for internal networking
+        # Add your production frontend URL here when deploying
+        # "https://yourdomain.com"
+    ]
 
 # Add security headers middleware (applied first due to reverse order)
 app.middleware("http")(add_security_headers)
