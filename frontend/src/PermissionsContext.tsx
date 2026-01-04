@@ -58,6 +58,7 @@ interface PermissionsContextType {
   hasPermission: (permission: Permission) => boolean;
   hasAnyPermission: (permissions: Permission[]) => boolean;
   hasAllPermissions: (permissions: Permission[]) => boolean;
+  hasFullAccess: () => boolean;
   setUserPermissions: (permissions: Permission[]) => void;
   setUserRole: (role: UserRole) => void;
   isLoading: boolean;
@@ -228,14 +229,14 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
       // Get JWT token from cookies
       token = getCookie('token') || getCookie('jwt') || getCookie('access_token');
       const refreshToken = getCookie('refresh_token');
-      
+
       // Helper to mask token
       const maskToken = (t: string | null): string => {
         if (!t) return 'null';
         if (t.length <= 20) return t;
         return `${t.substring(0, 10)}...${t.substring(t.length - 10)}`;
       };
-      
+
       console.log('[PERMISSIONS] Token Information:');
       console.log('  - Access token found:', !!token);
       console.log('  - Access token (masked):', maskToken(token));
@@ -462,6 +463,7 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
+    hasFullAccess,
     setUserPermissions,
     setUserRole,
     isLoading,
@@ -480,6 +482,7 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
         hasPermission: () => false,
         hasAnyPermission: () => false,
         hasAllPermissions: () => false,
+        hasFullAccess: () => false,
         setUserPermissions: () => { },
         setUserRole: () => { },
         isLoading: true,

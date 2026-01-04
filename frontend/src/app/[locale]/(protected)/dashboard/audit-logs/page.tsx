@@ -5,6 +5,7 @@ import { Search, RefreshCw, Filter, Eye } from "lucide-react";
 import { tokenManager } from '@/utils/tokenManager';
 import { useTranslations, useLocale } from 'next-intl';
 import { formatDateWithLocale } from '@/utils/dateFormatter';
+import ProtectedPage from '@/components/protection/ProtectedPage';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -187,7 +188,8 @@ export default function AuditLogsPage() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-6">
+    <ProtectedPage requiredPermission="can_view_audit_logs">
+      <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('title')}</h1>
@@ -428,6 +430,7 @@ export default function AuditLogsPage() {
         </div>
       )}
     </div>
+    </ProtectedPage>
   );
 }
 

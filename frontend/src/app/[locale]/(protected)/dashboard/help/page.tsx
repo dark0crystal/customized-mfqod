@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server';
 import Image from 'next/image';
 import QASection from './QASection';
+import { WithPermissions } from '@/lib/server/withPermissions';
 
 interface QAItem {
   question: string;
@@ -30,7 +31,8 @@ export default async function HelpPage() {
   };
 
   return (
-    <div className="space-y-6 px-2 sm:px-4 lg:px-6">
+    <WithPermissions permission="can_manage_items">
+      <div className="space-y-6 px-2 sm:px-4 lg:px-6">
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
@@ -132,6 +134,7 @@ export default async function HelpPage() {
         </div>
       </div>
     </div>
+    </WithPermissions>
   );
 }
 

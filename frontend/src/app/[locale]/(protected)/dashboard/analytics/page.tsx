@@ -23,6 +23,7 @@ import { analyticsApi } from '@/utils/api';
 import { tokenManager } from '@/utils/tokenManager';
 import { useTranslations, useLocale } from 'next-intl';
 import html2canvas from 'html2canvas';
+import ProtectedPage from '@/components/protection/ProtectedPage';
 
 // Types for analytics data (matching backend response)
 interface AnalyticsSummary {
@@ -373,7 +374,8 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <ProtectedPage requiredPermission="can_view_analytics">
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -573,5 +575,6 @@ export default function AnalyticsPage() {
         </div>
       </div>
     </div>
+    </ProtectedPage>
   );
 }

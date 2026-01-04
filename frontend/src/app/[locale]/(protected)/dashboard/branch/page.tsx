@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit, Trash2, Building, Search, Filter, X, ChevronDown } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { formatDateOnly } from '@/utils/dateFormatter';
+import ProtectedPage from '@/components/protection/ProtectedPage';
 
 // API configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
@@ -56,9 +57,9 @@ const getAuthHeaders = () => {
     .split('; ')
     .find(row => row.startsWith('access_token='))
     ?.split('=')[1] || document.cookie
-    .split('; ')
-    .find(row => row.startsWith('token='))
-    ?.split('=')[1];
+      .split('; ')
+      .find(row => row.startsWith('token='))
+      ?.split('=')[1];
   return {
     'Authorization': `Bearer ${token || ''}`,
     'Content-Type': 'application/json'
@@ -70,7 +71,7 @@ const branchAPI = {
   async getAllBranches(skip = 0, limit = 100, organizationId: string | null = null): Promise<Branch[]> {
     const params = new URLSearchParams({ skip: skip.toString(), limit: limit.toString() });
     if (organizationId) params.append('organization_id', organizationId);
-    
+
     const response = await fetch(`${API_BASE_URL}/api/branches/public/?${params}`, {
       headers: {
         "Content-Type": "application/json",
@@ -212,16 +213,16 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
         organization_id: branch.organization_id || ''
       });
     } else {
-      setFormData({ 
-        branch_name_ar: '', 
-        branch_name_en: '', 
+      setFormData({
+        branch_name_ar: '',
+        branch_name_en: '',
         description_ar: '',
         description_en: '',
         longitude: '',
         latitude: '',
         phone1: '',
         phone2: '',
-        organization_id: '' 
+        organization_id: ''
       });
     }
   }, [branch]);
@@ -235,12 +236,12 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
       alert(t('selectOrganizationRequired'));
       return;
     }
-    
+
     // Validate phone numbers - only validate if they have content
     const phone1Trimmed = formData.phone1?.trim() || '';
     const phone2Trimmed = formData.phone2?.trim() || '';
     const phoneNumbers = [phone1Trimmed, phone2Trimmed].filter(p => p && p.length > 0);
-    
+
     // Validate each phone number that has content (must be exactly 8 digits)
     for (const phone of phoneNumbers) {
       if (!/^\d{8}$/.test(phone)) {
@@ -248,9 +249,9 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
         return;
       }
     }
-    
+
     setLoading(true);
-    
+
     try {
       // Prepare data with proper coordinate handling
       // Send null for empty phone fields instead of empty strings
@@ -261,7 +262,7 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
         phone1: phone1Trimmed || null,
         phone2: phone2Trimmed || null
       };
-      
+
       if (branch) {
         await branchAPI.updateBranch(branch.id, submitData);
       } else {
@@ -393,7 +394,7 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
               </label>
               <input
                 type="text"
-                value={formData.phone1}
+                value={formData.phone1 ?? ''}
                 onChange={(e) => {
                   const value = e.target.value.replace(/\D/g, '').slice(0, 8);
                   setFormData({ ...formData, phone1: value });
@@ -409,7 +410,7 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
               </label>
               <input
                 type="text"
-                value={formData.phone2}
+                value={formData.phone2 ?? ''}
                 onChange={(e) => {
                   const value = e.target.value.replace(/\D/g, '').slice(0, 8);
                   setFormData({ ...formData, phone2: value });
@@ -497,7 +498,7 @@ const BranchCard = ({ branch, onEdit, onDelete, organizations, locale }: {
   const getLocalizedOrganizationName = () => {
     const organization = organizations.find((org: Organization) => org.id === branch.organization_id);
     if (!organization) return branch.organization_id;
-    
+
     if (locale === 'ar' && organization.name_ar) {
       return organization.name_ar;
     }
@@ -520,9 +521,9 @@ const BranchCard = ({ branch, onEdit, onDelete, organizations, locale }: {
           </p>
           {(branch.description_ar || branch.description_en) && (
             <p className="text-sm text-gray-600 mt-2">
-              {locale === 'ar' && branch.description_ar ? branch.description_ar : 
-               locale === 'en' && branch.description_en ? branch.description_en :
-               branch.description_ar || branch.description_en}
+              {locale === 'ar' && branch.description_ar ? branch.description_ar :
+                locale === 'en' && branch.description_en ? branch.description_en :
+                  branch.description_ar || branch.description_en}
             </p>
           )}
           {(branch.phone1 || branch.phone2) && (
@@ -540,7 +541,7 @@ const BranchCard = ({ branch, onEdit, onDelete, organizations, locale }: {
             {t('createdLabel')} {formatDateOnly(branch.created_at)}
           </p>
         </div>
-        
+
         <div className="flex gap-2">
           <button
             onClick={() => onEdit(branch)}
@@ -649,13 +650,14 @@ export default function Branch() {
     const organization = organizations.find((org: Organization) => org.id === branch.organization_id);
     const branchName = getLocalizedBranchName(branch);
     const organizationName = organization ? getLocalizedOrganizationName(organization) : '';
-    
+
     return branchName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           organizationName.toLowerCase().includes(searchTerm.toLowerCase());
+      organizationName.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <ProtectedPage requiredPermission="can_manage_branches">
+      <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -745,5 +747,6 @@ export default function Branch() {
         />
       </div>
     </div>
+    </ProtectedPage>
   );
 }

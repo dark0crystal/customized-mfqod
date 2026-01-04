@@ -5,6 +5,7 @@ import { usePermissions } from "@/PermissionsContext"
 import { useLocale, useTranslations } from "next-intl";
 import { formatDateOnly } from '@/utils/dateFormatter';
 import Image from 'next/image';
+import ProtectedPage from '@/components/protection/ProtectedPage';
 
 interface ItemType {
   id: string;
@@ -418,7 +419,8 @@ const ItemTypesManager = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <ProtectedPage requiredPermission="can_manage_item_types">
+      <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-xl shadow-lg">
         {/* Header */}
@@ -785,6 +787,7 @@ const ItemTypesManager = () => {
         </div>
       </div>
     </div>
+    </ProtectedPage>
   );
 };
 
