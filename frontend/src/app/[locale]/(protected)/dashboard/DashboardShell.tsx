@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import React, { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import SideNavbar from "./SideNavbar";
@@ -15,34 +16,20 @@ export default function DashboardShell({ children, initialDirection }: Dashboard
   const { permissions, userRole, roleId, isAuthenticated, isLoading: permissionsLoading } = usePermissions();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  // Use initialDirection directly - no state or syncing needed
-  const resolvedDirection = initialDirection || 'ltr';
-  const effectiveIsRTL = resolvedDirection === "rtl";
+  // CSS-based logic relies on html[dir] attribute set by RootLayout
+  const sidebarPositionClass = "start-0";
 
-  // Log when DashboardShell mounts
-  useEffect(() => {
-    console.log('[DASHBOARD_SHELL] Component mounted');
-    console.log('[DASHBOARD_SHELL] Initial direction:', initialDirection);
-    console.log('[DASHBOARD_SHELL] Resolved direction:', resolvedDirection);
-    console.log('[DASHBOARD_SHELL] Is RTL:', effectiveIsRTL);
-    console.log('[DASHBOARD_SHELL] Permissions loading:', permissionsLoading);
-    console.log('[DASHBOARD_SHELL] Is authenticated:', isAuthenticated);
-    console.log('[DASHBOARD_SHELL] User role:', userRole);
-    console.log('[DASHBOARD_SHELL] Role ID:', roleId);
-    console.log('[DASHBOARD_SHELL] Permissions count:', permissions.length);
-  }, [initialDirection, resolvedDirection, effectiveIsRTL, permissionsLoading, isAuthenticated, userRole, roleId, permissions.length]);
+  // Using explicit attribute selectors for robustness if tailwind rtl variant isn't configured
+  const sidebarTranslateClosed = "ltr:-translate-x-full rtl:translate-x-full [dir=ltr]:-translate-x-full [dir=rtl]:translate-x-full";
 
-
+  // Use flex-row-reverse to position Menu on the opposite side of Start (Left in AR, Right in EN)
+  const topbarDirectionClass = "flex-row-reverse";
 
   const toggleMobile = () => setIsMobileOpen((prev) => !prev);
   const closeMobile = () => setIsMobileOpen(false);
 
-  const sidebarPositionClass = effectiveIsRTL ? "right-0" : "left-0";
-  const sidebarTranslateClosed = effectiveIsRTL ? "translate-x-full" : "-translate-x-full";
-  const topbarDirectionClass = effectiveIsRTL ? "flex-row-reverse" : "flex-row";
-
   return (
-    <div className={`flex h-screen overflow-hidden bg-gray-50 ${resolvedDirection}`} dir={resolvedDirection}>
+    <div className={`flex h-screen overflow-hidden bg-gray-50`}>
       {/* Desktop sidebar */}
       <div className="hidden lg:flex h-full">
         <SideNavbar className="h-full" />
@@ -51,8 +38,7 @@ export default function DashboardShell({ children, initialDirection }: Dashboard
       {/* Main content */}
       <div className="flex flex-col flex-1 overflow-y-auto">
         <div
-          className={`lg:hidden sticky top-0 z-30 flex items-center justify-between bg-white border-b border-gray-200 px-4 py-3 shadow-sm ${topbarDirectionClass} ${resolvedDirection}`}
-          dir={resolvedDirection}
+          className={`lg:hidden sticky top-0 z-30 flex items-center justify-between bg-white border-b border-gray-200 px-4 py-3 shadow-sm ${topbarDirectionClass}`}
         >
           <button
             onClick={toggleMobile}

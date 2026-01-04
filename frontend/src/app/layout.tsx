@@ -22,13 +22,13 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const locale = await getLocale();
-  
+
   // Determine direction based on locale
   const direction = locale === 'ar' ? 'rtl' : 'ltr';
 
   return (
-    <html lang={locale} dir={direction} className={alexandria.className}>
-      <body 
+    <html lang={locale} dir={direction} className={alexandria.className} suppressHydrationWarning>
+      <body
         className={`${alexandria.className} antialiased ${direction === 'rtl' ? 'rtl' : 'ltr'}`}
         suppressHydrationWarning
       >

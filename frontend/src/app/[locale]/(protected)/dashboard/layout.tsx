@@ -32,7 +32,7 @@ export default async function AdminLayout({
   const messages = await getMessages();
 
   return (
-    <NextIntlClientProvider messages={messages}>
+    <NextIntlClientProvider messages={messages} locale={locale}>
       <PermissionsProvider>
         <DashboardShell initialDirection={initialDirection}>
           {children}

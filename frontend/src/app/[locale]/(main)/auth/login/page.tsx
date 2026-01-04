@@ -7,12 +7,13 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
-import { tokenManager } from "@/utils/tokenManager" // Import the token manager
+import { useAuth } from "@/hooks/useAuth"
 
 export default function Login() {
   const t = useTranslations("auth.login")
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { login: authLogin, isAuthenticated } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -34,13 +35,13 @@ export default function Login() {
 
   // Check if user is already authenticated and redirect if so
   useEffect(() => {
-    if (tokenManager.isAuthenticated()) {
+    if (isAuthenticated) {
       // User is already logged in, redirect to returnUrl or main page
       const returnUrl = searchParams.get('returnUrl')
       const destination = returnUrl ? decodeURIComponent(returnUrl) : '/'
       router.push(destination)
     }
-  }, [router, searchParams])
+  }, [router, searchParams, isAuthenticated])
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
@@ -48,20 +49,20 @@ export default function Login() {
     setSuccess(null)
 
     try {
-      // Use the enhanced login method from token manager
-      const result = await tokenManager.login(data.identifier, data.password)
+      // Use the useAuth hook's login method to ensure state updates immediately
+      await authLogin(data.identifier, data.password)
       
       setSuccess(t("loginSuccess"))
-      console.log("Login success:", result)
+      console.log("Login success")
       
       // Redirect to returnUrl if provided, otherwise redirect to main page
       const returnUrl = searchParams.get('returnUrl')
       const destination = returnUrl ? decodeURIComponent(returnUrl) : '/'
       
-      // Small delay to show success message
+      // Small delay to show success message and allow state to propagate
       setTimeout(() => {
         router.push(destination)
-      }, 1000)
+      }, 500)
       
     } catch (err) {
       setError(err instanceof Error ? err.message : t("loginFailed"))

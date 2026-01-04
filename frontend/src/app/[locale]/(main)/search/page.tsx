@@ -234,6 +234,14 @@ export default function Search() {
     fetchItemByItemType(currentItemTypeId, branchId);
   };
 
+  // Helper function to get the correct singular/plural form
+  const getItemsCountText = (count: number): string => {
+    if (count === 0 || count === 1) {
+      return `${count} ${tSearch("itemFoundSingular")}`;
+    }
+    return `${count} ${tSearch("itemsFoundPlural")}`;
+  };
+
   return (
     <div className="min-h-screen">
       {/* Mobile Results Summary */}
@@ -241,7 +249,7 @@ export default function Search() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
           <div className="flex items-center justify-center">
             <span className="text-sm font-medium text-gray-700">
-              {loading ? tSearch("loading") : `${items.length} ${tSearch("itemsFound")}`}
+              {loading ? tSearch("loading") : getItemsCountText(items.length)}
             </span>
           </div>
         </div>
@@ -251,13 +259,13 @@ export default function Search() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8">
         <div className="space-y-6">
           {/* Desktop Filters - Top */}
-          <div className="hidden lg:block">
+          <div className="hidden lg:block relative z-10">
             <div className="flex justify-center">
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed shadow-md backdrop-blur-sm" style={{ maxWidth: '1098px', width: '100%', borderColor: 'rgba(50, 119, 174, 0.5)' }}>
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Item Type Filter */}
-                  <div>
+                  <div className="relative z-10">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t("item-type")}
                     </label>
@@ -273,7 +281,7 @@ export default function Search() {
                   </div>
 
                   {/* Branch Filter */}
-                  <div>
+                  <div className="relative z-10">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t("branch")}
                     </label>
@@ -296,7 +304,7 @@ export default function Search() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                         <span className="text-sm font-medium text-gray-700">
-                          {loading ? tSearch("loading") : `${items.length} ${tSearch("itemsFound")}`}
+                          {loading ? tSearch("loading") : getItemsCountText(items.length)}
                         </span>
                       </div>
                       
@@ -317,7 +325,7 @@ export default function Search() {
           </div>
           
           {/* Posts Content */}
-          <div>
+          <div className="relative z-0">
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">
                 <div className="flex items-center space-x-2">
