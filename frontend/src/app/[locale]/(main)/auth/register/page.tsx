@@ -217,7 +217,7 @@ export default function Register() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10">
+    <div className="max-w-2xl mx-auto p-6 bg-white shadow-md rounded-lg mt-10 mb-10">
       {/* Header */}
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold" style={{ color: '#3277AE' }}>{t("title")}</h1>
@@ -440,9 +440,6 @@ export default function Register() {
               {errors.username.message}
             </p>
           )}
-          <p className="text-xs text-gray-500 mt-1">
-            Leave empty to use your email as username
-          </p>
         </div>
 
         {/* Phone Number */}
@@ -596,13 +593,6 @@ export default function Register() {
           >
             {t("signIn")}
           </Link>
-        </p>
-      </div>
-
-      {/* University Users Notice */}
-      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-xs text-blue-800 text-center">
-          <strong>{t("universityUsersNotice")}</strong>
         </p>
       </div>
     </div>

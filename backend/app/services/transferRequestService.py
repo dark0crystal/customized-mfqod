@@ -131,6 +131,40 @@ class TransferRequestService:
         """Get a transfer request by ID"""
         return self.db.query(BranchTransferRequest).filter(BranchTransferRequest.id == request_id).first()
     
+    def get_pending_incoming_count(self, user_id: str) -> int:
+        """Get count of pending transfer requests that the user can approve/reject.
+        
+        User can approve/reject only if:
+        1. They manage the destination branch (to_branch_id)
+        2. They do NOT manage the source branch (from_branch_id)
+        
+        This is optimized for badge display - uses efficient SQL query, not full object loading.
+        """
+        from app.models import UserBranchManager, TransferStatus
+        
+        # Get branches managed by the user
+        managed_branch_ids = [
+            row[0] for row in self.db.query(UserBranchManager.branch_id).filter(
+                UserBranchManager.user_id == user_id
+            ).all()
+        ]
+        
+        if not managed_branch_ids:
+            # User doesn't manage any branches, so they can't approve any requests
+            return 0
+        
+        # Optimized query: Get pending requests where:
+        # - destination branch is in managed branches (user can receive)
+        # - source branch is NOT in managed branches (user doesn't manage source)
+        # This uses SQL IN/NOT IN for efficiency instead of loading all objects
+        query = self.db.query(BranchTransferRequest).filter(
+            BranchTransferRequest.status == TransferStatus.PENDING,
+            BranchTransferRequest.to_branch_id.in_(managed_branch_ids),
+            ~BranchTransferRequest.from_branch_id.in_(managed_branch_ids)  # NOT IN
+        )
+        
+        return query.count()
+    
     def approve_transfer_request(self, request_id: str, approved_by_user_id: str, ip_address: str = "", user_agent: Optional[str] = None) -> BranchTransferRequest:
         """Approve a transfer request and update item location"""
         transfer_request = self.get_transfer_request_by_id(request_id)

@@ -233,6 +233,14 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
       showBadge: true
     },
     {
+      id: 'missing-items',
+      label: t('missingItems'),
+      icon: <FileText size={20} />,
+      href: '/dashboard/missing-items',
+      requiredPermissions: [],
+      showBadge: true
+    },
+    {
       id: 'items-management',
       label: t('itemsManagement'),
       icon: <Package size={20} />,
@@ -252,14 +260,6 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
           icon: <FileText size={16} />,
           href: '/dashboard/report-missing-item',
           requiredPermissions: []
-        },
-        {
-          id: 'missing-items',
-          label: t('missingItems'),
-          icon: <FileText size={16} />,
-          href: '/dashboard/missing-items',
-          requiredPermissions: [],
-          showBadge: true
         }
 
       ]
@@ -470,11 +470,16 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
 
   // Yellow badge component for transfer requests
   const TransferRequestBadge = ({ count }: { count: number }) => {
-    if (count === 0) return null;
+    // Validate count: must be a positive number
+    const validCount = typeof count === 'number' && count > 0 ? count : 0;
+    
+    if (validCount === 0) {
+      return null;
+    }
     
     return (
-      <span className="ml-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
-        {count > 99 ? '99+' : count}
+      <span className="ml-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold border border-yellow-200">
+        {validCount > 99 ? '99+' : validCount}
       </span>
     );
   };
@@ -505,7 +510,20 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
     // Use pendingMissingItemsCount for missing-items, pendingItemsCount for Items
     const badgeCount = item.id === 'missing-items' ? pendingMissingItemsCount : pendingItemsCount;
     const shouldShowBadge = item.showBadge && badgeCount > 0 && item.id !== 'transfer-requests';
-    const shouldShowTransferBadge = item.showBadge && pendingTransferRequestsCount > 0 && item.id === 'transfer-requests';
+    // Validate transfer requests count: must be a number > 0
+    const transferCount = typeof pendingTransferRequestsCount === 'number' ? pendingTransferRequestsCount : 0;
+    const shouldShowTransferBadge = item.showBadge && transferCount > 0 && item.id === 'transfer-requests';
+    
+    // Log badge calculation for debugging
+    if (item.id === 'transfer-requests' && item.showBadge) {
+      console.log('🔄 [Transfer Requests Badge] Badge calculation:', {
+        itemId: item.id,
+        pendingTransferRequestsCount,
+        transferCount,
+        shouldShowTransferBadge,
+        showBadge: item.showBadge
+      });
+    }
     
     // Log badge calculation for debugging (only for items menu item)
     if (item.id === 'items' && item.showBadge) {
@@ -546,7 +564,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
                     {item.label}
                   </span>
                   {shouldShowBadge && <Badge count={badgeCount} />}
-                  {shouldShowTransferBadge && <TransferRequestBadge count={pendingTransferRequestsCount} />}
+                  {shouldShowTransferBadge && <TransferRequestBadge count={transferCount} />}
                 </div>
               )}
             </div>
@@ -583,7 +601,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
                     {item.label}
                   </span>
                   {shouldShowBadge && <Badge count={badgeCount} />}
-                  {shouldShowTransferBadge && <TransferRequestBadge count={pendingTransferRequestsCount} />}
+                  {shouldShowTransferBadge && <TransferRequestBadge count={transferCount} />}
                 </div>
               )}
             </div>

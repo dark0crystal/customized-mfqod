@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import uuid
 import asyncio
 import logging
+import os
 
 # Import Models
 from app.models import Item, ItemType as ItemTypeModel, User, Claim, Address, Branch, Organization, Image, ItemStatus, MissingItem, MissingItemFoundItem
@@ -759,7 +760,43 @@ class ItemService:
         if permanent:
             # Permanent delete: Remove item and all related data
             # Order matters: Clear foreign key references before deleting referenced records
-            # 1. Delete all images associated with this item
+            # 1. Delete all images associated with this item (both database records and files)
+            images = self.db.query(Image).filter(
+                Image.imageable_type == "item",
+                Image.imageable_id == item_id
+            ).all()
+            
+            # Delete image files from storage
+            UPLOAD_DIR = "../storage/uploads/images"
+            for image in images:
+                if image.url:
+                    try:
+                        # Extract filename from URL
+                        # Handle both formats: /static/images/{filename} and absolute URLs
+                        url_path = image.url
+                        if url_path.startswith("http://") or url_path.startswith("https://"):
+                            # Absolute URL - extract path after domain
+                            from urllib.parse import urlparse
+                            parsed = urlparse(url_path)
+                            url_path = parsed.path
+                        
+                        # Extract filename (last part of path)
+                        filename = url_path.split("/")[-1]
+                        
+                        if filename:
+                            file_path = os.path.join(UPLOAD_DIR, filename)
+                            
+                            # Delete the file if it exists
+                            if os.path.exists(file_path):
+                                try:
+                                    os.remove(file_path)
+                                    logger.info(f"Deleted image file for item {item_id}: {file_path}")
+                                except Exception as e:
+                                    logger.warning(f"Failed to delete image file {file_path}: {e}")
+                    except Exception as e:
+                        logger.warning(f"Error processing image URL {image.url} for deletion: {e}")
+            
+            # Delete image records from database
             self.db.query(Image).filter(
                 Image.imageable_type == "item",
                 Image.imageable_id == item_id
@@ -788,7 +825,12 @@ class ItemService:
                 BranchTransferRequest.item_id == item_id
             ).delete()
             
-            # 7. Finally, delete the item itself
+            # 7. Delete all missing_item_found_item links for this item
+            self.db.query(MissingItemFoundItem).filter(
+                MissingItemFoundItem.item_id == item_id
+            ).delete()
+            
+            # 8. Finally, delete the item itself
             self.db.delete(item)
         else:
             # Soft delete: Mark item as deleted but preserve data

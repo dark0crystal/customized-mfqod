@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { HelpCircle } from 'lucide-react';
 import DisplayItems from './DisplayItems';
 import OnboardingTour, { TourStep } from '@/components/OnboardingTour';
+import ProtectedPage from '@/components/protection/ProtectedPage';
 
 // Define the Item type
 type Item = {
@@ -430,7 +431,8 @@ export default function ItemsPage() {
   ];
 
   return (
-    <div className="relative w-full min-h-[88vh]">
+    <ProtectedPage requiredPermission="can_manage_items">
+      <div className="relative w-full min-h-[88vh]">
       {/* Header with title and filters */}
       <div className="w-full px-2 sm:px-4 py-4 bg-white border-b border-gray-200 overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
@@ -640,5 +642,6 @@ export default function ItemsPage() {
         translationKey="dashboard.items.tour"
       />
     </div>
+    </ProtectedPage>
   );
 }
