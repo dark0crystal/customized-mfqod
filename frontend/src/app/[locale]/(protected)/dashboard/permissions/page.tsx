@@ -4,14 +4,27 @@ import {
   Edit, Trash2, CheckCircle, AlertCircle, Save, X
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import ProtectedPage from '@/components/protection/ProtectedPage';
 
 const PermissionsManager = () => {
   const t = useTranslations('permissions');
-  const [permissions, setPermissions] = useState([]);
-  const [roles, setRoles] = useState([]);
+
+  interface Permission {
+    id: string;
+    name: string;
+    description: string;
+  }
+
+  interface Role {
+    id: string;
+    name: string;
+  }
+
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRoleId, setSelectedRoleId] = useState('');
-  const [assignedPermissions, setAssignedPermissions] = useState([]);
-  const [editingPermissionId, setEditingPermissionId] = useState(null);
+  const [assignedPermissions, setAssignedPermissions] = useState<string[]>([]);
+  const [editingPermissionId, setEditingPermissionId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', description: '' });
   const [newPermission, setNewPermission] = useState({ name: '', description: '' });
   const [error, setError] = useState('');
@@ -24,9 +37,9 @@ const PermissionsManager = () => {
       .split('; ')
       .find(row => row.startsWith('access_token='))
       ?.split('=')[1] || document.cookie
-      .split('; ')
-      .find(row => row.startsWith('token='))
-      ?.split('=')[1];
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1];
     return {
       'Authorization': `Bearer ${token || ''}`,
       'Content-Type': 'application/json'
@@ -59,12 +72,12 @@ const PermissionsManager = () => {
     }
   };
 
-  const fetchAssignedPermissions = async (roleId) => {
+  const fetchAssignedPermissions = async (roleId: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/permissions/role/${roleId}`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setAssignedPermissions(Array.isArray(data) ? data.map(p => p.id) : []);
+      setAssignedPermissions(Array.isArray(data) ? data.map((p: Permission) => p.id) : []);
     } catch (error) {
       console.error('Failed to fetch assigned permissions:', error);
       setError(t('failedToLoadRolePermissions'));
@@ -72,7 +85,7 @@ const PermissionsManager = () => {
     }
   };
 
-  const handlePermissionToggle = (permissionId) => {
+  const handlePermissionToggle = (permissionId: string) => {
     setAssignedPermissions(prev =>
       prev.includes(permissionId)
         ? prev.filter(id => id !== permissionId)
@@ -98,7 +111,7 @@ const PermissionsManager = () => {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (!confirm(t('confirmDeletePermission'))) return;
     try {
       const res = await fetch(`${API_BASE}/api/permissions/${id}`, {
@@ -117,7 +130,7 @@ const PermissionsManager = () => {
     }
   };
 
-  const handleEdit = (perm) => {
+  const handleEdit = (perm: Permission) => {
     setEditingPermissionId(perm.id);
     setEditForm({ name: perm.name, description: perm.description || '' });
   };
@@ -184,7 +197,8 @@ const PermissionsManager = () => {
   }, [error, success]);
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
+    <ProtectedPage requiredPermission="can_manage_permissions">
+      <div className="max-w-5xl mx-auto p-6">
       <h2 className="text-2xl font-bold mb-4" style={{ color: '#3277AE' }}>{t('title')}</h2>
 
       {error && <div className="bg-red-100 text-red-700 p-3 rounded mb-3 flex items-center"><AlertCircle className="w-5 h-5 mr-2" />{error}</div>}
@@ -197,7 +211,7 @@ const PermissionsManager = () => {
           <input
             type="text"
             className="border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
-            style={{ 
+            style={{
               '--tw-ring-color': '#3277AE',
               '--tw-ring-offset-color': '#3277AE'
             } as React.CSSProperties & { [key: string]: string }}
@@ -208,7 +222,7 @@ const PermissionsManager = () => {
           <input
             type="text"
             className="border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
-            style={{ 
+            style={{
               '--tw-ring-color': '#3277AE',
               '--tw-ring-offset-color': '#3277AE'
             } as React.CSSProperties & { [key: string]: string }}
@@ -221,8 +235,8 @@ const PermissionsManager = () => {
           onClick={handleCreate}
           className="mt-3 text-white px-4 py-2 rounded transition-colors"
           style={{ backgroundColor: '#3277AE' }}
-          onMouseEnter={(e) => e.target.style.backgroundColor = '#2c6a9a'}
-          onMouseLeave={(e) => e.target.style.backgroundColor = '#3277AE'}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2c6a9a'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3277AE'}
         >
           {t('createPermission')}
         </button>
@@ -235,7 +249,7 @@ const PermissionsManager = () => {
           value={selectedRoleId}
           onChange={(e) => setSelectedRoleId(e.target.value)}
           className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
-          style={{ 
+          style={{
             '--tw-ring-color': '#3277AE',
             '--tw-ring-offset-color': '#3277AE'
           } as React.CSSProperties & { [key: string]: string }}
@@ -258,7 +272,7 @@ const PermissionsManager = () => {
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   className="w-full border border-gray-300 px-2 py-1 mb-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
-                  style={{ 
+                  style={{
                     '--tw-ring-color': '#3277AE',
                     '--tw-ring-offset-color': '#3277AE'
                   } as React.CSSProperties & { [key: string]: string }}
@@ -267,7 +281,7 @@ const PermissionsManager = () => {
                   value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   className="w-full border border-gray-300 px-2 py-1 mb-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
-                  style={{ 
+                  style={{
                     '--tw-ring-color': '#3277AE',
                     '--tw-ring-offset-color': '#3277AE'
                   } as React.CSSProperties & { [key: string]: string }}
@@ -286,7 +300,7 @@ const PermissionsManager = () => {
                 <div className="flex justify-between">
                   <h4 className="font-semibold" style={{ color: '#3277AE' }}>{perm.name}</h4>
                   <div className="flex gap-2">
-                    <button onClick={() => handleEdit(perm)} className="transition-colors" style={{ color: '#3277AE' }} onMouseEnter={(e) => e.target.style.color = '#2c6a9a'} onMouseLeave={(e) => e.target.style.color = '#3277AE'}>
+                    <button onClick={() => handleEdit(perm)} className="transition-colors" style={{ color: '#3277AE' }} onMouseEnter={(e) => e.currentTarget.style.color = '#2c6a9a'} onMouseLeave={(e) => e.currentTarget.style.color = '#3277AE'}>
                       <Edit className="w-4 h-4" />
                     </button>
                     <button onClick={() => handleDelete(perm.id)} className="text-red-600 hover:text-red-800">
@@ -318,13 +332,14 @@ const PermissionsManager = () => {
           onClick={handleAssign}
           className="mt-6 text-white px-4 py-2 rounded transition-colors"
           style={{ backgroundColor: '#3277AE' }}
-          onMouseEnter={(e) => e.target.style.backgroundColor = '#2c6a9a'}
-          onMouseLeave={(e) => e.target.style.backgroundColor = '#3277AE'}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2c6a9a'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3277AE'}
         >
           {t('saveRolePermissions')}
         </button>
       )}
     </div>
+    </ProtectedPage>
   );
 };
 

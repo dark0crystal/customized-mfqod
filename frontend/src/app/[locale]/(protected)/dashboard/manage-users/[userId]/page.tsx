@@ -6,6 +6,7 @@ import { usePermissions } from "@/PermissionsContext";
 import UnifiedEditUserForm from "./UnifiedEditUserForm";
 import UserProfileCard from "./UserProfileCard";
 import UserClaims from "./UserClaims";
+import ProtectedPage from '@/components/protection/ProtectedPage';
 
 export default function EditUserProfile({ params }: { params: Promise<{ userId: string }> }) {
     const resolvedParams = use(params);
@@ -17,7 +18,8 @@ export default function EditUserProfile({ params }: { params: Promise<{ userId: 
     // This page-level check is for better UX - components will show access denied if needed
 
     return (
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <ProtectedPage requiredPermission="can_manage_users">
+            <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
             {/* 1. User Profile Card - Always visible (read-only) */}
             <UserProfileCard userId={resolvedParams.userId} />
 
@@ -45,5 +47,6 @@ export default function EditUserProfile({ params }: { params: Promise<{ userId: 
                 )}
             </div>
         </div>
-    )
+        </ProtectedPage>
+    );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, use } from "react";
-import { Mail, MapPin, ArrowRight, Download } from "lucide-react";
+import { Mail, MapPin, ArrowRight, Download, HelpCircle } from "lucide-react";
 import Claims from "./Claims";
 import EditPost from "./EditPost";
 import LocationTracking from "@/components/LocationTracking";
@@ -19,6 +19,8 @@ import { imageUploadService } from '@/services/imageUploadService';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
+import OnboardingTour, { TourStep } from '@/components/OnboardingTour';
+import ProtectedPage from '@/components/protection/ProtectedPage';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -207,6 +209,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const [disposalImages, setDisposalImages] = useState<File[]>([]);
   const [disposalError, setDisposalError] = useState<string | null>(null);
   const [isDisposing, setIsDisposing] = useState(false);
+  const [isTourOpen, setIsTourOpen] = useState(false);
   
   // Create object URLs for image previews
   const disposalImageUrls = useMemo(() => {
@@ -804,20 +807,22 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   // Safety check - if item is still null after loading, show error
   if (!item) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <p className="text-red-500 text-lg font-semibold mb-2">{t('itemNotFound')}</p>
-          <p className="text-gray-600 text-sm mb-4">
-            {resolvedParams?.itemId ? `Item ID: ${resolvedParams.itemId}` : 'No item ID provided'}
-          </p>
-          <button
-            onClick={() => router.push('/dashboard/items')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            {t('backToItems') || 'Back to Items'}
-          </button>
+      <ProtectedPage requiredPermission="can_manage_items">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="text-center max-w-md">
+            <p className="text-red-500 text-lg font-semibold mb-2">{t('itemNotFound')}</p>
+            <p className="text-gray-600 text-sm mb-4">
+              {resolvedParams?.itemId ? `Item ID: ${resolvedParams.itemId}` : 'No item ID provided'}
+            </p>
+            <button
+              onClick={() => router.push('/dashboard/items')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {t('backToItems') || 'Back to Items'}
+            </button>
+          </div>
         </div>
-      </div>
+      </ProtectedPage>
     );
   }
 
@@ -1094,8 +1099,61 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     }
   };
 
+  // Define tour steps
+  const tourSteps: TourStep[] = [
+    {
+      id: 'welcome',
+      title: t('tour.steps.welcome.title'),
+      description: t('tour.steps.welcome.description'),
+      position: 'center',
+    },
+    {
+      id: 'itemInformation',
+      target: '[data-tour="item-information"]',
+      title: t('tour.steps.itemInformation.title'),
+      description: t('tour.steps.itemInformation.description'),
+      position: 'bottom',
+    },
+    {
+      id: 'itemImages',
+      target: '[data-tour="item-images"]',
+      title: t('tour.steps.itemImages.title'),
+      description: t('tour.steps.itemImages.description'),
+      position: 'bottom',
+    },
+    {
+      id: 'itemStatus',
+      target: '[data-tour="item-status"]',
+      title: t('tour.steps.itemStatus.title'),
+      description: t('tour.steps.itemStatus.description'),
+      position: 'left',
+    },
+    {
+      id: 'claims',
+      target: '[data-tour="claims-section"]',
+      title: t('tour.steps.claims.title'),
+      description: t('tour.steps.claims.description'),
+      position: 'top',
+    },
+    {
+      id: 'location',
+      target: '[data-tour="location-section"]',
+      title: t('tour.steps.location.title'),
+      description: t('tour.steps.location.description'),
+      position: 'left',
+    },
+    {
+      id: 'requestTransfer',
+      target: '[data-tour="request-transfer"]',
+      title: t('tour.steps.requestTransfer.title'),
+      description: t('tour.steps.requestTransfer.description'),
+      position: 'left',
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <ProtectedPage requiredPermission="can_manage_items">
+      <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header Section */}
         <div className="mb-6">
@@ -1164,7 +1222,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
               />
             ) : (
               /* Read-only Item Information Section */
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded-lg shadow-sm p-6" data-tour="item-information">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('itemInformation')}</h2>
                 <div className="space-y-6">
                   {/* Title */}
@@ -1265,7 +1323,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
 
             {/* Item Images Carousel */}
             {item.images && item.images.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded-lg shadow-sm p-6" data-tour="item-images">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold text-gray-900">{t('itemImages')}</h2>
                   <span className="text-sm text-gray-600">
@@ -1315,7 +1373,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
             </div>
 
             {/* Claims Section */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="bg-white rounded-lg shadow-sm p-6" data-tour="claims-section">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('claims')}</h2>
               <Claims postId={resolvedParams.itemId} />
             </div>
@@ -1325,7 +1383,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           <div className="space-y-6">
             {/* Approval Status Card - Only show if user has can_manage_items permission */}
             {canManageItems && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded-lg shadow-sm p-6" data-tour="item-status">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">{t('itemStatus')}</h3>
                   <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
@@ -1448,12 +1506,13 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
             )}
 
             {/* Location Card */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="bg-white rounded-lg shadow-sm p-6" data-tour="location-section">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">{t('location')}</h3>
                 {canManageTransferRequests && (
                   <button
                     onClick={() => setShowTransferModal(true)}
+                    data-tour="request-transfer"
                     className="px-3 py-1.5 text-sm rounded-lg font-medium transition-colors flex items-center gap-2"
                     style={{ backgroundColor: '#3277AE', color: 'white' }}
                     onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
@@ -1725,7 +1784,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
 
             {/* Pending Disclaimer Modal */}
             {showPendingDisclaimer && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0, 0, 0, 0.15)' }}>
                 <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">
                     {t('pendingToApprovedDisclaimerTitle') || 'Discard Connected Claim?'}
@@ -2097,6 +2156,34 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           </div>
         </div>
       </div>
+
+      {/* Floating Action Button for Tour */}
+      <button
+        onClick={() => setIsTourOpen(true)}
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 p-3 sm:p-4 rounded-full shadow-lg transition-all duration-200 transform hover:scale-110 hover:shadow-xl active:scale-95"
+        style={{ 
+          backgroundColor: '#3277AE',
+        } as React.CSSProperties}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#2a5f94';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '#3277AE';
+        }}
+        aria-label={t('tour.helpGuide') || 'Start Tour'}
+        title={t('tour.helpGuide') || 'Start Tour'}
+      >
+        <HelpCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+      </button>
+
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+        steps={tourSteps}
+        translationKey="dashboard.items.detail.tour"
+      />
     </div>
+    </ProtectedPage>
   );
 }

@@ -42,6 +42,14 @@ interface ItemType {
   description_en?: string;
 }
 
+interface Organization {
+  id: string;
+  name?: string;
+  name_ar?: string;
+  name_en?: string;
+  description?: string;
+}
+
 interface MissingItem {
   id: string;
   title: string;
@@ -110,10 +118,10 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
   const [orgSelectDisabled, setOrgSelectDisabled] = useState(false);
 
   const c = useTranslations("report-missing");
-  
+
   // Check if user can edit this missing item
   const hasManageMissingItemsPermission = hasPermission("can_manage_missing_items");
-  const canEdit = missingItem 
+  const canEdit = missingItem
     ? (missingItem.status !== "approved" || hasManageMissingItemsPermission)
     : true;
 
