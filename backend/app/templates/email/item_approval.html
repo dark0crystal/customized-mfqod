@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}تمت الموافقة على العنصر - Item Approved - {{ system_name }}{% endblock %}
+
+{% block header_title %}تمت الموافقة على العنصر - Item Approved{% endblock %}
+
+{% block content %}
+<!-- Arabic Section -->
+<div dir="rtl" lang="ar">
+    <h2>تمت الموافقة على إدراج العنصر</h2>
+    <p>مرحباً {{ user_name }}،</p>
+
+    <p>أخبار رائعة! تمت مراجعة إدراج العنصر الخاص بك وتمت الموافقة عليه من قبل فريق الإشراف لدينا.</p>
+
+    <p>
+        <strong>العنصر المعتمد:</strong> {{ item_title }}
+    </p>
+
+    <p>عنصرك الآن مرئي لجميع مستخدمي نظامنا ويمكن البحث عنه والمطالبة به من قبل المالك الشرعي.</p>
+
+    {% if admin_message %}
+    <p>
+        <strong>رسالة من فريقنا:</strong><br>
+        {{ admin_message }}
+    </p>
+    {% endif %}
+
+    <p><strong>ماذا يحدث بعد ذلك؟</strong></p>
+    <ul>
+        <li>عنصرك الآن قابل للبحث في قاعدة البيانات الخاصة بنا</li>
+        <li>سيتم إشعار المستخدمين الذين يبحثون عن عناصر مماثلة</li>
+        <li>إذا طالب شخص ما بالعنصر، ستتلقى إشعاراً</li>
+        <li>سيبقى العنصر نشطاً حتى يتم المطالبة به أو انتهاء صلاحيته</li>
+    </ul>
+
+    <p>
+        <strong>مهم:</strong>
+        يرجى التأكد من تواجدك لتنسيق إعادة العنصر إذا طالب به شخص ما.
+        تحقق من بريدك الإلكتروني بانتظام للحصول على إشعارات المطالبة.
+    </p>
+
+    <p>نشكرك على مساعدتك في جعل مجتمع الحرم الجامعي أكثر أماناً واتصالاً من خلال الإبلاغ عن العناصر الموجودة!</p>
+
+    <p>مع أطيب التحيات،</p>
+    <p><strong>فريق {{ system_name }}</strong></p>
+</div>
+
+<hr style="margin: 30px 0; border: 1px solid #dee2e6;">
+
+<!-- English Section -->
+<div dir="ltr" lang="en">
+    <h2>Your Item Listing Has Been Approved</h2>
+    <p>Hello {{ user_name }},</p>
+
+    <p>Great news! Your item listing has been reviewed and approved by our moderation team.</p>
+
+    <p>
+        <strong>Approved Item:</strong> {{ item_title }}
+    </p>
+
+    <p>Your item is now visible to all users of our system and can be searched and claimed by its rightful owner.</p>
+
+    {% if admin_message %}
+    <p>
+        <strong>Message from our team:</strong><br>
+        {{ admin_message }}
+    </p>
+    {% endif %}
+
+    <p><strong>What happens next?</strong></p>
+    <ul>
+        <li>Your item is now searchable in our database</li>
+        <li>Users looking for similar items will be notified</li>
+        <li>If someone claims the item, you'll receive a notification</li>
+        <li>The item will remain active until claimed or expired</li>
+    </ul>
+
+    <p>
+        <strong>Important:</strong>
+        Please ensure you're available to coordinate the return of the item if someone claims it.
+        Check your email regularly for claim notifications.
+    </p>
+
+    <p>Thank you for helping make our campus community safer and more connected by reporting found items!</p>
+
+    <p>Best regards,</p>
+    <p><strong>The {{ system_name }} Team</strong></p>
+</div>
+{% endblock %}

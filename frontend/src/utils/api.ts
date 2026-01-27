@@ -1,7 +1,7 @@
 // API utility functions for authentication
 const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data?: T
   error?: string
   validationErrors?: Record<string, string>

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useLocale } from "next-intl";
 
 interface ItemType {
@@ -48,15 +48,15 @@ const SliderBar = ({ onFilterChange, initialItemTypeId }: SliderBarProps) => {
     return null;
   };
 
-  const getAuthHeaders = () => {
+  const getAuthHeaders = useCallback(() => {
     const token = getTokenFromCookies();
     return {
       Authorization: token ? `Bearer ${token}` : "",
       "Content-Type": "application/json",
     };
-  };
+  }, []);
 
-  const fetchItemTypes = async () => {
+  const fetchItemTypes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -73,7 +73,7 @@ const SliderBar = ({ onFilterChange, initialItemTypeId }: SliderBarProps) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE, getAuthHeaders]);
 
   const handleClick = (itemTypeId: string) => {
     setCurrentItemTypeId(itemTypeId);
@@ -82,7 +82,7 @@ const SliderBar = ({ onFilterChange, initialItemTypeId }: SliderBarProps) => {
 
   useEffect(() => {
     fetchItemTypes();
-  }, []);
+  }, [fetchItemTypes]);
 
   return (
     <div className="fixed h-screen w-[12vw] bg-slate-300 flex flex-col items-center z-40 p-4 overflow-y-auto shadow-lg">

@@ -259,7 +259,7 @@ export default function Search() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8">
         <div className="space-y-6">
           {/* Desktop Filters - Top */}
-          <div className="hidden lg:block relative z-10">
+          <div className="hidden lg:block relative z-20">
             <div className="flex justify-center">
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed shadow-md backdrop-blur-sm" style={{ maxWidth: '1098px', width: '100%', borderColor: 'rgba(50, 119, 174, 0.5)' }}>
                 <div className="p-6">
@@ -325,7 +325,7 @@ export default function Search() {
           </div>
           
           {/* Posts Content */}
-          <div className="relative z-0">
+          <div className="relative">
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">
                 <div className="flex items-center space-x-2">

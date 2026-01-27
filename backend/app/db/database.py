@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from app.models import Base
 import logging
 
@@ -48,6 +48,12 @@ def init_db(run_migrations=False):
             logger.warning(f"Could not run migrations: {e}. Continuing with database initialization...")
     
     try:
+        # If core tables already exist, assume the database is initialized
+        inspector = inspect(engine)
+        if inspector.has_table("userstatus"):
+            logger.info("Database tables already exist. Skipping automatic create_all.")
+            return
+
         Base.metadata.create_all(engine)  # Reads all models and creates matching tables
         logger.info("✅ Database tables initialized successfully.")
     except Exception as e:

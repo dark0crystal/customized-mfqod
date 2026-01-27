@@ -124,7 +124,7 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
 
   return (
     <div className="w-full flex items-center flex-col">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {missingItems.length > 0 ? (
           missingItems.map((missingItem, index) => {
             const imageUrl = getImageUrl(missingItem.id);
@@ -235,7 +235,7 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
                 {/* Expanded image modal */}
                 {isExpanded && (
                   <div 
-                    className="fixed inset-0 bg-black bg-opacity-90 z-50 flex justify-center items-center p-4"
+                    className="fixed inset-0 bg-black bg-opacity-90 z-[11000] flex justify-center items-center p-4"
                     style={{ animation: "fadeIn .2s" }}
                     onClick={() => setExpandedItemId(null)}
                   >

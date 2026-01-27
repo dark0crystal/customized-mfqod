@@ -1,0 +1,8 @@
+# Guide Images Directory
+
+Place guide images in this directory. Images should be referenced in the translations as:
+- /guides/getting-started.jpg
+- /guides/reporting-items.jpg
+- /guides/managing-items.jpg
+- /guides/search-claims.jpg
+

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}تم المطالبة بالعنصر - Item Claimed - {{ system_name }}{% endblock %}
+
+{% block header_title %}تم المطالبة بالعنصر - Item Claimed{% endblock %}
+
+{% block content %}
+<!-- Arabic Section -->
+<div dir="rtl" lang="ar">
+    <h2>تم المطالبة بالعنصر بنجاح</h2>
+    <p>مرحباً {{ user_name }}،</p>
+
+    <p>يسعدنا إعلامك بأنه تم المطالبة بعنصر بنجاح من خلال نظامنا.</p>
+
+    <div class="success-box">
+        <strong>العنصر المطالب به:</strong> {{ item_title }}
+        {% if claimant_name %}
+        <br><strong>المطالب به من قبل:</strong> {{ claimant_name }}
+        {% endif %}
+        {% if claim_date %}
+        <br><strong>تاريخ المطالبة:</strong> {{ claim_date }}
+        {% endif %}
+    </div>
+
+    {% if is_item_owner %}
+    <p><strong>نشكرك على الإبلاغ عن هذا العنصر الموجود!</strong> لقد ساعدت جهودك في إعادة توحيد شخص ما مع ممتلكاته المفقودة.</p>
+
+    <p>تم إعادة العنصر بنجاح إلى مالكه الشرعي. هذه الحالة مغلقة الآن في نظامنا.</p>
+
+    {% else %}
+    <p><strong>تهانينا!</strong> لقد طالبت بنجاح بعنصرك المفقود.</p>
+
+    <div class="info-box">
+        <strong>الخطوات التالية:</strong>
+        <ul>
+            <li>تنسيق مع الشخص الذي وجد العنصر لجمع عنصرك</li>
+            <li>إحضار هوية مناسبة عند الجمع</li>
+            <li>التعبير عن الامتنان للشخص الذي وجد عنصرك</li>
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if contact_info %}
+    <div class="info-box">
+        <strong>معلومات الاتصال:</strong>
+        <p>{{ contact_info }}</p>
+    </div>
+    {% endif %}
+
+    <p>نشكرك على استخدام {{ system_name }} ومساعدتك في جعل مجتمع الحرم الجامعي أكثر اتصالاً!</p>
+
+    <p>مع أطيب التحيات،</p>
+    <p><strong>فريق {{ system_name }}</strong></p>
+</div>
+
+<hr style="margin: 30px 0; border: 1px solid #dee2e6;">
+
+<!-- English Section -->
+<div dir="ltr" lang="en">
+    <h2>Item Successfully Claimed</h2>
+    <p>Hello {{ user_name }},</p>
+
+    <p>We're happy to inform you that an item has been successfully claimed through our system.</p>
+
+    <div class="success-box">
+        <strong>Claimed Item:</strong> {{ item_title }}
+        {% if claimant_name %}
+        <br><strong>Claimed by:</strong> {{ claimant_name }}
+        {% endif %}
+        {% if claim_date %}
+        <br><strong>Claim Date:</strong> {{ claim_date }}
+        {% endif %}
+    </div>
+
+    {% if is_item_owner %}
+    <p><strong>Thank you for reporting this found item!</strong> Your effort has helped reunite someone with their lost belongings.</p>
+
+    <p>The item has been successfully returned to its rightful owner. This case is now closed in our system.</p>
+
+    {% else %}
+    <p><strong>Congratulations!</strong> You have successfully claimed your lost item.</p>
+
+    <div class="info-box">
+        <strong>Next Steps:</strong>
+        <ul>
+            <li>Coordinate with the finder to collect your item</li>
+            <li>Bring proper identification when collecting</li>
+            <li>Express gratitude to the person who found your item</li>
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if contact_info %}
+    <div class="info-box">
+        <strong>Contact Information:</strong>
+        <p>{{ contact_info }}</p>
+    </div>
+    {% endif %}
+
+    <p>Thank you for using {{ system_name }} and helping make our campus community more connected!</p>
+
+    <p>Best regards,</p>
+    <p><strong>The {{ system_name }} Team</strong></p>
+</div>
+{% endblock %}

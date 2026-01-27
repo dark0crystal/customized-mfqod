@@ -13,37 +13,62 @@ interface UseAuthReturn {
   error: string | null
 }
 
+// Custom event name for auth state changes
+const AUTH_STATE_CHANGED_EVENT = 'auth-state-changed'
+
+// Helper function to refresh auth state
+const refreshAuthState = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(AUTH_STATE_CHANGED_EVENT))
+  }
+}
+
 export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
+  // Function to update auth state from tokenManager
+  const updateAuthState = useCallback(() => {
+    try {
+      const currentUser = tokenManager.getUser()
+      const isAuth = tokenManager.isAuthenticated()
+      
+      setUser(currentUser)
+      setIsLoading(false)
+      
+      // If not authenticated and not on login page, redirect with returnUrl
+      if (!isAuth && typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
+        const currentPath = window.location.pathname
+        const returnUrl = encodeURIComponent(currentPath)
+        router.push(`/auth/login?returnUrl=${returnUrl}`)
+      }
+    } catch (err) {
+      console.error('Auth state update error:', err)
+      setError('Authentication state update failed')
+      setIsLoading(false)
+    }
+  }, [router])
+
   // Initialize auth state
   useEffect(() => {
-    const initAuth = () => {
-      try {
-        const currentUser = tokenManager.getUser()
-        const isAuth = tokenManager.isAuthenticated()
-        
-        setUser(currentUser)
-        setIsLoading(false)
-        
-        // If not authenticated and not on login page, redirect with returnUrl
-        if (!isAuth && typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
-          const currentPath = window.location.pathname
-          const returnUrl = encodeURIComponent(currentPath)
-          router.push(`/auth/login?returnUrl=${returnUrl}`)
-        }
-      } catch (err) {
-        console.error('Auth initialization error:', err)
-        setError('Authentication initialization failed')
-        setIsLoading(false)
-      }
+    updateAuthState()
+  }, [updateAuthState])
+
+  // Listen for auth state changes from other components
+  useEffect(() => {
+    const handleAuthStateChange = () => {
+      updateAuthState()
     }
 
-    initAuth()
-  }, [router])
+    if (typeof window !== 'undefined') {
+      window.addEventListener(AUTH_STATE_CHANGED_EVENT, handleAuthStateChange)
+      return () => {
+        window.removeEventListener(AUTH_STATE_CHANGED_EVENT, handleAuthStateChange)
+      }
+    }
+  }, [updateAuthState])
 
   const login = useCallback(async (identifier: string, password: string) => {
     setIsLoading(true)
@@ -53,6 +78,8 @@ export function useAuth(): UseAuthReturn {
       const result = await tokenManager.login(identifier, password)
       setUser(result.user)
       setError(null)
+      // Dispatch event to notify other components
+      refreshAuthState()
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed'
       setError(errorMessage)
@@ -69,6 +96,8 @@ export function useAuth(): UseAuthReturn {
       await tokenManager.logout()
       setUser(null)
       setError(null)
+      // Dispatch event to notify other components
+      refreshAuthState()
       router.push('/auth/login')
     } catch (err) {
       console.error('Logout error:', err)

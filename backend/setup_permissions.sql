@@ -16,95 +16,52 @@
 -- PostgreSQL version (use this for PostgreSQL)
 -- ============================================================
 
--- Items Permissions
+-- Items Permissions (Consolidated)
 INSERT INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (gen_random_uuid()::text, 'can_create_items', 'Can create new lost/found items', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_items', 'Can view lost/found items', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_own_items', 'Can view own lost/found items', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_edit_items', 'Can edit item details', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_approve_items', 'Can approve/reject item reports', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_delete_items', 'Can delete items', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_restore_items', 'Can restore deleted items', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_bulk_delete_items', 'Can delete multiple items at once', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_bulk_edit_items', 'Can edit multiple items at once', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_manage_claims', 'Can manage item claims', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_statistics', 'Can view system statistics and analytics', NOW(), NOW())
+    (gen_random_uuid()::text, 'can_manage_items', 'Full item management (create, view, edit, delete, approve, restore, bulk operations). Users can always access their own items.', NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- Missing Items Permissions
+-- Missing Items Permissions (Consolidated)
 INSERT INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (gen_random_uuid()::text, 'can_create_missing_items', 'Can report missing items', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_missing_items', 'Can view missing items', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_own_missing_items', 'Can view own missing items', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_edit_missing_items', 'Can edit missing item details', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_approve_missing_items', 'Can approve/reject missing item reports', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_manage_missing_items', 'Can manage missing items', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_delete_missing_items', 'Can delete missing items', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_restore_missing_items', 'Can restore deleted missing items', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_bulk_delete_missing_items', 'Can delete multiple missing items at once', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_bulk_edit_missing_items', 'Can edit multiple missing items at once', NOW(), NOW())
+    (gen_random_uuid()::text, 'can_manage_missing_items', 'Full missing item management (create, view, edit, delete, approve, restore, bulk operations). Users can always access their own missing items.', NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- Item Types Permissions
+-- Item Types Permissions (Consolidated)
 INSERT INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (gen_random_uuid()::text, 'can_create_item_types', 'Can create new item types', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_item_types', 'Can view item types', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_edit_item_types', 'Can edit item types', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_delete_item_types', 'Can delete item types', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_manage_item_types', 'Full item type management access', NOW(), NOW())
+    (gen_random_uuid()::text, 'can_manage_item_types', 'Full item type management (create, view, edit, delete)', NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- Branches Permissions
+-- Branches Permissions (Consolidated)
 INSERT INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (gen_random_uuid()::text, 'can_create_branches', 'Can create new branches', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_branches', 'Can view branches', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_edit_branches', 'Can edit branch details', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_delete_branches', 'Can delete branches', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_own_branches', 'Can view own managed branches', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_user_branches', 'Can view user branch assignments', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_assign_branch_managers', 'Can assign branch managers', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_remove_branch_managers', 'Can remove branch managers', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_branch_managers', 'Can view branch managers', NOW(), NOW())
+    (gen_random_uuid()::text, 'can_manage_branches', 'Full branch management (create, view, edit, delete, manage managers)', NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- Addresses Permissions
+-- Addresses Permissions (Consolidated)
 INSERT INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (gen_random_uuid()::text, 'can_create_addresses', 'Can create addresses', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_addresses', 'Can view addresses', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_edit_addresses', 'Can edit addresses', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_delete_addresses', 'Can delete addresses', NOW(), NOW())
+    (gen_random_uuid()::text, 'can_manage_addresses', 'Full address management (create, view, edit, delete)', NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- Organizations Permissions
+-- Organizations Permissions (Consolidated)
 INSERT INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (gen_random_uuid()::text, 'can_create_organizations', 'Can create new organizations', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_organizations', 'Can view organizations', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_edit_organizations', 'Can edit organization details', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_delete_organizations', 'Can delete organizations', NOW(), NOW())
+    (gen_random_uuid()::text, 'can_manage_organizations', 'Full organization management (create, view, edit, delete)', NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- Users Permissions
+-- Users Permissions (Consolidated)
 INSERT INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (gen_random_uuid()::text, 'can_view_users', 'Can view user profiles and lists', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_create_users', 'Can create new user accounts', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_edit_users', 'Can edit user profiles and settings', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_delete_users', 'Can delete user accounts', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_manage_users', 'Full user management access', NOW(), NOW())
+    (gen_random_uuid()::text, 'can_manage_users', 'Full user management access (create, view, edit, delete)', NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- Claims Permissions
+-- Claims Permissions (Consolidated)
 INSERT INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (gen_random_uuid()::text, 'can_view_claims', 'Can view item claims', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_create_claims', 'Can create item claims', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_process_claims', 'Can approve/reject claims', NOW(), NOW())
+    (gen_random_uuid()::text, 'can_manage_claims', 'Full claim management (view, create, process/approve/reject)', NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
 -- System & Admin Permissions
@@ -114,19 +71,15 @@ VALUES
     (gen_random_uuid()::text, 'can_view_system_logs', 'Can view system logs', NOW(), NOW()),
     (gen_random_uuid()::text, 'can_manage_roles', 'Can create/edit/delete roles', NOW(), NOW()),
     (gen_random_uuid()::text, 'can_manage_permissions', 'Can manage permission assignments', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_analytics', 'Can view system analytics and reports', NOW(), NOW()),
+    (gen_random_uuid()::text, 'can_view_analytics', 'Can view system analytics and statistics', NOW(), NOW()),
     (gen_random_uuid()::text, 'can_configure_system', 'Can configure system settings', NOW(), NOW()),
     (gen_random_uuid()::text, 'can_access_admin', 'Can access admin panel', NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- Transfer Requests Permissions
+-- Transfer Requests Permissions (Consolidated)
 INSERT INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (gen_random_uuid()::text, 'can_create_transfer_requests', 'Can create branch transfer requests', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_view_transfer_requests', 'Can view transfer requests', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_approve_transfer_requests', 'Can approve transfer requests', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_reject_transfer_requests', 'Can reject transfer requests', NOW(), NOW()),
-    (gen_random_uuid()::text, 'can_manage_transfer_requests', 'Can manage all transfer requests', NOW(), NOW())
+    (gen_random_uuid()::text, 'can_manage_transfer_requests', 'Full transfer request management (create, view, approve, reject)', NOW(), NOW())
 ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================
@@ -135,88 +88,45 @@ ON CONFLICT (name) DO NOTHING;
 -- Uncomment the section below if using MySQL instead of PostgreSQL
 
 /*
--- Items Permissions
+-- Items Permissions (Consolidated)
 INSERT IGNORE INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (UUID(), 'can_create_items', 'Can create new lost/found items', NOW(), NOW()),
-    (UUID(), 'can_view_items', 'Can view lost/found items', NOW(), NOW()),
-    (UUID(), 'can_view_own_items', 'Can view own lost/found items', NOW(), NOW()),
-    (UUID(), 'can_edit_items', 'Can edit item details', NOW(), NOW()),
-    (UUID(), 'can_approve_items', 'Can approve/reject item reports', NOW(), NOW()),
-    (UUID(), 'can_delete_items', 'Can delete items', NOW(), NOW()),
-    (UUID(), 'can_restore_items', 'Can restore deleted items', NOW(), NOW()),
-    (UUID(), 'can_bulk_delete_items', 'Can delete multiple items at once', NOW(), NOW()),
-    (UUID(), 'can_bulk_edit_items', 'Can edit multiple items at once', NOW(), NOW()),
-    (UUID(), 'can_manage_claims', 'Can manage item claims', NOW(), NOW()),
-    (UUID(), 'can_view_statistics', 'Can view system statistics and analytics', NOW(), NOW());
+    (UUID(), 'can_manage_items', 'Full item management (create, view, edit, delete, approve, restore, bulk operations). Users can always access their own items.', NOW(), NOW());
 
--- Missing Items Permissions
+-- Missing Items Permissions (Consolidated)
 INSERT IGNORE INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (UUID(), 'can_create_missing_items', 'Can report missing items', NOW(), NOW()),
-    (UUID(), 'can_view_missing_items', 'Can view missing items', NOW(), NOW()),
-    (UUID(), 'can_view_own_missing_items', 'Can view own missing items', NOW(), NOW()),
-    (UUID(), 'can_edit_missing_items', 'Can edit missing item details', NOW(), NOW()),
-    (UUID(), 'can_approve_missing_items', 'Can approve/reject missing item reports', NOW(), NOW()),
-    (UUID(), 'can_manage_missing_items', 'Can manage missing items', NOW(), NOW()),
-    (UUID(), 'can_delete_missing_items', 'Can delete missing items', NOW(), NOW()),
-    (UUID(), 'can_restore_missing_items', 'Can restore deleted missing items', NOW(), NOW()),
-    (UUID(), 'can_bulk_delete_missing_items', 'Can delete multiple missing items at once', NOW(), NOW()),
-    (UUID(), 'can_bulk_edit_missing_items', 'Can edit multiple missing items at once', NOW(), NOW());
+    (UUID(), 'can_manage_missing_items', 'Full missing item management (create, view, edit, delete, approve, restore, bulk operations). Users can always access their own missing items.', NOW(), NOW());
 
--- Item Types Permissions
+-- Item Types Permissions (Consolidated)
 INSERT IGNORE INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (UUID(), 'can_create_item_types', 'Can create new item types', NOW(), NOW()),
-    (UUID(), 'can_view_item_types', 'Can view item types', NOW(), NOW()),
-    (UUID(), 'can_edit_item_types', 'Can edit item types', NOW(), NOW()),
-    (UUID(), 'can_delete_item_types', 'Can delete item types', NOW(), NOW()),
-    (UUID(), 'can_manage_item_types', 'Full item type management access', NOW(), NOW());
+    (UUID(), 'can_manage_item_types', 'Full item type management (create, view, edit, delete)', NOW(), NOW());
 
--- Branches Permissions
+-- Branches Permissions (Consolidated)
 INSERT IGNORE INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (UUID(), 'can_create_branches', 'Can create new branches', NOW(), NOW()),
-    (UUID(), 'can_view_branches', 'Can view branches', NOW(), NOW()),
-    (UUID(), 'can_edit_branches', 'Can edit branch details', NOW(), NOW()),
-    (UUID(), 'can_delete_branches', 'Can delete branches', NOW(), NOW()),
-    (UUID(), 'can_view_own_branches', 'Can view own managed branches', NOW(), NOW()),
-    (UUID(), 'can_view_user_branches', 'Can view user branch assignments', NOW(), NOW()),
-    (UUID(), 'can_assign_branch_managers', 'Can assign branch managers', NOW(), NOW()),
-    (UUID(), 'can_remove_branch_managers', 'Can remove branch managers', NOW(), NOW()),
-    (UUID(), 'can_view_branch_managers', 'Can view branch managers', NOW(), NOW());
+    (UUID(), 'can_manage_branches', 'Full branch management (create, view, edit, delete, manage managers)', NOW(), NOW());
 
--- Addresses Permissions
+-- Addresses Permissions (Consolidated)
 INSERT IGNORE INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (UUID(), 'can_create_addresses', 'Can create addresses', NOW(), NOW()),
-    (UUID(), 'can_view_addresses', 'Can view addresses', NOW(), NOW()),
-    (UUID(), 'can_edit_addresses', 'Can edit addresses', NOW(), NOW()),
-    (UUID(), 'can_delete_addresses', 'Can delete addresses', NOW(), NOW());
+    (UUID(), 'can_manage_addresses', 'Full address management (create, view, edit, delete)', NOW(), NOW());
 
--- Organizations Permissions
+-- Organizations Permissions (Consolidated)
 INSERT IGNORE INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (UUID(), 'can_create_organizations', 'Can create new organizations', NOW(), NOW()),
-    (UUID(), 'can_view_organizations', 'Can view organizations', NOW(), NOW()),
-    (UUID(), 'can_edit_organizations', 'Can edit organization details', NOW(), NOW()),
-    (UUID(), 'can_delete_organizations', 'Can delete organizations', NOW(), NOW());
+    (UUID(), 'can_manage_organizations', 'Full organization management (create, view, edit, delete)', NOW(), NOW());
 
--- Users Permissions
+-- Users Permissions (Consolidated)
 INSERT IGNORE INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (UUID(), 'can_view_users', 'Can view user profiles and lists', NOW(), NOW()),
-    (UUID(), 'can_create_users', 'Can create new user accounts', NOW(), NOW()),
-    (UUID(), 'can_edit_users', 'Can edit user profiles and settings', NOW(), NOW()),
-    (UUID(), 'can_delete_users', 'Can delete user accounts', NOW(), NOW()),
-    (UUID(), 'can_manage_users', 'Full user management access', NOW(), NOW());
+    (UUID(), 'can_manage_users', 'Full user management access (create, view, edit, delete)', NOW(), NOW());
 
--- Claims Permissions
+-- Claims Permissions (Consolidated)
 INSERT IGNORE INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (UUID(), 'can_view_claims', 'Can view item claims', NOW(), NOW()),
-    (UUID(), 'can_create_claims', 'Can create item claims', NOW(), NOW()),
-    (UUID(), 'can_process_claims', 'Can approve/reject claims', NOW(), NOW());
+    (UUID(), 'can_manage_claims', 'Full claim management (view, create, process/approve/reject)', NOW(), NOW());
 
 -- System & Admin Permissions
 INSERT IGNORE INTO permissions (id, name, description, created_at, updated_at)
@@ -225,18 +135,14 @@ VALUES
     (UUID(), 'can_view_system_logs', 'Can view system logs', NOW(), NOW()),
     (UUID(), 'can_manage_roles', 'Can create/edit/delete roles', NOW(), NOW()),
     (UUID(), 'can_manage_permissions', 'Can manage permission assignments', NOW(), NOW()),
-    (UUID(), 'can_view_analytics', 'Can view system analytics and reports', NOW(), NOW()),
+    (UUID(), 'can_view_analytics', 'Can view system analytics and statistics', NOW(), NOW()),
     (UUID(), 'can_configure_system', 'Can configure system settings', NOW(), NOW()),
     (UUID(), 'can_access_admin', 'Can access admin panel', NOW(), NOW());
 
--- Transfer Requests Permissions
+-- Transfer Requests Permissions (Consolidated)
 INSERT IGNORE INTO permissions (id, name, description, created_at, updated_at)
 VALUES 
-    (UUID(), 'can_create_transfer_requests', 'Can create branch transfer requests', NOW(), NOW()),
-    (UUID(), 'can_view_transfer_requests', 'Can view transfer requests', NOW(), NOW()),
-    (UUID(), 'can_approve_transfer_requests', 'Can approve transfer requests', NOW(), NOW()),
-    (UUID(), 'can_reject_transfer_requests', 'Can reject transfer requests', NOW(), NOW()),
-    (UUID(), 'can_manage_transfer_requests', 'Can manage all transfer requests', NOW(), NOW());
+    (UUID(), 'can_manage_transfer_requests', 'Full transfer request management (create, view, approve, reject)', NOW(), NOW());
 */
 
 -- ============================================================
@@ -244,7 +150,7 @@ VALUES
 -- ============================================================
 -- Run this query to verify all permissions were inserted:
 -- SELECT COUNT(*) as total_permissions FROM permissions;
--- Expected: 70 permissions
+-- Expected: 20 permissions (consolidated from 50+ granular permissions)
 
 -- To see all permissions:
 -- SELECT name, description FROM permissions ORDER BY name;

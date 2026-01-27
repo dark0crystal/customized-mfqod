@@ -184,7 +184,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       {/* Expanded Image Modal */}
       {expandedIndex !== null && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black bg-opacity-90 z-[11000] flex items-center justify-center p-4"
           onClick={handleClose}
         >
           <div className="relative max-w-[95vw] max-h-[95vh] w-full h-full flex items-center justify-center">

@@ -214,4 +214,16 @@ async def root():
             "Security Monitoring",
             "Comprehensive Logging"
         ]
-    }
+        }
+
+if __name__ == "__main__":
+    # Allow running the app with: python -m app.main
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        workers=4,
+        log_level="info",
+    )

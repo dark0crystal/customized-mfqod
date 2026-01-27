@@ -162,7 +162,21 @@ export function requiresAuthentication(pathname: string): boolean {
  */
 export function requiresPermission(pathname: string): boolean {
   const config = getRoutePermission(pathname);
-  return config !== null && Array.isArray(config.permission) && config.permission.length > 0;
+  if (!config || !config.permission) {
+    return false;
+  }
+  
+  // Check if permission is a non-empty array
+  if (Array.isArray(config.permission)) {
+    return config.permission.length > 0;
+  }
+  
+  // Check if permission is a non-empty string
+  if (typeof config.permission === 'string') {
+    return config.permission.length > 0;
+  }
+  
+  return false;
 }
 
 

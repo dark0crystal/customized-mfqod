@@ -12,9 +12,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 #  ========================
 # Import all models from app.models so Alembic can detect them
 from app.models import (
+    Base,
     User,
-    Role,
     UserStatus,
+    UserBranchManager,
+    Role,
+    RolePermissions,
+    Permission,
     Item,
     ItemType,
     Claim,
@@ -22,9 +26,15 @@ from app.models import (
     Organization,
     Branch,
     Address,
-    RolePermissions,
-    Permission,
-    Base
+    MissingItem,
+    MissingItemFoundItem,
+    BranchTransferRequest,
+    AuditLog,
+    LoginAttempt,
+    UserSession,
+    ADSyncLog,
+    RateLimitLog,
+    EmailVerification
 )
 #  ========================
 
@@ -88,10 +98,12 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-                connection=connection,
-                target_metadata=target_metadata,
-                compare_type=True
-                )
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
+            include_object=None,  # Include all objects
+        )
 
         with context.begin_transaction():
             context.run_migrations()

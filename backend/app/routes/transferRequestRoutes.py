@@ -58,6 +58,28 @@ async def get_transfer_requests(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving transfer requests: {str(e)}")
 
+@router.get("/pending-count", response_model=dict)
+@require_permission("can_manage_transfer_requests")
+async def get_pending_transfer_requests_count(
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_session),
+    transfer_service: TransferRequestService = Depends(get_transfer_request_service)
+):
+    """
+    Get count of pending transfer requests that the current user can approve/reject.
+    Requires: can_manage_transfer_requests permission
+    Optimized for badge display - only returns count, not full objects.
+    """
+    try:
+        count = transfer_service.get_pending_incoming_count(current_user.id)
+        return {"count": count}
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error retrieving pending transfer requests count: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error retrieving pending transfer requests count: {str(e)}")
+
 @router.get("/incoming/", response_model=List[TransferRequestResponse])
 @require_permission("can_manage_transfer_requests")
 async def get_incoming_transfer_requests(

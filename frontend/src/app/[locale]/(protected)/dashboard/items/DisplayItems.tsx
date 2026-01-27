@@ -187,7 +187,15 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                     )}
                     {item.claims_count !== undefined && (
                       <div className="flex justify-between items-center mt-2">
-                        <span className="text-xs text-gray-500">{item.claims_count} {t("status.claims")}</span>
+                        <span
+                          className={`text-xs ${
+                            item.claims_count && item.claims_count > 0
+                              ? "font-semibold text-red-600"
+                              : "text-gray-500"
+                          }`}
+                        >
+                          {item.claims_count} {t("status.claims")}
+                        </span>
                         <span className={`text-xs px-2 py-1 rounded ${
                           item.status === ItemStatus.APPROVED ? 'bg-green-100 text-green-800' :
                           item.status === ItemStatus.PENDING ? 'bg-orange-100 text-orange-800' :
@@ -249,7 +257,7 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                 {/* Expanded image modal with carousel */}
                 {isExpanded && (
                   <div 
-                    className="fixed inset-0 bg-black bg-opacity-90 z-50 flex justify-center items-center p-4"
+                    className="fixed inset-0 bg-black bg-opacity-90 z-[11000] flex justify-center items-center p-4"
                     style={{ animation: "fadeIn .2s" }}
                     onClick={() => setExpandedItemId(null)}
                   >

@@ -296,6 +296,8 @@
     "applyFilters": "Apply Filters",
     "clearAllFilters": "Clear all filters",
     "itemsFound": "items found",
+    "itemFoundSingular": "item",
+    "itemsFoundPlural": "items",
     "loading": "Loading...",
     "noItemsFound": "No items found",
     "tryAdjustingFilters": "Try adjusting your filters or search criteria.",
@@ -518,6 +520,8 @@
       "totalItems": "Total Items",
       "lostItems": "Lost Items",
       "foundItems": "Found Items",
+      "reportedItems": "Reported Items",
+      "unreturnedItems": "Unreturned Items",
       "returnedItems": "Returned Items",
       "returnRate": "Return Rate",
       "itemsByCategory": "Items by Category",
@@ -536,6 +540,37 @@
       "thisWeek": "This Week",
       "thisMonth": "This Month",
       "lastMonth": "Last Month"
+    },
+    "onboardingTour": {
+      "startTour": "Start Tour",
+      "stepIndicator": "Step {current} of {total}",
+      "goToStep": "Go to step {step}",
+      "close": "Close",
+      "next": "Next",
+      "previous": "Previous",
+      "finish": "Finish",
+      "steps": {
+        "welcome": {
+          "title": "Welcome to Your Dashboard!",
+          "description": "This is your command center for warehouse operations. Here you'll see everything at a glance - orders, stock levels, and incoming shipments."
+        },
+        "userInfo": {
+          "title": "Your Profile Information",
+          "description": "The user info card displays your profile details, contact information, and account status. You can view your role, email, and other account details here."
+        },
+        "userReports": {
+          "title": "Your Reports",
+          "description": "The reports section shows all your missing items, found items, and claims. Track the status of your reports and see which ones have been approved or are still pending."
+        },
+        "navigation": {
+          "title": "Navigation Menu",
+          "description": "Use the sidebar navigation menu on the left to access different sections of the dashboard. You can manage items, view analytics, access help guides, and more."
+        },
+        "quickActions": {
+          "title": "Quick Actions",
+          "description": "You can quickly report found items, report missing items, search for items, and access various management features from the navigation menu. Explore all the features available to you!"
+        }
+      }
     },
     "help": {
       "title": "How to Use",
@@ -774,7 +809,89 @@
         "confirm": "Confirm",
         "type": "Type",
         "email": "Email",
-        "viewDetails": "View Claim Details"
+        "viewDetails": "View Claim Details",
+        "tour": {
+          "helpGuide": "Help Guide",
+          "stepIndicator": "Step {current} of {total}",
+          "close": "Close",
+          "next": "Next",
+          "previous": "Previous",
+          "finish": "Finish",
+          "goToStep": "Go to step {step}",
+          "steps": {
+            "welcome": {
+              "title": "Welcome to Item Details!",
+              "description": "This page shows comprehensive information about the selected item. Here you can view all details, manage the item status, view claims, and perform various actions."
+            },
+            "itemInformation": {
+              "title": "Item Information",
+              "description": "This section displays the item's title, description, and internal notes. You can see the current status, location, and all relevant details about the item here."
+            },
+            "itemImages": {
+              "title": "Item Images",
+              "description": "View all images associated with this item. You can browse through the image carousel to see different angles and details of the item."
+            },
+            "itemStatus": {
+              "title": "Item Status Management",
+              "description": "Use this section to change the item's status. You can set it to Pending, Approved, Cancelled, or Disposed. When approving, you'll need to select an associated claim."
+            },
+            "claims": {
+              "title": "Claims Section",
+              "description": "This section shows all claims submitted for this item. You can view claim details, approve claims, and manage the relationship between items and claims."
+            },
+            "location": {
+              "title": "Location Information",
+              "description": "View the item's current location, branch, and organization. You can also request a transfer to another branch if you have the necessary permissions."
+            },
+            "requestTransfer": {
+              "title": "Request Transfer",
+              "description": "Use this button to request transferring this item to another branch. Click the button to open the transfer request form where you can select the destination branch and add notes about the transfer."
+            }
+          }
+        }
+      },
+      "tour": {
+        "helpGuide": "Help Guide",
+        "stepIndicator": "Step {current} of {total}",
+        "close": "Close",
+        "next": "Next",
+        "previous": "Previous",
+        "finish": "Let's Explore",
+        "goToStep": "Go to step {step}",
+        "steps": {
+          "welcome": {
+            "title": "Welcome to Your Items Page!",
+            "description": "This is your command center for managing items. Here you'll see everything at a glance - pending items, approved items, and all the tools you need to manage them effectively."
+          },
+          "statusFilters": {
+            "title": "Status Filters",
+            "description": "Use these status buttons to filter items by their current status: Pending (awaiting approval), Approved (ready for pickup), Cancelled, or Disposed. Click any status to view items in that category."
+          },
+          "searchFilter": {
+            "title": "Search Items",
+            "description": "Use the search box to quickly find items by their title or description. Simply type keywords and the results will update automatically as you type."
+          },
+          "itemTypeFilter": {
+            "title": "Filter by Item Type",
+            "description": "Select a specific item type from the dropdown to narrow down your search. Choose 'All Types' to see items of all categories."
+          },
+          "branchFilter": {
+            "title": "Filter by Branch",
+            "description": "Filter items by the branch where they were found or are currently located. This helps you focus on items from specific locations."
+          },
+          "dateRangeFilters": {
+            "title": "Date Range Filters",
+            "description": "Set a date range to find items created within a specific time period. Use 'From Date' and 'To Date' to define your search window."
+          },
+          "clearFilters": {
+            "title": "Clear All Filters",
+            "description": "Click this button to reset all filters and return to the default view. This is useful when you want to start a new search."
+          },
+          "itemsGrid": {
+            "title": "Items Display",
+            "description": "Here you'll see all items matching your filters. Click on any item card to view detailed information, or use the expand button to view larger images."
+          }
+        }
       }
     },
     "transferRequests": {
@@ -1044,19 +1161,30 @@
         "descriptionArabic": "Description (Arabic)",
         "descriptionArabicPlaceholder": "Enter description in Arabic",
         "descriptionEnglish": "Description (English)",
-        "descriptionEnglishPlaceholder": "Enter description in English"
+        "descriptionEnglishPlaceholder": "Enter description in English",
+        "image": "Image",
+        "selectImage": "Select Image",
+        "changeImage": "Change Image",
+        "deleteImage": "Delete Image",
+        "uploadImage": "Upload Image",
+        "imagePreview": "Image Preview"
       },
       "errors": {
         "failedToFetch": "Failed to fetch item types: {error}",
         "failedToCreate": "Failed to create item type: {error}",
         "failedToUpdate": "Failed to update item type: {error}",
-        "failedToDelete": "Failed to delete item type: {error}"
+        "failedToDelete": "Failed to delete item type: {error}",
+        "failedToUploadImage": "Failed to upload image: {error}",
+        "failedToDeleteImage": "Failed to delete image: {error}"
       },
       "success": {
         "created": "Item type created successfully!",
         "updated": "Item type updated successfully!",
-        "deleted": "Item type deleted successfully!"
+        "deleted": "Item type deleted successfully!",
+        "imageUploaded": "Image uploaded successfully!",
+        "imageDeleted": "Image deleted successfully!"
       },
+      "confirmDeleteImage": "Are you sure you want to delete this image?",
       "confirmDelete": "Are you sure you want to delete this item type?",
       "validation": {
         "nameRequired": "At least one name (Arabic or English) is required"
@@ -1265,6 +1393,12 @@
     "current": "Current"
   },
   "auth": {
+    "session": {
+      "expiringSoon": "Your session will expire in {minutes} {minutes, plural, one {minute} other {minutes}}. Continue using the app to stay logged in.",
+      "expired": "Your session has expired due to inactivity. Please log in again.",
+      "refreshTokenExpired": "Refresh token has expired. Please log in again.",
+      "authenticationFailed": "Authentication failed. Please log in again."
+    },
     "login": {
       "title": "Login",
       "subtitle": "Sign in to your account",

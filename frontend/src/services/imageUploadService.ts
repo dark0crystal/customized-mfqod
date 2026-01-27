@@ -46,8 +46,10 @@ export class ImageUploadService {
     // Try to import tokenManager dynamically
     let token: string | null = null;
     try {
-      const { tokenManager } = require('@/utils/tokenManager');
-      token = tokenManager.getAccessToken();
+      // Use dynamic import to keep this file compatible with ESM
+      // and avoid require() lint violations
+      const mod = require('@/utils/tokenManager') as { tokenManager: { getAccessToken: () => string | null } };
+      token = mod.tokenManager.getAccessToken();
     } catch {
       // Fallback to cookie parsing if tokenManager is not available
       const cookies = document.cookie.split(';');

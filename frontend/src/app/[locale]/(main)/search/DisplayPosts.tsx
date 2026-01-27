@@ -235,7 +235,7 @@ export default function DisplayPosts({ items, images, itemTypes = [] }: DisplayP
                 {/* Expanded image modal */}
                 {isExpanded && (
                   <div
-                    className="fixed inset-0 bg-black bg-opacity-90 z-50 flex justify-center items-center p-4"
+                    className="fixed inset-0 bg-black bg-opacity-90 z-[11000] flex justify-center items-center p-4"
                     style={{ animation: "fadeIn .2s" }}
                     onClick={() => setExpandedItemId(null)}
                   >

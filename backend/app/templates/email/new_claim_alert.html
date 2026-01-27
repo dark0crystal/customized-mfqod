@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}تنبيه مطالبة جديدة - New Claim Alert - {{ system_name }}{% endblock %}
+
+{% block header_title %}تنبيه مطالبة جديدة - New Claim Alert{% endblock %}
+
+{% block content %}
+<!-- Arabic Section -->
+<div dir="rtl" lang="ar">
+    <div class="warning-box">
+        <h2 style="margin-top: 0;">تنبيه مطالبة جديدة</h2>
+        <p><strong>تم إرسال مطالبة جديدة وتتطلب مراجعتك.</strong></p>
+    </div>
+
+    <h2>تفاصيل المطالبة</h2>
+    <div class="info-box">
+        <p><strong>عنوان المطالبة:</strong> {{ claim_title }}</p>
+        <p><strong>الوصف:</strong> {{ claim_description }}</p>
+        <p><strong>عنوان العنصر:</strong> {{ item_title }}</p>
+    </div>
+
+    <h2>معلومات المطالب</h2>
+    <div class="info-box">
+        <p><strong>اسم المطالب:</strong> {{ claimer_name }}</p>
+        <p><strong>بريد المطالب الإلكتروني:</strong> {{ claimer_email }}</p>
+    </div>
+
+    {% if branch_phone1 or branch_phone2 %}
+    <h2>معلومات الفرع</h2>
+    <div class="info-box">
+        {% if branch_phone1 %}
+        <p><strong>رقم الهاتف الأول:</strong> <a href="tel:{{ branch_phone1 }}">{{ branch_phone1 }}</a></p>
+        {% endif %}
+        {% if branch_phone2 %}
+        <p><strong>رقم الهاتف الثاني:</strong> <a href="tel:{{ branch_phone2 }}">{{ branch_phone2 }}</a></p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if claim_url %}
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ claim_url }}" class="button">عرض تفاصيل المطالبة</a>
+    </div>
+    {% endif %}
+
+    {% if item_url %}
+    <div style="text-align: center; margin: 20px 0;">
+        <a href="{{ item_url }}" style="text-decoration: underline;">عرض تفاصيل العنصر</a>
+    </div>
+    {% endif %}
+
+    <div class="success-box">
+        <h3 style="margin-top: 0;">الخطوات التالية</h3>
+        <ul>
+            <li>مراجعة تفاصيل المطالبة بالنقر على الزر أعلاه</li>
+            <li>التحقق من معلومات المطالب</li>
+            <li>الموافقة على المطالبة أو رفضها بناءً على مراجعتك</li>
+            <li>الاتصال بالمطالب إذا كانت هناك حاجة لمعلومات إضافية</li>
+        </ul>
+    </div>
+
+    <p>تم إنشاء هذا الإشعار تلقائياً عند إرسال مطالبة جديدة من خلال النظام.</p>
+</div>
+
+<hr style="margin: 30px 0; border: 1px solid #dee2e6;">
+
+<!-- English Section -->
+<div dir="ltr" lang="en">
+    <div class="warning-box">
+        <h2 style="margin-top: 0;">New Claim Alert</h2>
+        <p><strong>A new claim has been submitted and requires your review.</strong></p>
+    </div>
+
+    <h2>Claim Details</h2>
+    <div class="info-box">
+        <p><strong>Claim Title:</strong> {{ claim_title }}</p>
+        <p><strong>Description:</strong> {{ claim_description }}</p>
+        <p><strong>Item Title:</strong> {{ item_title }}</p>
+    </div>
+
+    <h2>Claimer Information</h2>
+    <div class="info-box">
+        <p><strong>Claimer Name:</strong> {{ claimer_name }}</p>
+        <p><strong>Claimer Email:</strong> {{ claimer_email }}</p>
+    </div>
+
+    {% if branch_phone1 or branch_phone2 %}
+    <h2>Branch Contact Information</h2>
+    <div class="info-box">
+        {% if branch_phone1 %}
+        <p><strong>Phone 1:</strong> <a href="tel:{{ branch_phone1 }}">{{ branch_phone1 }}</a></p>
+        {% endif %}
+        {% if branch_phone2 %}
+        <p><strong>Phone 2:</strong> <a href="tel:{{ branch_phone2 }}">{{ branch_phone2 }}</a></p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if claim_url %}
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ claim_url }}" class="button">View Claim Details</a>
+    </div>
+    {% endif %}
+
+    {% if item_url %}
+    <div style="text-align: center; margin: 20px 0;">
+        <a href="{{ item_url }}" style="text-decoration: underline;">View Item Details</a>
+    </div>
+    {% endif %}
+
+    <div class="success-box">
+        <h3 style="margin-top: 0;">Next Steps</h3>
+        <ul>
+            <li>Review the claim details by clicking the button above</li>
+            <li>Verify the claimer's information</li>
+            <li>Approve or reject the claim based on your review</li>
+            <li>Contact the claimer if additional information is needed</li>
+        </ul>
+    </div>
+
+    <p>This notification was automatically generated when a new claim was submitted through the system.</p>
+</div>
+{% endblock %}

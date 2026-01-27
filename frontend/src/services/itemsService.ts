@@ -47,6 +47,18 @@ export async function getPendingItemsCount(): Promise<number> {
 
     console.log('📡 [Pending Items Badge] API response status:', response.status, response.statusText);
 
+    // Handle rate limiting (429 Too Many Requests) gracefully
+    if (response.status === 429) {
+      console.warn('⚠️ [Pending Items Badge] Rate limit exceeded, returning 0');
+      return 0;
+    }
+
+    // Handle 403 Forbidden - user doesn't have permission
+    if (response.status === 403) {
+      console.log('🔒 [Pending Items Badge] User does not have permission to view pending items');
+      return 0;
+    }
+
     if (!response.ok) {
       throw new Error(`Failed to fetch pending items count: ${response.statusText}`);
     }
@@ -73,14 +85,36 @@ export async function getPendingMissingItemsCount(): Promise<number> {
       credentials: "include",
     });
 
+    // Handle rate limiting (429 Too Many Requests) gracefully
+    if (response.status === 429) {
+      console.warn('⚠️ [Pending Missing Items Badge] Rate limit exceeded, returning 0');
+      return 0;
+    }
+
+    // Handle 403 Forbidden - user doesn't have permission
+    if (response.status === 403) {
+      console.log('🔒 [Pending Missing Items Badge] User does not have permission to view pending missing items');
+      return 0;
+    }
+
     if (!response.ok) {
-      throw new Error(`Failed to fetch pending missing items count: ${response.statusText}`);
+      // Don't throw for rate limit errors, just log and return 0
+      const errorMessage = `Failed to fetch pending missing items count: ${response.statusText}`;
+      console.warn('⚠️ [Pending Missing Items Badge]', errorMessage);
+      return 0;
     }
 
     const data = await response.json();
-    return data.count || 0;
+    const count = typeof data.count === 'number' && data.count >= 0 ? data.count : 0;
+    console.log('🔢 [Pending Missing Items Badge] Returning count:', count);
+    return count;
   } catch (error) {
-    console.error("Error fetching pending missing items count:", error);
+    // Handle network errors and other exceptions gracefully
+    if (error instanceof Error && error.message.includes('Too Many Requests')) {
+      console.warn('⚠️ [Pending Missing Items Badge] Rate limit error:', error.message);
+    } else {
+      console.error("❌ [Pending Missing Items Badge] Error fetching pending missing items count:", error);
+    }
     return 0;
   }
 }

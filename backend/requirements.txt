@@ -6,11 +6,12 @@ python-multipart==0.0.6
 # Database
 sqlalchemy==2.0.23
 alembic==1.12.1
-# PostgreSQL driver (optional - only needed if using PostgreSQL, not required for SQLite)
-# psycopg2-binary==2.9.9  # Uncomment if using PostgreSQL database
+sqlmodel==0.0.31
+psycopg2-binary==2.9.9
 
 # Authentication and Security
 python-jose[cryptography]==3.3.0
+PyJWT==2.10.1
 passlib[bcrypt]==1.7.4
 bcrypt==4.1.2
 cryptography==41.0.7
@@ -20,7 +21,7 @@ python-ldap==3.4.3
 ldap3==2.9.1
 
 # Data validation and serialization
-pydantic[email]==2.5.0
+pydantic[email]==2.7.0
 email-validator==2.1.0
 
 # HTTP client
@@ -37,15 +38,8 @@ structlog==23.2.0
 python-decouple==3.8
 python-dotenv==1.0.0
 
-# CORS handling
-# Note: CORS is handled by FastAPI's built-in CORSMiddleware (no separate package needed)
-# from fastapi.middleware.cors import CORSMiddleware
-
 # Date and time handling
 python-dateutil==2.8.2
-
-# UUID generation
-# Note: uuid is part of Python's standard library, no installation needed
 
 # File handling and utilities
 aiofiles==23.2.1
@@ -61,12 +55,11 @@ gunicorn==21.2.0
 
 # Rate limiting
 slowapi==0.1.9  # FastAPI rate limiting library
-python-redis==5.0.1  # Optional: Redis support for distributed rate limiting (not required for database-based rate limiting)
 
 # Validation helpers
 phonenumbers==8.13.25
 
-# Image processing (if needed)
+# Image processing
 Pillow==10.1.0
 
 # Export functionality
@@ -82,3 +75,4 @@ secure==0.3.0
 # Email notifications
 aiosmtplib==3.0.1
 jinja2==3.1.2
+certifi==2026.1.4

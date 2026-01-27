@@ -1,0 +1,96 @@
+# Test Users for SQU LDAP Test Environment
+# All test users have password: test123 (except admin which has admin123)
+
+# Service Account for LDAP Binding
+dn: CN=ServiceAccount,ou=Service Accounts,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+cn: ServiceAccount
+sn: ServiceAccount
+givenName: Service
+displayName: LDAP Service Account
+mail: service@squ.edu.om
+userPassword: test123
+uid: serviceaccount
+description: Service account for LDAP binding
+
+# Test Student User
+dn: CN=s133705,ou=Students,ou=Users,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+objectClass: posixAccount
+cn: s133705
+sn: Student
+givenName: Test
+displayName: Test Student
+mail: s133705@student.squ.edu.om
+userPassword: test123
+uid: s133705
+uidNumber: 10001
+gidNumber: 10001
+homeDirectory: /home/s133705
+title: Student
+
+# Test Staff User
+dn: CN=staff001,ou=Staff,ou=Users,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+objectClass: posixAccount
+cn: staff001
+sn: Staff
+givenName: Test
+displayName: Test Staff Member
+mail: staff001@squ.edu.om
+userPassword: test123
+uid: staff001
+uidNumber: 20001
+gidNumber: 20001
+homeDirectory: /home/staff001
+title: IT Staff
+
+# Test Admin User
+dn: CN=admin,ou=Staff,ou=Users,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+objectClass: posixAccount
+cn: admin
+sn: Administrator
+givenName: System
+displayName: System Administrator
+mail: admin@squ.edu.om
+userPassword: admin123
+uid: admin
+uidNumber: 20000
+gidNumber: 20000
+homeDirectory: /home/admin
+title: System Administrator
+
+# Additional Test Student
+dn: CN=s123456,ou=Students,ou=Users,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+objectClass: posixAccount
+cn: s123456
+sn: Another
+givenName: Student
+displayName: Another Test Student
+mail: s123456@student.squ.edu.om
+userPassword: test123
+uid: s123456
+uidNumber: 10002
+gidNumber: 10002
+homeDirectory: /home/s123456
+title: Student
+
+
+

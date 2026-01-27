@@ -34,7 +34,18 @@ import { usePendingTransferRequestsCount } from '@/hooks/usePendingTransferReque
 import { tokenManager } from '@/utils/tokenManager';
 
 // Helper to get user from cookies
-const getUserFromCookies = () => {
+interface SidebarUser {
+  id?: string;
+  name?: string;
+  first_name?: string;
+  middle_name?: string | null;
+  last_name?: string;
+  email?: string;
+  role?: string;
+  role_id?: string | number | null;
+}
+
+const getUserFromCookies = (): SidebarUser | null => {
   if (typeof document !== "undefined") {
     const cookies = document.cookie.split(";");
     for (const cookie of cookies) {
@@ -78,7 +89,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [loadingLinks, setLoadingLinks] = useState<Set<string>>(new Set());
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SidebarUser | null>(null);
   const { userRole, hasAnyPermission, hasAllPermissions, isAuthenticated, permissions, isLoading: permissionsLoading, roleId } = usePermissions();
   const { logout, isLoading: logoutLoading } = useAuth();
   const pathname = usePathname();
@@ -446,7 +457,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
         });
       });
     }
-  }, [permissions, permissionsLoading, isAuthenticated, userRole, hasAnyPermission, navigationItems]);
+  }, [permissions, permissionsLoading, isAuthenticated, userRole, hasAnyPermission, hasAllPermissions, navigationItems, pendingItemsCount, pendingMissingItemsCount, pendingTransferRequestsCount]);
 
   // Toggle expanded state for items with children
   const toggleExpanded = (itemId: string) => {

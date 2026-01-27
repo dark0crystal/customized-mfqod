@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}تنبيه النظام - System Alert - {{ system_name }}{% endblock %}
+
+{% block header_title %}تنبيه النظام - System Alert{% endblock %}
+
+{% block content %}
+<!-- Arabic Section -->
+<div dir="rtl" lang="ar">
+    <h2>{{ alert_title or "إشعار النظام" }}</h2>
+    <p>مرحباً {{ user_name or "المستخدم" }}،</p>
+
+    {% if alert_type == "maintenance" %}
+    <div class="warning-box">
+        <strong>صيانة مجدولة:</strong> سيخضع {{ system_name }} للصيانة.
+    </div>
+
+    <p><strong>نافذة الصيانة:</strong> {{ maintenance_start }} - {{ maintenance_end }}</p>
+    <p><strong>التأثير المتوقع:</strong> {{ maintenance_impact or "سيكون النظام غير متاح مؤقتاً." }}</p>
+
+    {% elif alert_type == "security" %}
+    <div class="warning-box">
+        <strong>تنبيه أمني:</strong> {{ alert_message }}
+    </div>
+
+    {% if action_required %}
+    <p><strong>إجراء فوري مطلوب:</strong> {{ action_required }}</p>
+    {% endif %}
+
+    {% elif alert_type == "feature" %}
+    <div class="success-box">
+        <strong>ميزة جديدة:</strong> {{ feature_name }}
+    </div>
+
+    <p>{{ feature_description }}</p>
+
+    {% elif alert_type == "policy" %}
+    <div class="info-box">
+        <strong>تحديث السياسة:</strong> {{ policy_title }}
+    </div>
+
+    <p>{{ policy_description }}</p>
+
+    {% else %}
+    <div class="info-box">
+        <strong>إشعار النظام:</strong> {{ alert_message }}
+    </div>
+    {% endif %}
+
+    {% if alert_details %}
+    <h3>التفاصيل:</h3>
+    <p>{{ alert_details }}</p>
+    {% endif %}
+
+    {% if action_url %}
+    <p style="text-align: center;">
+        <a href="{{ action_url }}" class="button">{{ action_text or "معرفة المزيد" }}</a>
+    </p>
+    {% endif %}
+
+    <p>نقدر تفهمك واستمرارك في استخدام {{ system_name }}.</p>
+
+    <p>مع أطيب التحيات،</p>
+    <p><strong>فريق {{ system_name }}</strong></p>
+</div>
+
+<hr style="margin: 30px 0; border: 1px solid #dee2e6;">
+
+<!-- English Section -->
+<div dir="ltr" lang="en">
+    <h2>{{ alert_title or "System Notification" }}</h2>
+    <p>Hello {{ user_name or "User" }},</p>
+
+    {% if alert_type == "maintenance" %}
+    <div class="warning-box">
+        <strong>Scheduled Maintenance:</strong> {{ system_name }} will undergo maintenance.
+    </div>
+
+    <p><strong>Maintenance Window:</strong> {{ maintenance_start }} - {{ maintenance_end }}</p>
+    <p><strong>Expected Impact:</strong> {{ maintenance_impact or "The system will be temporarily unavailable." }}</p>
+
+    {% elif alert_type == "security" %}
+    <div class="warning-box">
+        <strong>Security Alert:</strong> {{ alert_message }}
+    </div>
+
+    {% if action_required %}
+    <p><strong>Immediate Action Required:</strong> {{ action_required }}</p>
+    {% endif %}
+
+    {% elif alert_type == "feature" %}
+    <div class="success-box">
+        <strong>New Feature:</strong> {{ feature_name }}
+    </div>
+
+    <p>{{ feature_description }}</p>
+
+    {% elif alert_type == "policy" %}
+    <div class="info-box">
+        <strong>Policy Update:</strong> {{ policy_title }}
+    </div>
+
+    <p>{{ policy_description }}</p>
+
+    {% else %}
+    <div class="info-box">
+        <strong>System Notification:</strong> {{ alert_message }}
+    </div>
+    {% endif %}
+
+    {% if alert_details %}
+    <h3>Details:</h3>
+    <p>{{ alert_details }}</p>
+    {% endif %}
+
+    {% if action_url %}
+    <p style="text-align: center;">
+        <a href="{{ action_url }}" class="button">{{ action_text or "Learn More" }}</a>
+    </p>
+    {% endif %}
+
+    <p>We appreciate your understanding and continued use of {{ system_name }}.</p>
+
+    <p>Best regards,</p>
+    <p><strong>The {{ system_name }} Team</strong></p>
+</div>
+{% endblock %}
