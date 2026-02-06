@@ -9,7 +9,7 @@ WORKDIR /app
 # Copy package files
 COPY frontend/package.json frontend/package-lock.json* ./
 # Install all dependencies (including devDependencies) needed for build
-RUN npm ci && npm cache clean --force
+RUN npm ci --legacy-peer-deps && npm cache clean --force
 
 # Rebuild the source code only when needed
 FROM base AS builder
