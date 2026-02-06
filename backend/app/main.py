@@ -36,11 +36,9 @@ app = FastAPI(
     redoc_url="/api/redoc"
 )
 
-# Initialize rate limiting if enabled
+# Initialize rate limiting 
 config = AuthConfig()
 if config.ENABLE_GLOBAL_RATE_LIMIT:
-    # Add slowapi middleware for rate limiting
-    # Use public_limiter as the default, decorators will use specific limiters
     app.state.limiter = public_limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     app.add_middleware(SlowAPIMiddleware)
@@ -59,7 +57,7 @@ else:
         "http://localhost:3002",  # Current frontend port
         "http://127.0.0.1:3002",  # Alternative localhost for current port
         "http://frontend:3000",  # Docker service name for internal networking
-        # Add your production frontend URL here when deploying
+        # Add your production frontend URL here
         # "https://yourdomain.com"
     ]
 
@@ -90,7 +88,7 @@ async def http_exception_handler(request: FastAPIRequest, exc: HTTPException):
             status_code=exc.status_code,
             content={"detail": exc.detail}
         )
-        # Add CORS headers manually
+    
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
@@ -139,7 +137,6 @@ async def startup_event():
     """Initialize application on startup"""
     try:
         # Check if automatic migrations are enabled (default: False for safety)
-        # Set AUTO_RUN_MIGRATIONS=true in .env to enable automatic migrations on startup
         auto_run_migrations = os.getenv("AUTO_RUN_MIGRATIONS", "false").lower() == "true"
         
         # Initialize database (with optional automatic migrations)
@@ -217,7 +214,6 @@ async def root():
         }
 
 if __name__ == "__main__":
-    # Allow running the app with: python -m app.main
     import uvicorn
 
     uvicorn.run(
