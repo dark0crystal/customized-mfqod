@@ -532,6 +532,7 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                               alt={`Pending image ${index + 1}`}
                               fill
                               className="object-cover"
+                              unoptimized
                             />
                           )}
                           <button
@@ -625,6 +626,7 @@ export default function ClaimDetails({ params }: { params: Promise<{ claimId: st
                                 alt={`Claim image ${img.id}`}
                                 fill
                                 className="object-cover"
+                                unoptimized={getImageUrl(img.url)?.startsWith('http')}
                               />
                               <button
                                 onClick={() => handleImageDelete(img.id)}

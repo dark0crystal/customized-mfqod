@@ -568,6 +568,7 @@ const ItemTypesManager = () => {
                         fill
                         className="object-contain"
                         sizes="400px"
+                        unoptimized
                       />
                       {imagePreview && (
                         <button
@@ -736,6 +737,7 @@ const ItemTypesManager = () => {
                         fill
                         className="object-cover"
                         sizes="300px"
+                        unoptimized
                       />
                     </div>
                   )}

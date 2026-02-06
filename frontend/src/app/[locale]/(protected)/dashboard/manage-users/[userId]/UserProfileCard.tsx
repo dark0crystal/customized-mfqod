@@ -171,6 +171,7 @@ export default function UserProfileCard({ userId }: UserProfileCardProps) {
                 fill
                 className="object-cover"
                 sizes="(max-width: 640px) 96px, 128px"
+                unoptimized={getImageUrl(userImage)?.startsWith('http')}
                 onError={() => setImageError(true)}
               />
             ) : (
