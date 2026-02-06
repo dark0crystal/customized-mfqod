@@ -147,13 +147,10 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
                       {missingItem.description}
                     </p>
                     
-                    {/* Status and Approval badges */}
-                    <div className="flex justify-between items-center mt-3">
+                    {/* Workflow status badge only (avoids duplicate/confusing approval badge) */}
+                    <div className="flex items-center mt-3">
                       <span className={`text-xs px-2 py-1 rounded ${getStatusBadge(missingItem.status)}`}>
                         {tStatus(missingItem.status.toLowerCase() as 'pending' | 'approved' | 'cancelled' | 'visit') || missingItem.status.charAt(0).toUpperCase() + missingItem.status.slice(1)}
-                      </span>
-                      <span className={`text-xs px-2 py-1 rounded ${missingItem.approval ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {missingItem.approval ? tStatus("approved") : tStatus("pending")}
                       </span>
                     </div>
 
@@ -222,6 +219,7 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
                         className="rounded-2xl cursor-zoom-in"
                         onClick={() => handleImageSize(missingItem.id)}
                         sizes="400px"
+                        unoptimized={imageUrl.startsWith("http")}
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gray-200 flex flex-col items-center justify-center rounded-2xl">
@@ -288,6 +286,7 @@ export default function DisplayMissingItems({ missingItems, images }: DisplayMis
                             onClick={() => setExpandedItemId(null)}
                             sizes="90vw"
                             priority
+                            unoptimized={imageUrl.startsWith("http")}
                           />
                         ) : (
                           <div className="w-full h-full bg-gray-200 flex flex-col items-center justify-center">

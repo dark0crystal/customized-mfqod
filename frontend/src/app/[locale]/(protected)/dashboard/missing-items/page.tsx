@@ -751,7 +751,7 @@ export default function MissingItemsPage() {
                 </button>
                 <button
                   onClick={handleAssignSubmit}
-                  className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                  className="px-4 py-2 rounded bg-[#3277AE] text-white hover:bg-[#2a6394] disabled:opacity-60 transition-colors"
                   disabled={assignLoading}
                 >
                   {assignLoading ? tDetail("assigning") : tDetail("assignAndSetVisit")}

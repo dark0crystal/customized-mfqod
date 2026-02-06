@@ -551,16 +551,6 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
                     </div>
                   )}
 
-                  {/* Approval Status */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">{t("approvalStatus") || "Approval Status"}</label>
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                      missingItem.approval ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
-                    }`}>
-                      {missingItem.approval ? t("approved") || "Approved" : t("pending") || "Pending"}
-                    </span>
-                  </div>
-
                   {/* Temporary Deletion Status */}
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">{t("deletionStatus") || "Deletion Status"}</label>
@@ -651,6 +641,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
                               fill
                               className="object-cover rounded-md border border-gray-300"
                               sizes="(max-width: 640px) 64px, 80px"
+                              unoptimized={itemImage.startsWith("http")}
                             />
                           ) : (
                             <div className="w-full h-full bg-gray-300 rounded-md flex items-center justify-center border border-gray-300">
@@ -884,7 +875,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
                 </button>
                 <button
                   onClick={handleAssignSubmit}
-                  className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                  className="px-4 py-2 rounded bg-[#3277AE] text-white hover:bg-[#2a6394] disabled:opacity-60 transition-colors"
                   disabled={assignLoading}
                 >
                   {assignLoading ? t("assigning") : t("assignAndSetVisit")}

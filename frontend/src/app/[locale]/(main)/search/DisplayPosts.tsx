@@ -222,6 +222,7 @@ export default function DisplayPosts({ items, images, itemTypes = [] }: DisplayP
                         className="rounded-2xl cursor-zoom-in"
                         onClick={() => handleImageSize(item.id)}
                         sizes="400px"
+                        unoptimized={imageUrl.startsWith("http")}
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gray-200 flex flex-col items-center justify-center rounded-2xl">
@@ -276,6 +277,7 @@ export default function DisplayPosts({ items, images, itemTypes = [] }: DisplayP
                             onClick={() => setExpandedItemId(null)}
                             sizes="90vw"
                             priority
+                            unoptimized={imageUrl.startsWith("http")}
                           />
                         ) : (
                           <div className="w-full h-full bg-gray-200 flex flex-col items-center justify-center">

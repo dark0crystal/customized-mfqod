@@ -140,6 +140,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               fill
               className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              unoptimized={image.url.startsWith('http')}
             />
 
             {/* Overlay with controls */}
@@ -236,6 +237,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                 className="object-contain"
                 sizes="95vw"
                 priority
+                unoptimized={images[expandedIndex].url.startsWith('http')}
               />
             </div>
 

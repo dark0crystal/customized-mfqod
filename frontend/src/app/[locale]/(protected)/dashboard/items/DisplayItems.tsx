@@ -244,6 +244,7 @@ export default function DisplayItems({ items, images }: DisplayItemsProps) {
                         className="rounded-2xl cursor-zoom-in"
                         onClick={() => handleImageSize(item.id)}
                         sizes="400px"
+                        unoptimized={imageUrl.startsWith("http")}
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gray-200 flex flex-col items-center justify-center rounded-2xl">

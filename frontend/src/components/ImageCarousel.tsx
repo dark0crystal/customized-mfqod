@@ -216,6 +216,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
           className="object-contain"
           sizes={isModal ? '100vw' : '100vw'}
           priority={currentIndex === 0}
+          unoptimized={imageUrl.startsWith('http')}
         />
       </div>
 

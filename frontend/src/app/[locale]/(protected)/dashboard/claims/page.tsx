@@ -325,6 +325,7 @@ export default function ClaimsPage() {
                             alt={`${t('supportingImage')} ${index + 1}`}
                             fill
                             className="object-cover"
+                            unoptimized={typeof image === 'string' && image.startsWith('http')}
                           />
                         </div>
                       ))}
@@ -420,6 +421,7 @@ export default function ClaimsPage() {
                             alt={`${t('supportingImage')} ${index + 1}`}
                             fill
                             className="object-cover"
+                            unoptimized={typeof image === 'string' && image.startsWith('http')}
                           />
                         </div>
                       ))}

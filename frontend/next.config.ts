@@ -13,37 +13,45 @@ import createNextIntlPlugin from 'next-intl/plugin';
 const nextConfig: NextConfig = {
     output: 'standalone', // Enable standalone output for Docker
     images: {
+        // Disable optimization so browser fetches images directly from backend.
+        // Fixes 400 errors in Docker where frontend container cannot reach backend via localhost.
+        unoptimized: true,
+        // Allow fetching from private IPs (127.0.0.1, localhost) only in development.
+        // Production uses public hostnames; no private-IP fetch there.
+        dangerouslyAllowLocalIP: process.env.NODE_ENV === 'development',
         // Allow images served from the backend in all common setups:
-        // - localhost / 127.0.0.1 on any port (e.g. 8000)
+        // - localhost / 127.0.0.1 on port 8000 (dev)
         // - host.docker.internal when running inside Docker
         // - backend service names on the Docker network
         remotePatterns: [
             {
                 protocol: 'http',
                 hostname: 'localhost',
+                port: '8000',
+                pathname: '/**',
             },
             {
                 protocol: 'http',
                 hostname: '127.0.0.1',
+                port: '8000',
+                pathname: '/**',
             },
             {
                 protocol: 'http',
                 hostname: 'host.docker.internal',
+                pathname: '/**',
             },
             {
                 protocol: 'http',
                 hostname: 'backend',
+                pathname: '/**',
             },
             {
                 protocol: 'http',
                 hostname: 'mfqod-backend',
+                pathname: '/**',
             },
         ],
-    },
-    eslint: {
-        // Warning: This allows production builds to successfully complete even if
-        // your project has ESLint errors.
-        ignoreDuringBuilds: false,
     },
     typescript: {
         // !! WARN !!

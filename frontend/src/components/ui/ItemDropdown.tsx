@@ -267,6 +267,7 @@ export default function ItemDropdown({
                             fill
                             className="object-cover rounded-md border border-gray-300"
                             sizes="48px"
+                            unoptimized={itemImage?.startsWith('http')}
                           />
                         ) : (
                           <div className="w-full h-full bg-gray-300 rounded-md flex items-center justify-center border border-gray-300">
