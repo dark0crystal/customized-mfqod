@@ -183,7 +183,7 @@ async def get_claim(
             from app.services import permissionServices
             if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
                 has_access = True
-elif permissionServices.has_full_access(db, current_user.id):
+            elif permissionServices.has_full_access(db, current_user.id):
                 has_access = True
         
         if not has_access:
@@ -530,7 +530,7 @@ async def get_claim_images(
             from app.services import permissionServices
             if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
                 has_access = True
-elif permissionServices.has_full_access(db, current_user.id):
+            elif permissionServices.has_full_access(db, current_user.id):
                 has_access = True
         
         if not has_access:
@@ -639,7 +639,7 @@ async def send_visit_notification(
         has_access = False
         if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
             has_access = True
-elif permissionServices.has_full_access(db, current_user.id):
+        elif permissionServices.has_full_access(db, current_user.id):
             has_access = True
         
         if not has_access:

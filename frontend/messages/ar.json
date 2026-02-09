@@ -504,6 +504,7 @@
     "userInfo": {
       "loadingMessage": "جاري التحميل...",
       "unableToLoad": "تعذر تحميل معلومات المستخدم.",
+      "retry": "إعادة المحاولة",
       "notProvided": "غير مقدم",
       "noJobTitle": "لا يوجد مسمى وظيفي",
       "created": "أُنشئ",
@@ -1427,6 +1428,29 @@
     "hardDeleteTitle": "حذف المستخدم نهائيًا",
     "hardDeleteDescription": "سيتم إزالة حساب المستخدم بشكل دائم. سيتم الاحتفاظ بمنشوراتهم ومطالباتهم ولكن سيتم إخفاء هويتهم (فك الارتباط). لا يمكن التراجع عن هذا الإجراء.",
     "deletePermanently": "حذف نهائي"
+  },
+  "auth": {
+    "login": {
+      "title": "تسجيل الدخول",
+      "subtitle": "سجّل الدخول إلى حسابك",
+      "usernameOrEmail": "اسم المستخدم أو البريد الإلكتروني",
+      "usernameOrEmailPlaceholder": "أدخل اسم المستخدم أو البريد الإلكتروني",
+      "password": "كلمة المرور",
+      "passwordPlaceholder": "أدخل كلمة المرور",
+      "loginButton": "تسجيل الدخول",
+      "loggingIn": "جاري تسجيل الدخول...",
+      "loginSuccess": "تم تسجيل الدخول بنجاح!",
+      "loginFailed": "فشل تسجيل الدخول",
+      "forgotPassword": "نسيت كلمة المرور؟",
+      "termsNotice": "بتسجيل الدخول، أنت توافق على <link>الخصوصية والبنود</link>.",
+      "noAccount": "ليس لديك حساب؟",
+      "signUp": "إنشاء حساب",
+      "invalidCredentials": "اسم المستخدم/البريد الإلكتروني أو كلمة المرور غير صحيحة",
+      "validation": {
+        "usernameOrEmailRequired": "اسم المستخدم أو البريد الإلكتروني مطلوب (٣ أحرف على الأقل)",
+        "passwordRequired": "كلمة المرور مطلوبة (٦ أحرف على الأقل)"
+      }
+    }
   },
   "common": {
     "accessDenied": "تم رفض الوصول",

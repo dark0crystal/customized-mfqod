@@ -679,7 +679,8 @@ class AuthService:
                 session.updated_at = now
         
         db.commit()
-async def request_password_reset(self, email: str, db: Session) -> bool:
+
+    async def request_password_reset(self, email: str, db: Session) -> bool:
         """
         Request password reset for external user. Always returns True to avoid email enumeration.
         If user exists and is external, generates token, stores it, and sends email.
@@ -780,6 +781,7 @@ async def request_password_reset(self, email: str, db: Session) -> bool:
 
         logger.info(f"Password reset completed for user {user.email}")
         return True
+
     async def _update_user_from_ad_data(self, user: User, ad_data: Dict[str, Any], db: Session):
         """Update user information from AD data"""
         user.first_name = ad_data.get('first_name') or user.first_name

@@ -24,6 +24,16 @@ from app.schemas.auth_schemas import (
     RefreshTokenRequest,
     ChangePasswordRequest,
     ResetPasswordRequest,
+    ResetPasswordConfirm,
+    ADDiagnosticRequest,
+)
+from app.models import User, UserSession, LoginAttempt, ADSyncLog
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+auth_service = AuthService()
+ad_service = EnhancedADService()
+
 @router.post("/request-reset", summary="Request Password Reset")
 async def request_password_reset(
     reset_request: ResetPasswordRequest,
@@ -75,6 +85,27 @@ async def reset_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to reset password"
         )
+
+
+@router.get("/auth/me", summary="Get current user (alias for dashboard)")
+async def get_current_user_me(current_user: User = Depends(get_current_user_required)):
+    """Return current user in same shape as GET /api/users/me for frontend compatibility."""
+    name = f"{(current_user.first_name or '')} {(current_user.last_name or '')}".strip()
+    return {
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "first_name": current_user.first_name,
+            "last_name": current_user.last_name,
+            "name": name or current_user.email,
+            "role": current_user.role.name if current_user.role else "user",
+            "role_id": current_user.role_id,
+            "active": getattr(current_user, "active", True),
+        },
+        "token_refreshed": False,
+    }
+
+
 @router.get("/sessions", summary="Get User Sessions")
 async def get_user_sessions(
     current_user: User = Depends(get_current_user_required),

@@ -142,7 +142,8 @@ export default function SideNavbar({
         });
 
         if (res.ok) {
-          const data = await res.json();
+          const payload = await res.json();
+          const data = payload?.user ?? payload;
           // Build full name from components if name is missing
           if (!data.name && (data.first_name || data.last_name)) {
             const nameParts = [data.first_name, data.middle_name, data.last_name].filter(Boolean);

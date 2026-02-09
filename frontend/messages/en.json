@@ -499,6 +499,7 @@
     "userInfo": {
       "loadingMessage": "Loading...",
       "unableToLoad": "Unable to load user info.",
+      "retry": "Retry",
       "notProvided": "Not provided",
       "noJobTitle": "No job title",
       "created": "Created",
@@ -753,7 +754,14 @@
       "loginSuccess": "Login successful!",
       "loginFailed": "Login failed",
       "forgotPassword": "Forgot password?",
-      "termsNotice": "By logging in, you accept our <link>Privacy and Terms</link>."
+      "termsNotice": "By logging in, you accept our <link>Privacy and Terms</link>.",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up",
+      "invalidCredentials": "Invalid username/email or password",
+      "validation": {
+        "usernameOrEmailRequired": "Username or email is required (at least 3 characters)",
+        "passwordRequired": "Password is required (at least 6 characters)"
+      }
     },
     "forgotPasswordPage": {
       "title": "Forgot Password",
