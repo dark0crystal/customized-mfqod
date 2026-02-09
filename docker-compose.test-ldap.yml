@@ -1,0 +1,67 @@
+services:
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: test-ldap-server
+    hostname: test-ldap.squ.edu.om
+    environment:
+      LDAP_ORGANISATION: "SQU Test"
+      LDAP_DOMAIN: "squ.edu.om"
+      LDAP_BASE_DN: "dc=squ,dc=edu,dc=om"
+      LDAP_ADMIN_PASSWORD: "admin123"
+      LDAP_CONFIG_PASSWORD: "config123"
+      LDAP_READONLY_USER: "false"
+      LDAP_RFC2307BIS_SCHEMA: "true"
+      LDAP_BACKEND: "mdb"
+      LDAP_TLS: "true"
+      LDAP_TLS_CRT_FILENAME: "ldap.crt"
+      LDAP_TLS_KEY_FILENAME: "ldap.key"
+      LDAP_TLS_DH_PARAM_FILENAME: "dhparam.pem"
+      LDAP_TLS_CA_CRT_FILENAME: "ca.crt"
+      LDAP_TLS_ENFORCE: "false"
+      LDAP_TLS_CIPHER_SUITE: "SECURE256:-VERS-SSL3.0"
+      LDAP_TLS_PROTOCOL_MIN: "3.1"
+      LDAP_TLS_VERIFY_CLIENT: "demand"
+      LDAP_REPLICATION: "false"
+      KEEP_EXISTING_CONFIG: "false"
+      LDAP_REMOVE_CONFIG_AFTER_SETUP: "true"
+      LDAP_SSL_HELPER_PREFIX: "ldap"
+    ports:
+      - "1389:389"   # LDAP (non-SSL)
+      - "1636:636"   # LDAPS (SSL)
+    volumes:
+      - ./backend/ldap-test-data:/container/service/slapd/assets/config/bootstrap/ldif/custom
+      - ldap-data:/var/lib/ldap
+      - ldap-config:/etc/ldap/slapd.d
+    command: --copy-service --loglevel debug
+    networks:
+      - test-ldap-network
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://localhost:389 -b dc=squ,dc=edu,dc=om -D 'cn=admin,dc=squ,dc=edu,dc=om' -w admin123 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phpldapadmin:
+    image: osixia/phpldapadmin:latest
+    container_name: test-ldap-admin
+    hostname: phpldapadmin.squ.edu.om
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: "openldap"
+      PHPLDAPADMIN_HTTPS: "false"
+    ports:
+      - "8080:80"
+    depends_on:
+      - openldap
+    networks:
+      - test-ldap-network
+
+volumes:
+  ldap-data:
+    driver: local
+  ldap-config:
+    driver: local
+
+networks:
+  test-ldap-network:
+    driver: bridge
+

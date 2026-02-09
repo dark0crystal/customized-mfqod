@@ -1,0 +1,59 @@
+# Base LDAP Structure for SQU Test Environment
+# This file creates the base domain and organizational units
+
+# Base Domain
+dn: dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: Sultan Qaboos University
+dc: squ
+description: SQU Test LDAP Server
+
+# Users Organizational Unit
+dn: ou=Users,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: organizationalUnit
+ou: Users
+description: User accounts
+
+# Groups Organizational Unit
+dn: ou=Groups,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: organizationalUnit
+ou: Groups
+description: Security groups
+
+# Service Accounts Organizational Unit
+dn: ou=Service Accounts,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: organizationalUnit
+ou: Service Accounts
+description: Service account users
+
+# Students Organizational Unit
+dn: ou=Students,ou=Users,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: organizationalUnit
+ou: Students
+description: Student accounts
+
+# Staff Organizational Unit
+dn: ou=Staff,ou=Users,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: organizationalUnit
+ou: Staff
+description: Staff accounts
+
+
+
+
+
+
+
+
+
+
+
+
+

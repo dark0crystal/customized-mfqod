@@ -1,0 +1,36 @@
+# Test Groups for SQU LDAP Test Environment
+
+# Students Group
+dn: CN=Students,ou=Groups,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: groupOfNames
+cn: Students
+description: All student users
+member: CN=s133705,ou=Students,ou=Users,dc=squ,dc=edu,dc=om
+member: CN=s123456,ou=Students,ou=Users,dc=squ,dc=edu,dc=om
+
+# Staff Group
+dn: CN=Staff,ou=Groups,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: groupOfNames
+cn: Staff
+description: All staff members
+member: CN=staff001,ou=Staff,ou=Users,dc=squ,dc=edu,dc=om
+member: CN=admin,ou=Staff,ou=Users,dc=squ,dc=edu,dc=om
+
+# Administrators Group
+dn: CN=Admins,ou=Groups,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: groupOfNames
+cn: Admins
+description: System administrators
+member: CN=admin,ou=Staff,ou=Users,dc=squ,dc=edu,dc=om
+
+# IT Department Group
+dn: CN=IT Department,ou=Groups,dc=squ,dc=edu,dc=om
+objectClass: top
+objectClass: groupOfNames
+cn: IT Department
+description: IT department members
+member: CN=staff001,ou=Staff,ou=Users,dc=squ,dc=edu,dc=om
+

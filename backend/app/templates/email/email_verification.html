@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}التحقق من البريد الإلكتروني - Email Verification - {{ system_name }}{% endblock %}
+
+{% block header_title %}التحقق من البريد الإلكتروني - Email Verification{% endblock %}
+
+{% block content %}
+<!-- Arabic Section -->
+<div dir="rtl" lang="ar">
+    <h2>التحقق من البريد الإلكتروني</h2>
+    <p>مرحبًا،</p>
+
+    <p>
+        نشكرك على التسجيل في {{ system_name }}.
+        لإكمال عملية التسجيل، يرجى التحقق من عنوان بريدك الإلكتروني باستخدام الرمز الموضح أدناه.
+    </p>
+
+    <div style="text-align: center; padding: 15px; margin: 20px 0;">
+        <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: normal;">
+            رمز التحقق
+        </h3>
+        <div style="font-size: 28px; font-weight: bold; letter-spacing: 6px; font-family: 'Courier New', monospace;">
+            {{ otp_code }}
+        </div>
+        <p style="margin: 8px 0 0 0; font-size: 12px;">
+            صلاحية الرمز: 10 دقائق
+        </p>
+    </div>
+
+    <p><strong>تنبيه أمني:</strong></p>
+    <ul>
+        <li>يرجى عدم مشاركة هذا الرمز مع أي شخص</li>
+    </ul>
+
+    <p>
+        يرجى إدخال رمز التحقق في نموذج التسجيل لإكمال إعداد حسابك.
+    </p>
+
+</div>
+
+<hr style="margin: 30px 0; border: 1px solid #dee2e6;">
+
+<!-- English Section -->
+<div dir="ltr" lang="en">
+    <h2>Verify Your Email Address</h2>
+    <p>Hello,</p>
+
+    <p>
+        Thank you for registering with {{ system_name }}.
+        To complete your registration, please verify your email address using the code below.
+    </p>
+
+    <div style="text-align: center; padding: 15px; margin: 20px 0;">
+        <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: normal;">
+            Verification Code
+        </h3>
+        <div style="font-size: 28px; font-weight: bold; letter-spacing: 6px; font-family: 'Courier New', monospace;">
+            {{ otp_code }}
+        </div>
+        <p style="margin: 8px 0 0 0; font-size: 12px;">
+            This code is valid for 10 minutes
+        </p>
+    </div>
+
+    <p><strong>Security Notice:</strong></p>
+    <ul>
+        <li>Do not share this code with anyone</li>
+        
+    </ul>
+
+    <p>
+        Enter this code in the registration form to complete your account setup.
+    </p>
+
+    
+
+    
+</div>
+{% endblock %}

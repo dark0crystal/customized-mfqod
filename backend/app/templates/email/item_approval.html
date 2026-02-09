@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}تم تسليم الغرض - Item Delivered - {{ system_name }}{% endblock %}
+
+{% block header_title %}تم تسليم الغرض - Item Delivered{% endblock %}
+
+{% block content %}
+<!-- Arabic Section -->
+<div dir="rtl" lang="ar">
+    <h2>تم تسليم الغرض بنجاح</h2>
+    <p>مرحباً {{ user_name }}،</p>
+
+    <p>نود إعلامك بأنه تم تسليم الغرض بنجاح.</p>
+
+    <p>
+        <strong>الغرض المسلّم:</strong> {{ item_title }}
+    </p>
+
+    <p>تم إغلاق هذه الحالة في نظامنا.</p>
+
+    {% if admin_message %}
+    <p>
+        <strong>رسالة من فريقنا:</strong><br>
+        {{ admin_message }}
+    </p>
+    {% endif %}
+
+    <p>مع أطيب التحيات،</p>
+    <p><strong>فريق {{ system_name }}</strong></p>
+</div>
+
+<hr style="margin: 30px 0; border: 1px solid #dee2e6;">
+
+<!-- English Section -->
+<div dir="ltr" lang="en">
+    <h2>Item Successfully Delivered</h2>
+    <p>Hello {{ user_name }},</p>
+
+    <p>We are pleased to inform you that your item has been successfully delivered.</p>
+
+    <p>
+        <strong>Item Delivered:</strong> {{ item_title }}
+    </p>
+
+    <p>This case has been closed in our system.</p>
+
+    {% if admin_message %}
+    <p>
+        <strong>Message from our team:</strong><br>
+        {{ admin_message }}
+    </p>
+    {% endif %}
+
+    <p>Best regards,</p>
+    <p><strong>The {{ system_name }} Team</strong></p>
+</div>
+{% endblock %}

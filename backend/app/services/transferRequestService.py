@@ -1,0 +1,371 @@
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
+from fastapi import HTTPException, status
+from datetime import datetime, timezone
+from typing import List, Optional
+from app.models import BranchTransferRequest, Item, Address, Branch, User, TransferStatus
+from app.schemas.transfer_request_schema import TransferRequestCreate, TransferRequestUpdate, TransferRequestResponse
+
+class TransferRequestService:
+    def __init__(self, db: Session):
+        self.db = db
+    
+    def create_transfer_request(self, request_data: TransferRequestCreate, requested_by_user_id: str) -> BranchTransferRequest:
+        """Create a new transfer request"""
+        # Verify item exists
+        item = self.db.query(Item).filter(Item.id == request_data.item_id).first()
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Item not found"
+            )
+        
+        # Get current branch of the item
+        current_address = self.db.query(Address).filter(
+            and_(
+                Address.item_id == request_data.item_id,
+                Address.is_current == True
+            )
+        ).first()
+        
+        if not current_address:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Item does not have a current location"
+            )
+        
+        from_branch_id = current_address.branch_id
+        
+        # Verify destination branch exists
+        to_branch = self.db.query(Branch).filter(Branch.id == request_data.to_branch_id).first()
+        if not to_branch:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Destination branch not found"
+            )
+        
+        # Business rule: Cannot transfer item to the same branch
+        if from_branch_id == request_data.to_branch_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot transfer item to the same branch"
+            )
+        
+        # Business rule: Only one pending transfer request per item at a time
+        # Prevents conflicting transfer requests
+        existing_request = self.db.query(BranchTransferRequest).filter(
+            and_(
+                BranchTransferRequest.item_id == request_data.item_id,
+                BranchTransferRequest.status == TransferStatus.PENDING
+            )
+        ).first()
+        
+        if existing_request:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="There is already a pending transfer request for this item"
+            )
+        
+        # Create transfer request
+        transfer_request = BranchTransferRequest(
+            item_id=request_data.item_id,
+            from_branch_id=from_branch_id,
+            to_branch_id=request_data.to_branch_id,
+            requested_by=requested_by_user_id,
+            status=TransferStatus.PENDING,
+            notes=request_data.notes,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+        )
+        
+        self.db.add(transfer_request)
+        self.db.commit()
+        self.db.refresh(transfer_request)
+        
+        return transfer_request
+    
+    def get_transfer_requests(self, user_id: Optional[str] = None, branch_id: Optional[str] = None, status_filter: Optional[str] = None) -> List[BranchTransferRequest]:
+        """Get transfer requests with optional filtering"""
+        query = self.db.query(BranchTransferRequest)
+        
+        if user_id:
+            # Access control: Users see transfer requests they created or manage destination branch
+            # Branch managers can see requests for items being transferred to their branches
+            from app.models import UserBranchManager
+            managed_branch_ids = [
+                row[0] for row in self.db.query(UserBranchManager.branch_id).filter(
+                    UserBranchManager.user_id == user_id
+                ).all()
+            ]
+            
+            if managed_branch_ids:
+                # Show requests user created OR requests for branches they manage
+                query = query.filter(
+                    or_(
+                        BranchTransferRequest.requested_by == user_id,
+                        BranchTransferRequest.to_branch_id.in_(managed_branch_ids)
+                    )
+                )
+            else:
+                # Regular users only see their own requests
+                query = query.filter(BranchTransferRequest.requested_by == user_id)
+        
+        if branch_id:
+            query = query.filter(
+                or_(
+                    BranchTransferRequest.from_branch_id == branch_id,
+                    BranchTransferRequest.to_branch_id == branch_id
+                )
+            )
+        
+        if status_filter:
+            try:
+                status_enum = TransferStatus(status_filter)
+                query = query.filter(BranchTransferRequest.status == status_enum)
+            except ValueError:
+                pass
+        
+        return query.order_by(BranchTransferRequest.created_at.desc()).all()
+    
+    def get_transfer_request_by_id(self, request_id: str) -> Optional[BranchTransferRequest]:
+        """Get a transfer request by ID"""
+        return self.db.query(BranchTransferRequest).filter(BranchTransferRequest.id == request_id).first()
+    
+    def get_pending_incoming_count(self, user_id: str) -> int:
+        """Get count of pending transfer requests that the user can approve/reject.
+        
+        User can approve/reject only if:
+        1. They manage the destination branch (to_branch_id)
+        2. They do NOT manage the source branch (from_branch_id)
+        
+        This is optimized for badge display - uses efficient SQL query, not full object loading.
+        """
+        from app.models import UserBranchManager, TransferStatus
+        
+        # Get branches managed by the user
+        managed_branch_ids = [
+            row[0] for row in self.db.query(UserBranchManager.branch_id).filter(
+                UserBranchManager.user_id == user_id
+            ).all()
+        ]
+        
+        if not managed_branch_ids:
+            # User doesn't manage any branches, so they can't approve any requests
+            return 0
+        
+        # Optimized query: Get pending requests where:
+        # - destination branch is in managed branches (user can receive)
+        # - source branch is NOT in managed branches (user doesn't manage source)
+        # This uses SQL IN/NOT IN for efficiency instead of loading all objects
+        query = self.db.query(BranchTransferRequest).filter(
+            BranchTransferRequest.status == TransferStatus.PENDING,
+            BranchTransferRequest.to_branch_id.in_(managed_branch_ids),
+            ~BranchTransferRequest.from_branch_id.in_(managed_branch_ids)  # NOT IN
+        )
+        
+        return query.count()
+    
+    def approve_transfer_request(self, request_id: str, approved_by_user_id: str, ip_address: str = "", user_agent: Optional[str] = None) -> BranchTransferRequest:
+        """Approve a transfer request and update item location"""
+        transfer_request = self.get_transfer_request_by_id(request_id)
+        
+        if not transfer_request:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Transfer request not found"
+            )
+        
+        if transfer_request.status != TransferStatus.PENDING:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Transfer request is already {transfer_request.status.value}"
+            )
+        
+        # Security: Prevent conflict of interest - source branch managers cannot approve
+        # This prevents branch managers from approving transfers from their own branches
+        from app.models import UserBranchManager
+        user_manages_source = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == approved_by_user_id,
+                UserBranchManager.branch_id == transfer_request.from_branch_id
+            )
+        ).first()
+        
+        if user_manages_source:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot approve a transfer request from a branch you manage"
+            )
+        
+        # Security: Only destination branch managers can approve transfers to their branches
+        # This ensures proper authorization for receiving items
+        user_manages_destination = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == approved_by_user_id,
+                UserBranchManager.branch_id == transfer_request.to_branch_id
+            )
+        ).first()
+        
+        if not user_manages_destination:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only approve transfer requests to branches you manage"
+            )
+        
+        # Update transfer request status to approved
+        transfer_request.status = TransferStatus.APPROVED
+        transfer_request.approved_by = approved_by_user_id
+        transfer_request.approved_at = datetime.now(timezone.utc)
+        transfer_request.updated_at = datetime.now(timezone.utc)
+        
+        # Business logic: Update item location when transfer is approved
+        # Mark old address as not current (preserves location history)
+        self.db.query(Address).filter(
+            and_(
+                Address.item_id == transfer_request.item_id,
+                Address.is_current == True
+            )
+        ).update({Address.is_current: False})
+        
+        # Create new current address for destination branch
+        # This updates the item's current location
+        new_address = Address(
+            item_id=transfer_request.item_id,
+            branch_id=transfer_request.to_branch_id,
+            is_current=True,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+        )
+        self.db.add(new_address)
+        
+        self.db.commit()
+        self.db.refresh(transfer_request)
+        
+        # Log the approval
+        try:
+            from app.services.auditLogService import AuditLogService
+            audit_service = AuditLogService(self.db)
+            audit_service.create_transfer_approval_log(
+                transfer_request_id=request_id,
+                user_id=approved_by_user_id,
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create audit log for transfer approval: {e}")
+        
+        return transfer_request
+    
+    def reject_transfer_request(self, request_id: str, rejected_by_user_id: str, notes: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> BranchTransferRequest:
+        """Reject a transfer request"""
+        transfer_request = self.get_transfer_request_by_id(request_id)
+        
+        if not transfer_request:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Transfer request not found"
+            )
+        
+        if transfer_request.status != TransferStatus.PENDING:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Transfer request is already {transfer_request.status.value}"
+            )
+        
+        # Check if user manages the source branch - if so, they cannot reject
+        from app.models import UserBranchManager
+        user_manages_source = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == rejected_by_user_id,
+                UserBranchManager.branch_id == transfer_request.from_branch_id
+            )
+        ).first()
+        
+        if user_manages_source:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You cannot reject a transfer request from a branch you manage"
+            )
+        
+        # Check if user manages the destination branch - they must manage it to reject
+        user_manages_destination = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == rejected_by_user_id,
+                UserBranchManager.branch_id == transfer_request.to_branch_id
+            )
+        ).first()
+        
+        if not user_manages_destination:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only reject transfer requests to branches you manage"
+            )
+        
+        transfer_request.status = TransferStatus.REJECTED
+        transfer_request.approved_by = rejected_by_user_id
+        transfer_request.approved_at = datetime.now(timezone.utc)
+        transfer_request.updated_at = datetime.now(timezone.utc)
+        if notes:
+            transfer_request.notes = (transfer_request.notes or "") + f"\nRejection note: {notes}"
+        
+        self.db.commit()
+        self.db.refresh(transfer_request)
+        
+        # Log the rejection
+        try:
+            from app.services.auditLogService import AuditLogService
+            audit_service = AuditLogService(self.db)
+            audit_service.create_transfer_rejection_log(
+                transfer_request_id=request_id,
+                user_id=rejected_by_user_id,
+                notes=notes,
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to create audit log for transfer rejection: {e}")
+        
+        return transfer_request
+    
+    def to_response(self, transfer_request: BranchTransferRequest, can_approve: bool = False) -> dict:
+        """Convert transfer request to response dict"""
+        return {
+            "id": transfer_request.id,
+            "item_id": transfer_request.item_id,
+            "from_branch_id": transfer_request.from_branch_id,
+            "to_branch_id": transfer_request.to_branch_id,
+            "requested_by": transfer_request.requested_by,
+            "status": transfer_request.status.value,
+            "notes": transfer_request.notes,
+            "created_at": transfer_request.created_at,
+            "updated_at": transfer_request.updated_at,
+            "approved_at": transfer_request.approved_at,
+            "approved_by": transfer_request.approved_by,
+            "item": {
+                "id": transfer_request.item.id,
+                "title": transfer_request.item.title,
+                "description": transfer_request.item.description,
+            } if transfer_request.item else None,
+            "from_branch": {
+                "id": transfer_request.from_branch.id,
+                "branch_name_ar": transfer_request.from_branch.branch_name_ar,
+                "branch_name_en": transfer_request.from_branch.branch_name_en,
+            } if transfer_request.from_branch else None,
+            "to_branch": {
+                "id": transfer_request.to_branch.id,
+                "branch_name_ar": transfer_request.to_branch.branch_name_ar,
+                "branch_name_en": transfer_request.to_branch.branch_name_en,
+            } if transfer_request.to_branch else None,
+            "requested_by_user": {
+                "id": transfer_request.requested_by_user.id,
+                "email": transfer_request.requested_by_user.email,
+                "first_name": transfer_request.requested_by_user.first_name,
+                "last_name": transfer_request.requested_by_user.last_name,
+            } if transfer_request.requested_by_user else None,
+            "can_approve": can_approve,
+        }
+

@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}تذكير - Reminder - {{ system_name }}{% endblock %}
+
+{% block header_title %}تذكير - Reminder{% endblock %}
+
+{% block content %}
+<!-- Arabic Section -->
+<div dir="rtl" lang="ar">
+    <h2>{{ reminder_title or "تذكير ودود" }}</h2>
+    <p>مرحباً {{ user_name }}،</p>
+
+    <p>هذا تذكير ودود من {{ system_name }}.</p>
+
+    {% if reminder_type == "unclaimed_items" %}
+    <div class="warning-box">
+        <strong>عناصر غير مطالب بها:</strong> لديك {{ item_count }} عنصر(ات) لم يتم المطالبة بها بعد.
+    </div>
+
+    <p>العناصر التي أبلغت عنها لا تزال في انتظار المطالبة بها من قبل أصحابها. إليك ما يمكنك فعله:</p>
+    <ul>
+        <li>تحقق مما إذا كانت أوصاف العناصر مفصلة بما فيه الكفاية</li>
+        <li>فكر في تحديث معلومات العنصر إذا لزم الأمر</li>
+        <li>احتفظ بالعناصر في مكان آمن</li>
+    </ul>
+
+    {% elif reminder_type == "pending_approval" %}
+    <div class="info-box">
+        <strong>عناصر في انتظار الموافقة:</strong> لديك {{ item_count }} عنصر(ات) في انتظار المراجعة.
+    </div>
+
+    <p>يتم حالياً مراجعة عناصرك من قبل فريق الإشراف لدينا. عادة ما يستغرق هذا 24-48 ساعة.</p>
+
+    {% elif reminder_type == "account_activation" %}
+    <div class="warning-box">
+        <strong>تفعيل الحساب مطلوب:</strong> حسابك لا يزال غير نشط.
+    </div>
+
+    <p>للبدء في استخدام {{ system_name }}، يرجى تفعيل حسابك باستخدام الرابط الذي أرسلناه سابقاً.</p>
+
+    {% if activation_link %}
+    <p style="text-align: center;">
+        <a href="{{ activation_link }}" class="button">تفعيل الحساب</a>
+    </p>
+    {% endif %}
+
+    {% elif reminder_type == "visit_office" %}
+    <div class="info-box">
+        <strong>طلب زيارة - إشعار المطالبة</strong>
+    </div>
+
+    <p>{{ reminder_message or "تتطلب مطالبتك انتباهك." }}</p>
+
+    {% if item_title %}
+    <div class="info-box">
+        <strong>العنصر:</strong> {{ item_title }}
+    </div>
+    {% endif %}
+
+    {% if branch_name %}
+    <div class="info-box">
+        <strong>الفرع للزيارة:</strong> {{ branch_name }}
+    </div>
+    {% endif %}
+
+    {% if note %}
+    <div class="warning-box">
+        <strong>ملاحظة:</strong> {{ note }}
+    </div>
+    {% endif %}
+
+    <div style="margin: 30px 0; text-align: center;">
+        {% if item_url %}
+        <p style="margin-bottom: 15px;">
+            <a href="{{ item_url }}" class="button" style="margin-right: 10px;">عرض تفاصيل العنصر</a>
+        </p>
+        {% endif %}
+        {% if claim_url %}
+        <p>
+            <a href="{{ claim_url }}" class="button">عرض تفاصيل المطالبة</a>
+        </p>
+        {% endif %}
+    </div>
+
+    {% else %}
+    <p>{{ reminder_message or "لا تنس التحقق من حسابك بانتظام للحصول على التحديثات." }}</p>
+    {% endif %}
+
+    {% if action_required %}
+    <div class="warning-box">
+        <strong>إجراء مطلوب:</strong> {{ action_required }}
+    </div>
+    {% endif %}
+
+    {% if reminder_url %}
+    <p style="text-align: center;">
+        <a href="{{ reminder_url }}" class="button">اتخاذ إجراء</a>
+    </p>
+    {% endif %}
+
+    <p>إذا كان لديك أي أسئلة أو تحتاج إلى مساعدة، لا تتردد في الاتصال بفريق الدعم لدينا.</p>
+
+    <p>شكراً لك!</p>
+    <p><strong>فريق {{ system_name }}</strong></p>
+</div>
+
+<hr style="margin: 30px 0; border: 1px solid #dee2e6;">
+
+<!-- English Section -->
+<div dir="ltr" lang="en">
+    <h2>{{ reminder_title or "Friendly Reminder" }}</h2>
+    <p>Hello {{ user_name }},</p>
+
+    <p>This is a friendly reminder from {{ system_name }}.</p>
+
+    {% if reminder_type == "unclaimed_items" %}
+    <div class="warning-box">
+        <strong>Unclaimed Items:</strong> You have {{ item_count }} item(s) that haven't been claimed yet.
+    </div>
+
+    <p>Your reported items are still waiting to be claimed by their owners. Here's what you can do:</p>
+    <ul>
+        <li>Check if the item descriptions are detailed enough</li>
+        <li>Consider updating the item information if needed</li>
+        <li>Keep the items in a safe place</li>
+    </ul>
+
+    {% elif reminder_type == "pending_approval" %}
+    <div class="info-box">
+        <strong>Items Pending Approval:</strong> You have {{ item_count }} item(s) awaiting moderation.
+    </div>
+
+    <p>Your items are currently being reviewed by our moderation team. This usually takes 24-48 hours.</p>
+
+    {% elif reminder_type == "account_activation" %}
+    <div class="warning-box">
+        <strong>Account Activation Required:</strong> Your account is still inactive.
+    </div>
+
+    <p>To start using {{ system_name }}, please activate your account using the link we sent earlier.</p>
+
+    {% if activation_link %}
+    <p style="text-align: center;">
+        <a href="{{ activation_link }}" class="button">Activate Account</a>
+    </p>
+    {% endif %}
+
+    {% elif reminder_type == "visit_office" %}
+    <div class="info-box">
+        <strong>Visit Request - Claim Notification</strong>
+    </div>
+
+    <p>{{ reminder_message or "Your claim requires your attention." }}</p>
+
+    {% if item_title %}
+    <div class="info-box">
+        <strong>Item:</strong> {{ item_title }}
+    </div>
+    {% endif %}
+
+    {% if branch_name %}
+    <div class="info-box">
+        <strong>Branch to Visit:</strong> {{ branch_name }}
+    </div>
+    {% endif %}
+
+    {% if note %}
+    <div class="warning-box">
+        <strong>Note:</strong> {{ note }}
+    </div>
+    {% endif %}
+
+    <div style="margin: 30px 0; text-align: center;">
+        {% if item_url %}
+        <p style="margin-bottom: 15px;">
+            <a href="{{ item_url }}" class="button" style="margin-right: 10px;">View Item Details</a>
+        </p>
+        {% endif %}
+        {% if claim_url %}
+        <p>
+            <a href="{{ claim_url }}" class="button">View Claim Details</a>
+        </p>
+        {% endif %}
+    </div>
+
+    {% else %}
+    <p>{{ reminder_message or "Don't forget to check your account regularly for updates." }}</p>
+    {% endif %}
+
+    {% if action_required %}
+    <div class="warning-box">
+        <strong>Action Required:</strong> {{ action_required }}
+    </div>
+    {% endif %}
+
+    {% if reminder_url %}
+    <p style="text-align: center;">
+        <a href="{{ reminder_url }}" class="button">Take Action</a>
+    </p>
+    {% endif %}
+
+    <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
+
+    <p>Thank you!</p>
+    <p><strong>The {{ system_name }} Team</strong></p>
+</div>
+{% endblock %}

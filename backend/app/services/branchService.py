@@ -1,0 +1,436 @@
+from sqlalchemy.orm import Session
+from sqlalchemy import and_
+from typing import List, Optional
+from datetime import datetime, timezone
+from fastapi import HTTPException, status
+import re
+
+from app.models import Branch, Organization, Address, Item, User, UserBranchManager  
+from app.schemas.branch_schemas import BranchCreate, BranchUpdate, AddressCreate, AddressUpdate
+
+
+class BranchService:
+    def __init__(self, db: Session):
+        self.db = db
+    
+    def _validate_phone_numbers(self, phone1: Optional[str], phone2: Optional[str]) -> None:
+        """Validate phone numbers: must be exactly 8 digits if provided"""
+        phone_numbers = [p for p in [phone1, phone2] if p is not None and p.strip()]
+        
+        # Check maximum 2 phone numbers
+        if len(phone_numbers) > 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Maximum 2 phone numbers allowed"
+            )
+        
+        # Validate each phone number
+        for phone in phone_numbers:
+            phone = phone.strip()
+            if not re.match(r'^\d{8}$', phone):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Phone number must be exactly 8 digits"
+                )
+
+    def create_branch(self, branch_data: BranchCreate) -> Branch:
+        """Create a new branch"""
+        # Check if organization exists
+        organization = self.db.query(Organization).filter(
+            Organization.id == branch_data.organization_id
+        ).first()
+        
+        if not organization:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Organization not found"
+            )
+        
+        # Check if branch name already exists for this organization (check both AR and EN)
+        existing_branch = None
+        if branch_data.branch_name_ar:
+            existing_branch = self.db.query(Branch).filter(
+                and_(
+                    Branch.branch_name_ar == branch_data.branch_name_ar,
+                    Branch.organization_id == branch_data.organization_id
+                )
+            ).first()
+        
+        if not existing_branch and branch_data.branch_name_en:
+            existing_branch = self.db.query(Branch).filter(
+                and_(
+                    Branch.branch_name_en == branch_data.branch_name_en,
+                    Branch.organization_id == branch_data.organization_id
+                )
+            ).first()
+        
+        if existing_branch:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Branch name already exists for this organization"
+            )
+        
+        # Validate phone numbers
+        self._validate_phone_numbers(branch_data.phone1, branch_data.phone2)
+        
+        db_branch = Branch(
+            branch_name_ar=branch_data.branch_name_ar,
+            branch_name_en=branch_data.branch_name_en,
+            description_ar=branch_data.description_ar,
+            description_en=branch_data.description_en,
+            longitude=branch_data.longitude,
+            latitude=branch_data.latitude,
+            phone1=branch_data.phone1.strip() if branch_data.phone1 else None,
+            phone2=branch_data.phone2.strip() if branch_data.phone2 else None,
+            organization_id=branch_data.organization_id
+        )
+        
+        self.db.add(db_branch)
+        self.db.commit()
+        self.db.refresh(db_branch)
+        
+        return db_branch
+
+    def get_branches(self, skip: int = 0, limit: int = 100, organization_id: Optional[str] = None) -> List[Branch]:
+        """Get all branches with optional filtering by organization"""
+        query = self.db.query(Branch)
+        
+        if organization_id:
+            query = query.filter(Branch.organization_id == organization_id)
+        
+        return query.offset(skip).limit(limit).all()
+
+    def get_branch_by_id(self, branch_id: str) -> Optional[Branch]:
+        """Get a branch by ID"""
+        return self.db.query(Branch).filter(Branch.id == branch_id).first()
+
+    def update_branch(self, branch_id: str, branch_update: BranchUpdate) -> Branch:
+        """Update a branch"""
+        db_branch = self.get_branch_by_id(branch_id)
+        
+        if not db_branch:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Branch not found"
+            )
+        
+        update_data = branch_update.model_dump(exclude_unset=True)
+        
+        # If updating organization_id, check if it exists
+        if 'organization_id' in update_data:
+            organization = self.db.query(Organization).filter(
+                Organization.id == update_data['organization_id']
+            ).first()
+            
+            if not organization:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Organization not found"
+                )
+        
+        # If updating branch names, check for duplicates
+        org_id = update_data.get('organization_id', db_branch.organization_id)
+        existing_branch = None
+        
+        if 'branch_name_ar' in update_data and update_data['branch_name_ar']:
+            existing_branch = self.db.query(Branch).filter(
+                and_(
+                    Branch.branch_name_ar == update_data['branch_name_ar'],
+                    Branch.organization_id == org_id,
+                    Branch.id != branch_id
+                )
+            ).first()
+        
+        if not existing_branch and 'branch_name_en' in update_data and update_data['branch_name_en']:
+            existing_branch = self.db.query(Branch).filter(
+                and_(
+                    Branch.branch_name_en == update_data['branch_name_en'],
+                    Branch.organization_id == org_id,
+                    Branch.id != branch_id
+                )
+            ).first()
+        
+        if existing_branch:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Branch name already exists for this organization"
+            )
+        
+        # Validate phone numbers if provided
+        phone1 = update_data.get('phone1', db_branch.phone1)
+        phone2 = update_data.get('phone2', db_branch.phone2)
+        if 'phone1' in update_data or 'phone2' in update_data:
+            self._validate_phone_numbers(phone1, phone2)
+        
+        for field, value in update_data.items():
+            if field in ['phone1', 'phone2'] and value:
+                # Strip whitespace from phone numbers
+                setattr(db_branch, field, value.strip())
+            else:
+                setattr(db_branch, field, value)
+        
+        db_branch.updated_at = datetime.now(timezone.utc)
+        
+        self.db.commit()
+        self.db.refresh(db_branch)
+        
+        return db_branch
+
+    def delete_branch(self, branch_id: str) -> bool:
+        """Delete a branch"""
+        db_branch = self.get_branch_by_id(branch_id)
+        
+        if not db_branch:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Branch not found"
+            )
+        
+        # Check if branch has addresses
+        addresses_count = self.db.query(Address).filter(
+            Address.branch_id == branch_id
+        ).count()
+        
+        if addresses_count > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot delete branch with existing addresses"
+            )
+        
+        self.db.delete(db_branch)
+        self.db.commit()
+        
+        return True
+    
+    def get_user_managed_branches(self, user_id: str, skip: int = 0, limit: int = 100) -> List[Branch]:
+        """Get all branches managed by a specific user"""
+        # Check if user exists
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Get branches managed by this user
+        query = self.db.query(Branch).join(
+            UserBranchManager, Branch.id == UserBranchManager.branch_id
+        ).filter(
+            UserBranchManager.user_id == user_id
+        )
+        
+        return query.offset(skip).limit(limit).all()
+    
+    def assign_branch_manager(self, branch_id: str, user_id: str) -> bool:
+        """Assign a user as manager of a branch"""
+        # Check if branch exists
+        branch = self.get_branch_by_id(branch_id)
+        if not branch:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Branch not found"
+            )
+        
+        # Check if user exists
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Security: Check if user has permission to be a branch manager
+        # Branch managers have elevated access to items in their managed branches
+        from app.services import permissionServices
+        if not permissionServices.check_user_permission(self.db, user_id, "can_be_branch_manager"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not have permission to be assigned as a branch manager"
+            )
+        
+        # Business rule: Prevent duplicate branch manager assignments
+        # Each user can only be assigned once per branch
+        existing_assignment = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == user_id,
+                UserBranchManager.branch_id == branch_id
+            )
+        ).first()
+        
+        if existing_assignment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is already assigned as manager for this branch"
+            )
+        
+        # Create branch manager assignment
+        # This grants user access to manage items in this branch
+        assignment = UserBranchManager(
+            user_id=user_id,
+            branch_id=branch_id
+        )
+        
+        self.db.add(assignment)
+        self.db.commit()
+        
+        return True
+    
+    def remove_branch_manager(self, branch_id: str, user_id: str) -> bool:
+        """Remove a user as manager of a branch"""
+        assignment = self.db.query(UserBranchManager).filter(
+            and_(
+                UserBranchManager.user_id == user_id,
+                UserBranchManager.branch_id == branch_id
+            )
+        ).first()
+        
+        if not assignment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User is not assigned as manager for this branch"
+            )
+        
+        self.db.delete(assignment)
+        self.db.commit()
+        
+        return True
+    
+    def get_branch_managers(self, branch_id: str) -> List[User]:
+        """Get all users who manage a specific branch"""
+        branch = self.get_branch_by_id(branch_id)
+        if not branch:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Branch not found"
+            )
+        
+        managers = self.db.query(User).join(
+            UserBranchManager, User.id == UserBranchManager.user_id
+        ).filter(
+            UserBranchManager.branch_id == branch_id
+        ).all()
+        
+        return managers
+
+
+class AddressService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create_address(self, address_data: AddressCreate) -> Address:
+        """Create a new address"""
+        # Check if item exists
+        item = self.db.query(Item).filter(Item.id == address_data.item_id).first()
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Item not found"
+            )
+        
+        # Check if branch exists
+        branch = self.db.query(Branch).filter(Branch.id == address_data.branch_id).first()
+        if not branch:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Branch not found"
+            )
+        
+        # If this is set as current, update other addresses for this item
+        if address_data.is_current:
+            self.db.query(Address).filter(
+                Address.item_id == address_data.item_id
+            ).update({Address.is_current: False})
+        
+        db_address = Address(
+            item_id=address_data.item_id,
+            branch_id=address_data.branch_id,
+            is_current=address_data.is_current
+        )
+        
+        self.db.add(db_address)
+        self.db.commit()
+        self.db.refresh(db_address)
+        
+        return db_address
+
+    def get_addresses(self, skip: int = 0, limit: int = 100, item_id: Optional[str] = None, branch_id: Optional[str] = None) -> List[Address]:
+        """Get all addresses with optional filtering"""
+        query = self.db.query(Address)
+        
+        if item_id:
+            query = query.filter(Address.item_id == item_id)
+        
+        if branch_id:
+            query = query.filter(Address.branch_id == branch_id)
+        
+        return query.offset(skip).limit(limit).all()
+
+    def get_address_by_id(self, address_id: str) -> Optional[Address]:
+        """Get an address by ID"""
+        return self.db.query(Address).filter(Address.id == address_id).first()
+
+    def update_address(self, address_id: str, address_update: AddressUpdate) -> Address:
+        """Update an address"""
+        db_address = self.get_address_by_id(address_id)
+        
+        if not db_address:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Address not found"
+            )
+        
+        update_data = address_update.model_dump(exclude_unset=True)
+        
+        # Validate item_id if provided
+        if 'item_id' in update_data:
+            item = self.db.query(Item).filter(Item.id == update_data['item_id']).first()
+            if not item:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Item not found"
+                )
+        
+        # Validate branch_id if provided
+        if 'branch_id' in update_data:
+            branch = self.db.query(Branch).filter(Branch.id == update_data['branch_id']).first()
+            if not branch:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Branch not found"
+                )
+        
+        # If setting as current, update other addresses for this item
+        if update_data.get('is_current', False):
+            item_id = update_data.get('item_id', db_address.item_id)
+            self.db.query(Address).filter(
+                and_(
+                    Address.item_id == item_id,
+                    Address.id != address_id
+                )
+            ).update({Address.is_current: False})
+        
+        for field, value in update_data.items():
+            setattr(db_address, field, value)
+        
+        db_address.updated_at = datetime.now(timezone.utc)
+        
+        self.db.commit()
+        self.db.refresh(db_address)
+        
+        return db_address
+
+    def delete_address(self, address_id: str) -> bool:
+        """Delete an address"""
+        db_address = self.get_address_by_id(address_id)
+        
+        if not db_address:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Address not found"
+            )
+        
+        self.db.delete(db_address)
+        self.db.commit()
+        
+        return True
+    

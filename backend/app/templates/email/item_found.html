@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}تم العثور على تطابق - Match Found - {{ system_name }}{% endblock %}
+
+{% block header_title %}تم العثور على تطابق - Match Found{% endblock %}
+
+{% block content %}
+<!-- Arabic Section -->
+<div dir="rtl" lang="ar">
+    <h2>تم العثور على تطابق محتمل</h2>
+    <p>مرحباً {{ user_name }}،</p>
+
+    <p>تمت إضافة عنصر جديد إلى نظامنا قد يطابق ما تبحث عنه.</p>
+
+    <div class="success-box">
+        <strong>الغرض الموجود:</strong> {{ item_title }}
+    </div>
+
+    <p>تم الإبلاغ عن هذا الغرض مؤخراً ويبدو أنه يطابق وصف شيء كنت تبحث عنه. نوصي بالتحقق منه في أقرب وقت ممكن.</p>
+
+    <p style="text-align: center;">
+        <a href="{{ item_url }}" class="button">عرض تفاصيل الغرض</a>
+    </p>
+
+    <div class="info-box">
+        <strong>الخطوات التالية:</strong>
+        <ol>
+            <li>انقر على الزر أعلاه لعرض تفاصيل الغرض الكاملة</li>
+            <li>إذا كان هذا غرضك، اتبع عملية المطالبة</li>
+            <li>أحضر هويتك الجامعية أو الشخصية عند إستلام الغرض</li>
+        </ol>
+    </div>
+
+    <p><strong>مهم:</strong> يتم الاحتفاظ بالأغراض لفترة محدودة. يرجى التحقق من الغرض والمطالبة به على الفور إذا كان ملكك.</p>
+
+    <p>إذا لم يكن هذا غرضك، لا حاجة لاتخاذ أي إجراء.</p>
+
+    <p>حظاً موفقاً!</p>
+    <p><strong>فريق {{ system_name }}</strong></p>
+</div>
+
+<hr style="margin: 30px 0; border: 1px solid #dee2e6;">
+
+<!-- English Section -->
+<div dir="ltr" lang="en">
+    <h2>Great News! We Found a Possible Match</h2>
+    <p>Hello {{ user_name }},</p>
+
+    <p>A new item has been added to our system that might match what you're looking for.</p>
+
+    <div class="success-box">
+        <strong>Item Found:</strong> {{ item_title }}
+    </div>
+
+    <p>This item was recently reported and appears to match the description of something you've been looking for. We recommend checking it out as soon as possible.</p>
+
+    <p style="text-align: center;">
+        <a href="{{ item_url }}" class="button">View Item Details</a>
+    </p>
+
+    <div class="info-box">
+        <strong>Next Steps:</strong>
+        <ol>
+            <li>Click the button above to view the full item details</li>
+            <li>If this is your item, follow the claim process</li>
+            <li>Bring your university or personal ID when collecting the item</li>
+        </ol>
+    </div>
+
+    <p><strong>Important:</strong> Items are held for a limited time. Please check and claim your item promptly if it belongs to you.</p>
+
+    <p>If this isn't your item, no action is needed.</p>
+
+    <p>Good luck!</p>
+    <p><strong>The {{ system_name }} Team</strong></p>
+</div>
+{% endblock %}

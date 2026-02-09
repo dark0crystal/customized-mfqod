@@ -1,0 +1,22 @@
+Email Verification - {{ system_name }}
+
+Hello,
+
+Thank you for registering with {{ system_name }}. To complete your registration, please verify your email address using the code below.
+
+Your Verification Code: {{ otp_code }}
+
+This code will expire in 10 minutes.
+
+SECURITY NOTICE:
+- Never share this code with anyone
+- Our team will never ask for this code
+- If you didn't request this code, please ignore this email
+
+Enter this code in the registration form to complete your account setup.
+
+Best regards,
+The {{ system_name }} Team
+
+
+

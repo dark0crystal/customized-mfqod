@@ -1,0 +1,6 @@
+# Uploaded images and user content (stored in storage/, mounted at runtime)
+storage/
+
+# Application logs (do not upload to GitHub)
+backend/logs/
+*.log

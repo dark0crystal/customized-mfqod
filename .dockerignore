@@ -1,0 +1,51 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Docker files (don't copy into containers)
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Environment files
+.env
+.env.*
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Storage (large uploads - will be mounted as volume)
+storage/uploads/
+storage/uploads/images/
+storage/uploads/itemTypesImages/
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
+
+# Large directories that shouldn't be in build context
+backend/logs/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+
