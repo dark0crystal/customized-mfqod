@@ -125,7 +125,10 @@ class AddressResponse(BaseModel):
     id: str
     is_current: bool
     branch: Optional[BranchBasicResponse] = None
-    
+    full_location: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
     class Config:
         from_attributes = True
 

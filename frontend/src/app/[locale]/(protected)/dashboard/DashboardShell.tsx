@@ -1,20 +1,21 @@
 "use client";
 
-import { useLocale } from "next-intl";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Menu, X } from "lucide-react";
 import SideNavbar from "./SideNavbar";
 import Brand from "@/components/navbar/Brand";
-import { usePermissions } from '@/PermissionsContext';
+import { usePendingItemsCount } from "@/hooks/usePendingItemsCount";
+import { usePendingMissingItemsCount } from "@/hooks/usePendingMissingItemsCount";
+import { usePendingTransferRequestsCount } from "@/hooks/usePendingTransferRequestsCount";
 
-interface DashboardShellProps {
-  children: React.ReactNode;
-  initialDirection?: 'ltr' | 'rtl';
-}
-
-export default function DashboardShell({ children, initialDirection }: DashboardShellProps) {
-  const { permissions, userRole, roleId, isAuthenticated, isLoading: permissionsLoading } = usePermissions();
+export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // Fetch badge counts once at shell level and share with both sidebars (avoids duplicate requests)
+  const { count: pendingItemsCount } = usePendingItemsCount();
+  const { count: pendingMissingItemsCount } = usePendingMissingItemsCount();
+  const { count: pendingTransferRequestsCount } = usePendingTransferRequestsCount();
+
 
   // CSS-based logic relies on html[dir] attribute set by RootLayout
   const sidebarPositionClass = "start-0";
@@ -32,7 +33,13 @@ export default function DashboardShell({ children, initialDirection }: Dashboard
     <div className={`flex h-screen overflow-hidden bg-gray-50`}>
       {/* Desktop sidebar */}
       <div className="hidden lg:flex h-full">
-        <SideNavbar className="h-full" />
+        <SideNavbar
+          className="h-full"
+          pendingItemsCount={pendingItemsCount}
+          pendingMissingItemsCount={pendingMissingItemsCount}
+          pendingTransferRequestsCount={pendingTransferRequestsCount}
+        />
+
       </div>
 
       {/* Main content */}
@@ -72,7 +79,15 @@ export default function DashboardShell({ children, initialDirection }: Dashboard
             }`}
           aria-hidden={!isMobileOpen}
         >
-          <SideNavbar className="h-full" onClose={closeMobile} showCollapseToggle={false} />
+          <SideNavbar
+            className="h-full"
+            onClose={closeMobile}
+            showCollapseToggle={false}
+            pendingItemsCount={pendingItemsCount}
+            pendingMissingItemsCount={pendingMissingItemsCount}
+            pendingTransferRequestsCount={pendingTransferRequestsCount}
+          />
+
         </div>
       </div>
     </div>

@@ -72,6 +72,5 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 -- 13. can_manage_permissions
 -- 14. can_view_analytics
 -- 15. can_configure_system
--- 16. can_access_admin
 -- ============================================================
 

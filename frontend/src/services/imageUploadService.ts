@@ -55,7 +55,8 @@ export class ImageUploadService {
       const cookies = document.cookie.split(';');
       for (const cookie of cookies) {
         const [name, value] = cookie.trim().split('=');
-        if (name === 'token' || name === 'access_token' || name === 'auth_token') {
+        if (name === 'token') {
+
           token = decodeURIComponent(value);
           break;
         }

@@ -22,7 +22,6 @@ export default async function AdminLayout({
   params: Promise<{ locale: string }>;
 }>) {
   const { locale } = await params;
-  const initialDirection = locale === 'ar' ? 'rtl' : 'ltr';
 
   if (!hasLocale(routing.locales, locale)) {
     notFound();
@@ -34,7 +33,7 @@ export default async function AdminLayout({
   return (
     <NextIntlClientProvider messages={messages} locale={locale}>
       <PermissionsProvider>
-        <DashboardShell initialDirection={initialDirection}>
+        <DashboardShell>
           {children}
         </DashboardShell>
       </PermissionsProvider>

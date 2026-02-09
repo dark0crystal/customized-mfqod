@@ -23,7 +23,7 @@ from app.schemas.item_schema import (
     ClaimExportResponse,
     MissingItemExportResponse
 )
-from app.services.notification_service import send_new_item_alert
+from app.services.notification_service import send_new_item_alert, send_item_approval_notification
 from app.middleware.branch_auth_middleware import get_user_accessible_items, is_branch_manager
 from app.services import permissionServices
 
@@ -416,50 +416,12 @@ class ItemService:
             except Exception as e:
                 logger.error(f"Failed to create audit log for item status change: {e}")
         
-        return self._item_to_response(item)
-    
-    def update_status(self, item_id: str, new_status: ItemStatus, user_id: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> Optional[ItemResponse]:
-        """Update item status explicitly"""
-        item = self.get_item_by_id(item_id)
-        if not item:
-            raise ValueError("Item not found")
-        
-        old_status = item.status
-        item.status = new_status.value
-        item.updated_at = datetime.now(timezone.utc)
-        
-        # Business rule: When changing from approved to pending, unapprove associated claim
-        # This maintains data consistency - approved items require approved claims
-        if old_status == ItemStatus.APPROVED.value and new_status == ItemStatus.PENDING:
-            if item.approved_claim_id:
-                claim = self.db.query(Claim).filter(Claim.id == item.approved_claim_id).first()
-                if claim:
-                    claim.approval = False
-                    claim.updated_at = datetime.now(timezone.utc)
-                    logger.info(f"Unapproved claim {claim.id} for item {item_id} due to status change from approved to pending")
-            # Clear approved_claim_id to maintain referential integrity
-            item.approved_claim_id = None
-        
-        self.db.commit()
-        self.db.refresh(item)
-        
-        # Log the status change if user_id is provided and status actually changed
-        if user_id and old_status != new_status.value:
+# Send item delivery notification when status changes to approved
+        if old_status != new_status.value and new_status == ItemStatus.APPROVED and item.approved_claim_id:
             try:
-                from app.services.auditLogService import AuditLogService
-                from app.models import AuditActionType
-                audit_service = AuditLogService(self.db)
-                audit_service.create_item_status_change_log(
-                    item_id=item_id,
-                    old_status=old_status,
-                    new_status=new_status.value,
-                    user_id=user_id,
-                    ip_address=ip_address,
-                    user_agent=user_agent
-                )
+                asyncio.create_task(self._send_item_approval_notification(item))
             except Exception as e:
-                logger.error(f"Failed to create audit log for item status change: {e}")
-        
+                logger.error(f"Failed to queue item approval notification: {e}")
         return self._item_to_response(item)
     
     def dispose_item(self, item_id: str, disposal_note: str, user_id: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> ItemResponse:
@@ -542,193 +504,12 @@ class ItemService:
             except Exception as e:
                 logger.error(f"Failed to create audit log for item approval: {e}")
         
-        logger.info(f"Item {item_id} approved (status changed from pending to approved)")
-        
-        return self._item_to_response(item)
-    
-    def toggle_item_hidden_status(self, item_id: str) -> Optional[ItemResponse]:
-        """Toggle the hidden status of an item (controls visibility of all images)"""
-        item = self.get_item_by_id(item_id)
-        if not item:
-            raise ValueError("Item not found")
-        
-        # Toggle is_hidden
-        item.is_hidden = not item.is_hidden
-        item.updated_at = datetime.now(timezone.utc)
-        
-        self.db.commit()
-        self.db.refresh(item)
-        
-        logger.info(f"Item {item_id} hidden status toggled to {item.is_hidden}")
-        
-        return self._item_to_response(item)
-    
-    def set_item_hidden_status(self, item_id: str, is_hidden: bool) -> Optional[ItemResponse]:
-        """Set the hidden status of an item (controls visibility of all images)"""
-        item = self.get_item_by_id(item_id)
-        if not item:
-            raise ValueError("Item not found")
-        
-        # Set is_hidden
-        item.is_hidden = is_hidden
-        item.updated_at = datetime.now(timezone.utc)
-        
-        self.db.commit()
-        self.db.refresh(item)
-        
-        logger.info(f"Item {item_id} hidden status set to {is_hidden}")
-        
-        return self._item_to_response(item)
-    
-    def patch_item(self, item_id: str, update_data: dict, user_id: Optional[str] = None, ip_address: str = "", user_agent: Optional[str] = None) -> Optional[ItemResponse]:
-        """Patch an item with location history tracking"""
-        item = self.get_item_by_id(item_id)
-        if not item:
-            raise ValueError("Item not found")
-        
-        # Track old status for audit logging
-        old_status = item.status
-        
-        # Check if location is being changed
-        location_changed = update_data.get('locationChanged', False)
-        original_location = update_data.get('originalLocation')
-        
-        # Update basic fields
-        basic_fields = ['title', 'description', 'type']
-        for field in basic_fields:
-            if field in update_data:
-                setattr(item, field, update_data[field])
-        
-        # Handle status update
-        if 'status' in update_data:
-            status_value = update_data['status']
-            # Validate status value
-            if status_value in [ItemStatus.PENDING.value, ItemStatus.APPROVED.value, ItemStatus.CANCELLED.value, ItemStatus.DISPOSED.value]:
-                item.status = status_value
-                # Update the associated claim's approval status to False when changing from approved to pending
-                if old_status == ItemStatus.APPROVED.value and status_value == ItemStatus.PENDING.value:
-                    if item.approved_claim_id:
-                        claim = self.db.query(Claim).filter(Claim.id == item.approved_claim_id).first()
-                        if claim:
-                            claim.approval = False
-                            claim.updated_at = datetime.now(timezone.utc)
-                            logger.info(f"Unapproved claim {claim.id} for item {item_id} due to status change from approved to pending")
-                    # Clear approved_claim_id when changing from approved to pending
-                    item.approved_claim_id = None
-            else:
-                raise ValueError(f"Invalid status: {status_value}")
-        
-        # Handle temporary_deletion
-        if 'temporary_deletion' in update_data:
-            item.temporary_deletion = update_data['temporary_deletion']
-        
-        # Handle disposal_note
-        if 'disposal_note' in update_data:
-            item.disposal_note = update_data['disposal_note']
-        
-        # Handle approved_claim_id
-        if 'approved_claim_id' in update_data:
-            approved_claim_id = update_data['approved_claim_id']
-            
-            # Business rule: Only one claim can be approved per item
-            # When changing approved_claim_id, unapprove the previous claim
-            if item.approved_claim_id and item.approved_claim_id != approved_claim_id:
-                previous_claim = self.db.query(Claim).filter(Claim.id == item.approved_claim_id).first()
-                if previous_claim:
-                    previous_claim.approval = False
-                    previous_claim.updated_at = datetime.now(timezone.utc)
-                    logger.info(f"Unapproved previous claim {previous_claim.id} for item {item_id}")
-            
-            # Validate claim exists and belongs to this item before assigning
-            if approved_claim_id:
-                claim = self.db.query(Claim).filter(Claim.id == approved_claim_id).first()
-                if not claim:
-                    raise ValueError(f"Claim {approved_claim_id} not found")
-                if claim.item_id != item_id:
-                    raise ValueError(f"Claim {approved_claim_id} does not belong to item {item_id}")
-                
-                # Business rule: When assigning approved_claim_id, approve the claim
-                # This maintains consistency - approved items have approved claims
-                claim.approval = True
-                claim.updated_at = datetime.now(timezone.utc)
-                logger.info(f"Approved claim {approved_claim_id} for item {item_id}")
-            
-            item.approved_claim_id = approved_claim_id
-        
-        # Location history tracking: When item location changes, preserve history
-        # Business rule: Only one address can be "current" per item at any time
-        # Previous addresses are kept for audit trail but marked as not current
-        if location_changed and original_location:
-            # Mark all existing current addresses as not current
-            current_addresses = self.db.query(Address).filter(
-                Address.item_id == item_id,
-                Address.is_current == True
-            ).all()
-            
-            for addr in current_addresses:
-                addr.is_current = False
-                addr.updated_at = datetime.now(timezone.utc)
-        
-        # Create new address entry if location info is provided
-        # Supports both new format (branch_id) and legacy format (organization_name/branch_name)
-        branch_id = None
-        if 'branch_id' in update_data and update_data['branch_id']:
-            branch_id = update_data['branch_id']
-        elif 'location' in update_data or 'organization_name' in update_data or 'branch_name' in update_data:
-            # Find or create branch if organization and branch names are provided
-            if update_data.get('organization_name') and update_data.get('branch_name'):
-                # Try to find existing organization and branch
-                organization = self.db.query(Organization).filter(
-                    Organization.organization_name == update_data['organization_name']
-                ).first()
-                
-                if organization:
-                    branch = self.db.query(Branch).filter(
-                        Branch.branch_name == update_data['branch_name'],
-                        Branch.organization_id == organization.id
-                    ).first()
-                    
-                    if branch:
-                        branch_id = branch.id
-        
-        # Create new address entry if location info is provided
-        if branch_id or 'location' in update_data:
-            new_address = Address(
-                id=str(uuid.uuid4()),
-                item_id=item_id,
-                branch_id=branch_id,
-                full_location=update_data.get('location'),
-                is_current=True,
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc)
-            )
-            
-            self.db.add(new_address)
-        
-        item.updated_at = datetime.now(timezone.utc)
-        
-        # Track if status changed for audit logging
-        status_changed = 'status' in update_data and old_status != item.status
-        
-        self.db.commit()
-        self.db.refresh(item)
-        
-        # Log the status change if user_id is provided and status actually changed
-        if status_changed and user_id:
+# Send item delivery notification when status changes to approved via patch
+        if status_changed and old_status != item.status and item.status == ItemStatus.APPROVED.value and item.approved_claim_id:
             try:
-                from app.services.auditLogService import AuditLogService
-                audit_service = AuditLogService(self.db)
-                audit_service.create_item_status_change_log(
-                    item_id=item_id,
-                    old_status=old_status,
-                    new_status=item.status,
-                    user_id=user_id,
-                    ip_address=ip_address,
-                    user_agent=user_agent
-                )
+                asyncio.create_task(self._send_item_approval_notification(item))
             except Exception as e:
-                logger.error(f"Failed to create audit log for item status change in patch_item: {e}")
-        
+                logger.error(f"Failed to queue item approval notification: {e}")
         return self._item_to_response(item)
     
     def update_claims_count(self, item_id: str) -> Optional[ItemResponse]:
@@ -1462,6 +1243,36 @@ class ItemService:
         except Exception as e:
             # Log but don't raise - item creation should still succeed
             pass
+    
+    async def _send_item_approval_notification(self, item: Item) -> None:
+        """Send item delivery notification to the claimant when item is approved"""
+        try:
+            if not item or not item.approved_claim_id:
+                return
+            
+            # Get item with approved claim and claimant user
+            item_with_claim = self.db.query(Item).options(
+                joinedload(Item.approved_claim).joinedload(Claim.user)
+            ).filter(Item.id == item.id).first()
+            
+            if not item_with_claim or not item_with_claim.approved_claim or not item_with_claim.approved_claim.user:
+                return
+            
+            claimant = item_with_claim.approved_claim.user
+            if not claimant.email:
+                return
+            
+            user_name = f"{claimant.first_name or ''} {claimant.last_name or ''}".strip() or claimant.email.split('@')[0] or "User"
+            item_title = item_with_claim.title or "Your item"
+            
+            await send_item_approval_notification(
+                user_email=claimant.email,
+                user_name=user_name,
+                item_title=item_title
+            )
+            logger.info(f"Item approval (delivery) notification sent to {claimant.email} for item {item.id}")
+        except Exception as e:
+            logger.error(f"Failed to send item approval notification: {e}")
     
     def get_item_export_data(self, item_id: str, include_deleted: bool = False) -> Optional[ItemExportResponse]:
         """Get complete item data for PDF export including reporter, approved claim, and connected missing items"""

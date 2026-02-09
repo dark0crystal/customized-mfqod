@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Lalezar } from "next/font/google";
+import { getHasNavigatedWithinApp } from "@/lib/splashScreenTracker";
 
 const lalezarFont = Lalezar({
   weight: "400",
@@ -12,9 +13,13 @@ const lalezarFont = Lalezar({
 });
 
 export default function SplashScreen() {
-  const [isVisible, setIsVisible] = useState(true);
+  // Only show splash on full page load (reload/direct visit), not when navigating from other pages
+  const [isVisible, setIsVisible] = useState(() => !getHasNavigatedWithinApp());
 
   useEffect(() => {
+    // Skip timer if we arrived via client-side nav (initial state already set isVisible=false)
+    if (getHasNavigatedWithinApp()) return;
+
     const timer = setTimeout(() => {
       setIsVisible(false);
     }, 2500);
@@ -80,4 +85,3 @@ export default function SplashScreen() {
     </>
   );
 }
-

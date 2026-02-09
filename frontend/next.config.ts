@@ -12,6 +12,14 @@ import createNextIntlPlugin from 'next-intl/plugin';
  
 const nextConfig: NextConfig = {
     output: 'standalone', // Enable standalone output for Docker
+    experimental: {
+        // Disabled: compaction was blocking 15-20s frequently, slowing dev more than helping
+        // turbopackFileSystemCacheForDev: true,
+        // Cache fetch() in Server Components across HMR to avoid re-fetching on every change
+        serverComponentsHmrCache: true,
+        // Optimize icon library imports (lucide-react, react-icons) to reduce compile work
+        optimizePackageImports: ['lucide-react', 'react-icons'],
+    },
     images: {
         // Disable optimization so browser fetches images directly from backend.
         // Fixes 400 errors in Docker where frontend container cannot reach backend via localhost.

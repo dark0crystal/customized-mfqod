@@ -15,9 +15,8 @@ export type Permission =
   | 'can_manage_users'
   | 'can_view_analytics'
   // System & Admin permissions
-  | 'admin'
   | 'super_admin'
-  | 'can_access_admin'
+
   | 'can_manage_roles'
   | 'can_manage_permissions'
   | 'can_configure_system'
@@ -97,8 +96,8 @@ const decodeJWT = (token: string): JWTPayload | null => {
     }).join(''));
 
     return JSON.parse(jsonPayload);
-  } catch (error) {
-    console.error('Error decoding JWT:', error);
+  } catch {
+
     return null;
   }
 };
@@ -123,12 +122,9 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
     try {
       // Validate roleId before making the request
       if (!roleId || roleId === 'undefined' || roleId === 'null') {
-        console.warn('Invalid or missing roleId, skipping permissions fetch');
         return [];
       }
 
-      console.log(`Attempting to fetch permissions for role: ${roleId}`);
-      console.log(`API URL: ${API_BASE}/api/permissions/role/${roleId}`);
 
       const response = await fetch(`${API_BASE}/api/permissions/role/${roleId}`, {
         method: 'GET',
@@ -138,70 +134,44 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
         },
       });
 
-      console.log(`Response status: ${response.status}`);
-      console.log(`Response headers:`, response.headers);
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`API Error Response:`, errorText);
+
         throw new Error(`Failed to fetch permissions: ${response.status} - ${errorText}`);
       }
 
       const responseText = await response.text();
-      console.log('[PERMISSIONS] Raw API response:', responseText);
+
 
       let permissionsData: PermissionResponse[] = [];
       try {
         permissionsData = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('[PERMISSIONS] Failed to parse JSON response:', parseError);
-        console.error('[PERMISSIONS] Response text:', responseText);
+      } catch {
         throw new Error('Invalid JSON response from permissions API');
       }
 
-      console.log('[PERMISSIONS] Parsed permissions data:', permissionsData);
-      console.log(`[PERMISSIONS] Total permissions received: ${permissionsData.length}`);
-
       if (permissionsData.length === 0) {
-        console.warn(`[PERMISSIONS] WARNING: No permissions returned for role_id: ${roleId}`);
-        console.warn(`[PERMISSIONS] This could mean:`);
-        console.warn(`[PERMISSIONS] 1. The role has no permissions assigned in the database`);
-        console.warn(`[PERMISSIONS] 2. The role_id doesn't match any role in the database`);
-        console.warn(`[PERMISSIONS] 3. There's an issue with the database query`);
+
         return []; // Return empty array instead of error
       }
 
       // Map API response to your Permission type
       const mappedPermissions = permissionsData
         .map(perm => {
-          console.log(`[PERMISSIONS] Mapping permission:`, perm);
+
           // Handle both object with name property and string format
           if (typeof perm === 'string') return perm as Permission;
           if (perm && typeof perm === 'object' && 'name' in perm) {
             const permObj = perm as PermissionResponse;
             return permObj.name as Permission;
           }
-          // Also check for id field if name is not present (some schemas might use id)
-          if (perm && typeof perm === 'object' && 'id' in perm && !('name' in perm)) {
-            console.warn(`[PERMISSIONS] Permission object has id but no name:`, perm);
-            return undefined as unknown as Permission;
-          }
+
           return undefined as unknown as Permission;
         })
         .filter(perm => perm !== undefined && perm !== null);
 
-      console.log('[PERMISSIONS] Mapped permissions:', mappedPermissions);
-      console.log(`[PERMISSIONS] Total mapped permissions: ${mappedPermissions.length}`);
-      if (mappedPermissions.length > 0) {
-        console.log('[PERMISSIONS] Permission names:', mappedPermissions.join(', '));
-      } else if (permissionsData.length > 0) {
-        // Only log error if we received permissions but couldn't map them
-        console.error('[PERMISSIONS] ERROR: No permissions were successfully mapped!');
-        console.error('[PERMISSIONS] Received permissions data:', permissionsData);
-      }
       return mappedPermissions;
     } catch (error) {
-      console.error('Error fetching permissions:', error);
 
       // More specific error handling
       if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -222,29 +192,11 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
     let payload: JWTPayload | null = null;
 
     try {
-      console.log('========================================');
-      console.log('[PERMISSIONS] Initializing permissions...');
-      console.log('========================================');
-
       // Get JWT token from cookies
-      token = getCookie('token') || getCookie('jwt') || getCookie('access_token');
-      const refreshToken = getCookie('refresh_token');
-
-      // Helper to mask token
-      const maskToken = (t: string | null): string => {
-        if (!t) return 'null';
-        if (t.length <= 20) return t;
-        return `${t.substring(0, 10)}...${t.substring(t.length - 10)}`;
-      };
-
-      console.log('[PERMISSIONS] Token Information:');
-      console.log('  - Access token found:', !!token);
-      console.log('  - Access token (masked):', maskToken(token));
-      console.log('  - Refresh token found:', !!refreshToken);
-      console.log('  - Refresh token (masked):', maskToken(refreshToken));
+      token = getCookie('token') || getCookie('jwt');
 
       if (!token) {
-        console.log('No token found, setting as guest');
+
         setIsAuthenticated(false);
         setUserRole('guest');
         setRoleId(null);
@@ -254,20 +206,9 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
 
       // Decode JWT to get role_id
       payload = decodeJWT(token);
-      console.log('[PERMISSIONS] Decoded JWT Payload:');
-      console.log('  - Full payload:', payload);
-      if (payload) {
-        console.log('  - User ID:', payload.user_id || payload.sub);
-        console.log('  - Email:', payload.email);
-        console.log('  - Role:', payload.role);
-        console.log('  - Role ID:', payload.role_id);
-        console.log('  - Expires at:', payload.exp ? new Date(payload.exp * 1000).toISOString() : 'N/A');
-        console.log('  - Issued at:', payload.iat ? new Date(payload.iat * 1000).toISOString() : 'N/A');
-        console.log('  - Token expired:', payload.exp ? payload.exp * 1000 < Date.now() : 'Unknown');
-      }
 
       if (!payload) {
-        console.log('Invalid token, setting as guest');
+
         setIsAuthenticated(false);
         setUserRole('guest');
         setRoleId(null);
@@ -277,7 +218,7 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
 
       // Check if token is expired
       if (isTokenExpired(payload)) {
-        console.warn('JWT token is expired');
+
         setIsAuthenticated(false);
         setUserRole('guest');
         setRoleId(null);
@@ -291,18 +232,15 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
 
       // Determine user role based on JWT payload FIRST
       if (payload.role) {
-        const role = payload.role.toLowerCase() as UserRole;
-        setUserRole(role);
-        console.log(`[PERMISSIONS] Set user role to "${role}" from JWT payload`);
+        setUserRole(payload.role.toLowerCase() as UserRole);
       } else {
         setUserRole('user');
-        console.log('[PERMISSIONS] No role in JWT, defaulting to "user"');
+
       }
 
       // For all roles, validate role_id exists in payload
       if (!payload.role_id) {
-        console.warn('[PERMISSIONS] WARNING: No role_id found in JWT payload!');
-        console.warn('[PERMISSIONS] Existing tokens might need refresh, but user role is set to:', payload.role);
+
         setRoleId(null);
         setPermissions([]);
         setIsAuthenticated(true);
@@ -311,53 +249,23 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
       }
 
       setRoleId(payload.role_id);
-      console.log(`[PERMISSIONS] Extracted role_id from JWT: ${payload.role_id}`);
 
       // Fetch permissions from API for all users (permission-based access)
-      console.log(`[PERMISSIONS] Starting to fetch permissions for role_id: ${payload.role_id}`);
-      console.log(`[PERMISSIONS] API URL: ${API_BASE}/api/permissions/role/${payload.role_id}`);
       const fetchedPermissions = await fetchPermissions(payload.role_id, token);
-      console.log(`[PERMISSIONS] Successfully fetched ${fetchedPermissions.length} permissions`);
       setPermissions(fetchedPermissions);
 
-      // Determine user role based on permissions fetched from API
-      console.log('[PERMISSIONS] Fetched permissions:', fetchedPermissions);
-      console.log(`[PERMISSIONS] Permissions state updated with ${fetchedPermissions.length} items`);
-      if (fetchedPermissions.length > 0) {
-        console.log('[PERMISSIONS] Permission names:', fetchedPermissions.join(', '));
-      } else {
-        console.warn('[PERMISSIONS] WARNING: No permissions fetched!');
-      }
-
-      console.log('[PERMISSIONS] Final State:');
-      console.log('  - Is authenticated:', true);
-      console.log('  - User role:', payload.role?.toLowerCase() || 'user');
-      console.log('  - Role ID:', payload.role_id);
-      console.log('  - Permissions count:', fetchedPermissions.length);
-      console.log('========================================');
-      console.log('[PERMISSIONS] Permissions initialized successfully');
-      console.log('========================================');
-
     } catch (error) {
-      console.error('[PERMISSIONS] Failed to initialize permissions:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('[PERMISSIONS] Error details:', {
-        message: errorMessage,
-        error: error,
-        roleId: payload?.role_id,
-        hasToken: !!token
-      });
-      setError(errorMessage);
+      setError(error instanceof Error ? error.message : 'Unknown error occurred');
+
 
       // Fallback to guest permissions
       setIsAuthenticated(false);
       setUserRole('guest');
       setRoleId(null);
       setPermissions([]);
-      console.warn('[PERMISSIONS] Fallback to guest permissions due to error');
     } finally {
       setIsLoading(false);
-      console.log('[PERMISSIONS] Permission initialization complete. Loading:', false);
+
     }
   }, []);
 
@@ -396,60 +304,36 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
     ];
 
     // If user has all critical permissions, consider them as having full access
-    const hasAllCritical = criticalPermissions.every(perm => permissions.includes(perm));
-    if (hasAllCritical) {
-      console.log('[PERMISSIONS] Full access granted: User has all critical permissions');
-    }
-    return hasAllCritical;
+    return criticalPermissions.every(perm => permissions.includes(perm));
+
   };
 
   // Helper functions
   const hasPermission = (permission: Permission): boolean => {
     // Full access bypass: If user has all critical permissions, grant access to everything
     if (hasFullAccess()) {
-      console.log(`[PERMISSIONS] Full access granted for: ${permission}`);
       return true;
     }
+    return permissions.includes(permission);
 
-    const hasPerm = permissions.includes(permission);
-    console.log(`[PERMISSIONS] Checking permission "${permission}": ${hasPerm} (Available: ${permissions.length} permissions)`);
-    return hasPerm;
   };
 
   const hasAnyPermission = (requiredPermissions: Permission[]): boolean => {
     // Full access bypass: If user has all critical permissions, grant access to everything
     if (hasFullAccess()) {
-      console.log('[PERMISSIONS] Full access user: granting access to permissions:', requiredPermissions);
       return true;
     }
+    return requiredPermissions.some(permission => permissions.includes(permission));
 
-    const hasPerm = requiredPermissions.some(permission => permissions.includes(permission));
-    console.log('[PERMISSIONS] hasAnyPermission check:', {
-      userRole,
-      requiredPermissions,
-      userPermissions: permissions,
-      userPermissionCount: permissions.length,
-      hasPermission: hasPerm
-    });
-    return hasPerm;
   };
 
   const hasAllPermissions = (requiredPermissions: Permission[]): boolean => {
     // Full access bypass: If user has all critical permissions, grant access to everything
     if (hasFullAccess()) {
-      console.log('[PERMISSIONS] Full access user: granting all permissions:', requiredPermissions);
       return true;
     }
+    return requiredPermissions.every(permission => permissions.includes(permission));
 
-    const hasAll = requiredPermissions.every(permission => permissions.includes(permission));
-    const missing = requiredPermissions.filter(perm => !permissions.includes(perm));
-    console.log('[PERMISSIONS] hasAllPermissions check:', {
-      requiredPermissions,
-      userPermissions: permissions,
-      hasAll,
-      missingPermissions: missing.length > 0 ? missing : 'none'
-    });
-    return hasAll;
   };
 
   const setUserPermissions = (newPermissions: Permission[]) => {
@@ -575,9 +459,6 @@ export function ExampleUsage() {
         <button>Create Item Types</button>
       )}
 
-      {hasPermission('admin') && (
-        <button>Admin Panel</button>
-      )}
     </div>
   );
 }

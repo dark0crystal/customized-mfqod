@@ -32,7 +32,8 @@ const SliderBar = ({ onFilterChange, initialItemTypeId }: SliderBarProps) => {
   const getTokenFromCookies = (): string | null => {
     if (typeof document !== "undefined") {
       return (
-        getCookie("token") || getCookie("jwt") || getCookie("access_token")
+        getCookie("token") || getCookie("jwt")
+
       );
     }
     return null;

@@ -5,7 +5,8 @@ import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
+import { Link } from "@/i18n/navigation"
+
 import { useTranslations } from "next-intl"
 import { useAuth } from "@/hooks/useAuth"
 
@@ -65,7 +66,13 @@ export default function Login() {
       }, 500)
       
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("loginFailed"))
+      const msg = err instanceof Error ? err.message : t("loginFailed")
+      setError(
+        msg.toLowerCase().includes("invalid credentials")
+          ? t("invalidCredentials")
+          : msg
+      )
+
       console.error("Error during login:", err)
     } finally {
       setIsLoading(false)
@@ -94,12 +101,8 @@ export default function Login() {
           <input
             type="text"
             {...register("identifier")}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3277AE]"
             placeholder={t("usernameOrEmailPlaceholder")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
-            style={{ 
-              '--tw-ring-color': '#3277AE',
-              '--tw-ring-offset-color': '#3277AE'
-            } as React.CSSProperties & { [key: string]: string }}
             disabled={isLoading}
           />
           {errors.identifier && (
@@ -109,15 +112,26 @@ export default function Login() {
 
         <div>
           <label className="block text-lg font-semibold text-gray-700 mb-2">{t("password")}</label>
+          <div className="mt-2 text-end">
+            <Link
+              href="/auth/forgot-password"
+              className="text-sm font-medium transition-colors"
+              style={{ color: '#3277AE' }}
+              onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                e.currentTarget.style.color = '#2a5f94';
+              }}
+              onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                e.currentTarget.style.color = '#3277AE';
+              }}
+            >
+              {t("forgotPassword")}
+            </Link>
+          </div>
           <input
             type="password"
             {...register("password")}
+            className="mt-2 w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3277AE]"
             placeholder={t("passwordPlaceholder")}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-colors"
-            style={{ 
-              '--tw-ring-color': '#3277AE',
-              '--tw-ring-offset-color': '#3277AE'
-            } as React.CSSProperties & { [key: string]: string }}
             disabled={isLoading}
           />
           {errors.password && (
@@ -125,21 +139,18 @@ export default function Login() {
           )}
         </div>
 
-        <div className="text-center">
+        <div>
           <button
             type="submit"
             disabled={isLoading}
             className="w-full p-3 text-white font-semibold rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            style={{ 
-              backgroundColor: '#3277AE',
-              '--tw-ring-color': '#3277AE'
-            } as React.CSSProperties & { [key: string]: string }}
-            onMouseEnter={(e) => {
+            style={{ backgroundColor: '#3277AE' }}
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
               if (!isLoading) {
                 e.currentTarget.style.backgroundColor = '#2a5f94';
               }
             }}
-            onMouseLeave={(e) => {
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
               if (!isLoading) {
                 e.currentTarget.style.backgroundColor = '#3277AE';
               }
@@ -168,19 +179,18 @@ export default function Login() {
             href="/auth/register" 
             className="font-medium transition-colors"
             style={{ color: '#3277AE' }}
-            onMouseEnter={(e) => {
+            onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
               e.currentTarget.style.color = '#2a5f94';
             }}
-            onMouseLeave={(e) => {
+            onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
+
               e.currentTarget.style.color = '#3277AE';
             }}
           >
             {t("signUp")}
           </Link>
         </p>
-        <p className="text-xs text-gray-500 mt-2">
-          {t("externalUsersOnly")}
-        </p>
+
       </div>
     </div>
   )

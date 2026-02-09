@@ -34,7 +34,8 @@ from app.models import (
     UserSession,
     ADSyncLog,
     RateLimitLog,
-    EmailVerification
+    EmailVerification,
+    PasswordResetToken
 )
 #  ========================
 

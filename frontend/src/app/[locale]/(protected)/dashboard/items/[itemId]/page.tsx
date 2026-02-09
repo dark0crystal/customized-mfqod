@@ -207,69 +207,65 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
   const [showDisposeModal, setShowDisposeModal] = useState(false);
   const [disposalNote, setDisposalNote] = useState<string>('');
   const [disposalImages, setDisposalImages] = useState<File[]>([]);
+  const disposalImageUrls = useMemo(() => disposalImages.map((f) => URL.createObjectURL(f)), [disposalImages]);
+  useEffect(() => () => disposalImageUrls.forEach((u) => URL.revokeObjectURL(u)), [disposalImageUrls]);
   const [disposalError, setDisposalError] = useState<string | null>(null);
   const [isDisposing, setIsDisposing] = useState(false);
   const [isTourOpen, setIsTourOpen] = useState(false);
-  
-  // Create object URLs for image previews
-  const disposalImageUrls = useMemo(() => {
-    return disposalImages.map(file => URL.createObjectURL(file));
-  }, [disposalImages]);
-  
-  // Cleanup object URLs on unmount or when images change
-  useEffect(() => {
-    return () => {
-      disposalImageUrls.forEach(url => URL.revokeObjectURL(url));
-    };
-  }, [disposalImageUrls]);
-
-  // Helper to get localized name
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
     if (locale === 'ar' && nameAr) return nameAr;
     if (locale === 'en' && nameEn) return nameEn;
     return nameAr || nameEn || '';
   };
-
-  useEffect(() => {
-    const fetchData = async () => {
+  const fetchItemData = React.useCallback(async (options?: { background?: boolean }) => {
+    if (!resolvedParams?.itemId) {
+      setError("Invalid item ID");
+      setLoading(false);
+      return;
+    }
+    if (!options?.background) {
       setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
-          headers: getAuthHeaders()
-        });
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.detail || `Failed to fetch item details: ${response.status}`);
-        }
-        const data = await response.json();
-        if (!data || !data.id) {
-          throw new Error("Invalid item data received");
-        }
-        setItem(data);
-        // Set status from data.status or fallback to approved/pending based on approval
-        const initialStatus = data.status || (data.approval ? 'approved' : 'pending');
-        setStatus(initialStatus);
-        // Set previousStatus to match the current status so status change detection works correctly
-        setPreviousStatus(initialStatus);
-        // Set image visibility from is_hidden
-        setImageVisibility(data.is_hidden ? 'hide' : 'show');
-      } catch (err) {
-        console.error('Error fetching item:', err);
-        setError(err instanceof Error ? err.message : "Error fetching item details.");
-        setItem(null);
-      } finally {
+    }
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
+        headers: getAuthHeaders()
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Failed to fetch item details: ${response.status}`);
+      }
+      const data = await response.json();
+      if (!data || !data.id) {
+        throw new Error("Invalid item data received");
+      }
+      setItem(data);
+      const initialStatus = data.status || (data.approval ? 'approved' : 'pending');
+      setStatus(initialStatus);
+      setPreviousStatus(initialStatus);
+      setImageVisibility(data.is_hidden ? 'hide' : 'show');
+    } catch (err) {
+      console.error('Error fetching item:', err);
+      setError(err instanceof Error ? err.message : "Error fetching item details.");
+      setItem(null);
+    } finally {
+      if (!options?.background) {
         setLoading(false);
       }
-    };
+    }
+  }, [resolvedParams.itemId]);
 
+  useEffect(() => {
     if (resolvedParams?.itemId) {
-      fetchData();
+      fetchItemData();
+
     } else {
       setError("Invalid item ID");
       setLoading(false);
     }
-  }, [resolvedParams.itemId]);
+  }, [resolvedParams.itemId, fetchItemData]);
+
 
   // Fetch branches for transfer when modal opens
   useEffect(() => {
@@ -461,64 +457,19 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
             setStatus(updatedData.status || status);
             setPreviousStatus(updatedData.status || status);
             setPendingStatusChange(null);
-          } else {
-            const errorData = await response.json();
-            alert(errorData.detail || t('updateStatusError') || 'Failed to update status');
+            fetchItemData({ background: true });
+            setRefreshTrigger(prev => prev + 1);
           }
         } catch (err) {
-          console.error('Error updating status:', err);
-          alert(t('updateStatusError') || 'Failed to update status');
+          setDisposalError(err instanceof Error ? err.message : t('disposeItemFailed') || 'Failed to dispose item');
         } finally {
           setIsUpdating(false);
         }
-        return;
       }
-    }
-    
-    // If trying to change from pending to approved without a claim, handle it
-    if (previousStatus === 'pending' && status === 'approved' && !item.approved_claim_id) {
-      // This should have been handled by handleStatusChange, but as a safety check
-      if (!selectedClaimId && !showClaimModal) {
-        await handleStatusChange(status);
-        return;
-      }
-      // If no selected claim and no modal, prevent the change
-      if (!selectedClaimId && !showClaimModal) {
-        alert(t('noClaimForApproved') || 'Cannot approve this item. Please select a claim first.');
-        return;
-      }
-    }
-    
-    // If trying to change to approved, ensure approved_claim_id exists
-    if (status === 'approved' && !item.approved_claim_id && !selectedClaimId) {
-      alert(t('noClaimForApproved') || 'Cannot approve this item. Please select a claim first.');
-      return;
-    }
-    
-    setIsUpdating(true);
-    try {
-      // If we have a selected claim and changing to approved, use PATCH endpoint with approved_claim_id
-      if (status === 'approved' && selectedClaimId) {
-        const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
-          method: 'PATCH',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            status: 'approved',
-            approved_claim_id: selectedClaimId
-          }),
-        });
-
-        if (response.ok) {
-          const updatedData = await response.json();
-          setItem(updatedData);
-          setStatus(updatedData.status || status);
-          setPreviousStatus(updatedData.status || status);
-          setShowClaimModal(false);
-          setSelectedClaimId('');
-          setPendingStatusChange(null);
-        }
-      } else {
-        // Use the status endpoint to update status
+    } else {
+      // Use the status endpoint to update status (normal flow when not coming from disposed)
+      setIsUpdating(true);
+      try {
         const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}/status?new_status=${status}`, {
           method: 'PATCH',
           headers: getAuthHeaders(),
@@ -529,70 +480,23 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
           setItem(updatedData);
           setStatus(updatedData.status || status);
           setPreviousStatus(updatedData.status || status);
+          fetchItemData({ background: true });
+          setRefreshTrigger(prev => prev + 1);
+          // Show success message
+          alert(t('disposeItemSuccess') || 'Item has been disposed successfully');
         }
+      } catch (err) {
+        setDisposalError(err instanceof Error ? err.message : t('disposeItemFailed') || 'Failed to dispose item');
+      } finally {
+        setIsUpdating(false);
       }
-    } catch (err) {
-      console.error('Error updating status:', err);
-    } finally {
-      setIsUpdating(false);
     }
   };
 
-  const handleDisposeSubmit = async () => {
-    if (!item) return;
-    
-    // Validate disposal note
-    if (!disposalNote.trim()) {
-      setDisposalError(t('disposalNoteRequired') || 'Disposal note is required');
-      return;
-    }
-    
-    setIsDisposing(true);
-    setDisposalError(null);
-    
-    try {
-      // Upload images first if any
-      if (disposalImages.length > 0) {
-        for (const file of disposalImages) {
-          try {
-            await imageUploadService.uploadImageToItem(resolvedParams.itemId, file);
-          } catch (err) {
-            console.error('Error uploading disposal image:', err);
-            // Continue even if image upload fails
-          }
-        }
-      }
-      
-      // Call disposal endpoint
-      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}/dispose`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          disposal_note: disposalNote
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || t('disposeItemFailed') || 'Failed to dispose item');
-      }
-      
-      const updatedData = await response.json();
-      setItem(updatedData);
-      setStatus('disposed');
-      setPreviousStatus('disposed');
-      setPendingStatusChange(null);
-      setShowDisposeModal(false);
-      setDisposalNote('');
-      setDisposalImages([]);
-      
-      // Show success message
-      alert(t('disposeItemSuccess') || 'Item has been disposed successfully');
-    } catch (err) {
-      setDisposalError(err instanceof Error ? err.message : t('disposeItemFailed') || 'Failed to dispose item');
-    } finally {
-      setIsDisposing(false);
-    }
+  const handleCancelClaimSelection = () => {
+    setShowClaimModal(false);
+    setSelectedClaimId('');
+    setPendingStatusChange(null);
   };
 
   const handleClaimSelection = async () => {
@@ -637,48 +541,9 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
         setPreviousStatus(targetStatus);
         setSelectedClaimId('');
         setPendingStatusChange(null);
-      } else {
-        const errorData = await response.json();
-        alert(errorData.detail || t('updateStatusError') || 'Failed to update status');
-      }
-    } catch (err) {
-      console.error('Error updating status:', err);
-      alert(t('updateStatusError') || 'Failed to update status');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
+        fetchItemData({ background: true });
+        setRefreshTrigger(prev => prev + 1);
 
-  const handleCancelClaimSelection = () => {
-    // Revert status to previous (status was never actually changed)
-    // Get the original status from item or previousStatus
-    const originalStatus = item?.status || previousStatus;
-    setStatus(originalStatus);
-    setShowClaimModal(false);
-    setPendingStatusChange(null);
-    setSelectedClaimId('');
-  };
-
-  const handlePendingDisclaimerConfirm = async () => {
-    // Proceed with status change to pending and clear approved_claim_id
-    setShowPendingDisclaimer(false);
-    setIsUpdating(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
-        method: 'PATCH',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          status: 'pending',
-          approved_claim_id: null
-        }),
-      });
-
-      if (response.ok) {
-        const updatedData = await response.json();
-        setItem(updatedData);
-        setStatus('pending');
-        setPreviousStatus('pending');
-        setPendingStatusChange(null);
       } else {
         const errorData = await response.json();
         alert(errorData.detail || t('updateStatusError') || 'Failed to update status');
@@ -702,6 +567,73 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
     setPendingStatusChange(null);
   };
 
+  const handlePendingDisclaimerConfirm = async () => {
+    if (!item || !pendingStatusChange) return;
+    setIsUpdating(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          status: pendingStatusChange,
+          approved_claim_id: null,
+        }),
+      });
+      if (response.ok) {
+        const updatedData = await response.json();
+        setItem(updatedData);
+        setStatus(pendingStatusChange);
+        setPreviousStatus(pendingStatusChange);
+        setShowPendingDisclaimer(false);
+        setPendingStatusChange(null);
+        fetchItemData({ background: true });
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        const errorData = await response.json();
+        alert(errorData.detail || t('updateStatusError') || 'Failed to update status');
+        setStatus(previousStatus);
+      }
+    } catch (err) {
+      console.error('Error updating status:', err);
+      alert(t('updateStatusError') || 'Failed to update status');
+      setStatus(previousStatus);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDisposeSubmit = async () => {
+    if (!item || !disposalNote.trim()) return;
+    setIsDisposing(true);
+    setDisposalError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/items/${resolvedParams.itemId}/dispose`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ disposal_note: disposalNote.trim() }),
+      });
+      if (response.ok) {
+        const updatedData = await response.json();
+        setItem(updatedData);
+        setStatus('disposed');
+        setPreviousStatus('disposed');
+        setShowDisposeModal(false);
+        setPendingStatusChange(null);
+        setDisposalNote('');
+        setDisposalImages([]);
+        fetchItemData({ background: true });
+        setRefreshTrigger((prev) => prev + 1);
+        alert(t('disposeItemSuccess') || 'Item has been disposed successfully');
+      } else {
+        const errorData = await response.json();
+        setDisposalError(errorData.detail || t('disposeItemFailed') || 'Failed to dispose item');
+      }
+    } catch (err) {
+      setDisposalError(err instanceof Error ? err.message : t('disposeItemFailed') || 'Failed to dispose item');
+    } finally {
+      setIsDisposing(false);
+    }
+  };
 
   const handleTransferRequest = async () => {
     if (!item || !selectedTransferBranch) return;
@@ -1375,7 +1307,8 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
             {/* Claims Section */}
             <div className="bg-white rounded-lg shadow-sm p-6" data-tour="claims-section">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('claims')}</h2>
-              <Claims postId={resolvedParams.itemId} />
+              <Claims key={refreshTrigger} postId={resolvedParams.itemId} />
+
             </div>
           </div>
 
@@ -1671,7 +1604,8 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
 
                   {loadingClaims ? (
                     <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: '#3277AE' }}></div>
+
                       <span className="ml-3 text-gray-600">{t('loadingClaims') || 'Loading claims...'}</span>
                     </div>
                   ) : claims.length === 0 ? (
@@ -1686,9 +1620,11 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                           key={claim.id}
                           className={`block border-2 rounded-lg cursor-pointer transition-all ${
                             selectedClaimId === claim.id
-                              ? 'border-blue-500 bg-blue-50'
+                              ? ''
                               : 'border-gray-200 hover:border-gray-300 bg-white'
                           }`}
+                          style={selectedClaimId === claim.id ? { borderColor: '#3277AE', backgroundColor: 'rgba(50, 119, 174, 0.1)' } : undefined}
+
                         >
                           <div className="p-4">
                             <div className="flex items-start gap-3">
@@ -1750,7 +1686,9 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                                     e.stopPropagation();
                                     router.push(`/dashboard/claims/${claim.id}`);
                                   }}
-                                  className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                                  className="mt-2 text-xs font-medium flex items-center gap-1"
+                                  style={{ color: '#3277AE' }}
+
                                 >
                                   <ArrowRight className="w-3 h-3" />
                                   {t('viewDetails') || 'View Details'}
@@ -1773,7 +1711,11 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                     <button
                       onClick={handleClaimSelection}
                       disabled={!selectedClaimId || claims.length === 0}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      className="px-4 py-2 text-white rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      style={!selectedClaimId || claims.length === 0 ? undefined : { backgroundColor: '#3277AE' }}
+                      onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.backgroundColor = '#2a5f94'; }}
+                      onMouseLeave={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.backgroundColor = '#3277AE'; }}
+
                     >
                       {t('confirm') || 'Confirm'}
                     </button>
@@ -1833,20 +1775,25 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                     <div className={`border rounded-lg p-3 ${
                       pendingImageVisibility === 'hide' 
                         ? 'bg-orange-50 border-orange-200' 
-                        : 'bg-blue-50 border-blue-200'
-                    }`}>
+                        : ''
+                    }`}
+                    style={pendingImageVisibility === 'show' ? { backgroundColor: 'rgba(50, 119, 174, 0.1)', borderColor: '#3277AE' } : undefined}>
                       <p className={`text-sm font-medium mb-1 ${
                         pendingImageVisibility === 'hide' 
                           ? 'text-orange-800' 
-                          : 'text-blue-800'
-                      }`}>
+                          : ''
+                      }`}
+                      style={pendingImageVisibility === 'show' ? { color: '#3277AE' } : undefined}>
+
                         {pendingImageVisibility === 'hide' ? tEdit('hide') : tEdit('show')}
                       </p>
                       <p className={`text-xs ${
                         pendingImageVisibility === 'hide' 
                           ? 'text-orange-700' 
-                          : 'text-blue-700'
-                      }`}>
+                          : ''
+                      }`}
+                      style={pendingImageVisibility === 'show' ? { color: '#2a5f94' } : undefined}>
+
                         {pendingImageVisibility === 'hide' 
                           ? tEdit('imageVisibilityHideDescription')
                           : tEdit('imageVisibilityShowDescription')
@@ -1896,7 +1843,11 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                         }
                       }}
                       disabled={isUpdatingVisibility}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      className="flex-1 px-4 py-2 text-white rounded-lg transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      style={!isUpdatingVisibility ? { backgroundColor: '#3277AE' } : undefined}
+                      onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.backgroundColor = '#2a5f94'; }}
+                      onMouseLeave={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.backgroundColor = '#3277AE'; }}
+
                     >
                       {isUpdatingVisibility ? (tEdit('updating') || 'Updating...') : tEdit('saveChanges')}
                     </button>

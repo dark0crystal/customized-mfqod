@@ -49,6 +49,10 @@ class AuthConfig:
     # External User Registration
     ALLOW_EXTERNAL_REGISTRATION: bool = os.getenv("ALLOW_EXTERNAL_REGISTRATION", "true").lower() == "true"
     REQUIRE_EMAIL_VERIFICATION: bool = os.getenv("REQUIRE_EMAIL_VERIFICATION", "true").lower() == "true"
+
+    # Password Reset
+    FRONTEND_BASE_URL: str = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+    PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
     
     # Security Headers
     ENABLE_CORS: bool = True

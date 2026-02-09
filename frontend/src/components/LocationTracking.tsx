@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { formatDateOnly } from '@/utils/dateFormatter';
+import { formatDate } from '@/utils/dateFormatter';
+
 
 interface Organization {
   id: string;
@@ -22,8 +23,9 @@ interface Address {
   is_current: boolean;
   branch?: Branch;
   full_location?: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
+
 }
 
 interface LocationTrackingProps {
@@ -47,8 +49,11 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
     if (a.is_current && !b.is_current) return -1;
     if (!a.is_current && b.is_current) return 1;
 
-    // Then by creation date (newest first)
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    // Then by creation date (newest first), fallback to updated_at if created_at missing
+    const aTime = new Date(a.created_at || a.updated_at || 0).getTime();
+    const bTime = new Date(b.created_at || b.updated_at || 0).getTime();
+    return bTime - aTime;
+
   });
 
   if (!addresses || addresses.length === 0) {
@@ -105,9 +110,18 @@ export default function LocationTracking({ addresses }: LocationTrackingProps) {
                   </span>
                 </div>
 
-                {/* Date */}
+                {/* Date and time - use created_at, fallback to updated_at if missing */}
                 <span className="text-xs text-gray-500">
-                  {formatDateOnly(address.created_at)}
+                  {(address.created_at || address.updated_at)
+                    ? formatDate(address.created_at || address.updated_at, locale === 'ar' ? 'ar-SA' : 'en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                    : (t('dateNotAvailable') || '—')}
+
                 </span>
               </div>
 

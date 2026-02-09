@@ -399,132 +399,8 @@ The frontend automatically refreshes tokens:
 | `/api/auth/me` | GET | Get current user info | Yes |
 | `/api/auth/me` | PUT | Update user profile | Yes |
 | `/api/auth/change-password` | POST | Change password (external users only) | Yes |
-| `/api/auth/sessions` | GET | Get user sessions | Yes |
-| `/api/auth/sessions/{id}` | DELETE | Revoke session | Yes |
+- **Password Management:** Through Active Directory (or organization portal)
 
-### Admin Endpoints
-
-| Endpoint | Method | Description | Auth Required |
-|----------|--------|-------------|---------------|
-| `/api/auth/admin/users` | GET | Get all users | Yes (Admin) |
-| `/api/auth/admin/login-attempts` | GET | Get login attempts | Yes (Admin) |
-| `/api/auth/admin/sync-ad` | POST | Trigger AD sync | Yes (Admin) |
-| `/api/auth/admin/ad-sync-logs` | GET | Get AD sync logs | Yes (Admin) |
-| `/api/auth/admin/health` | GET | System health check | Yes (Admin) |
-| `/api/auth/admin/diagnose-ad` | POST | AD diagnostic tool | Yes (Admin) |
-| `/api/auth/admin/users/{id}/toggle-active` | PUT | Toggle user active status | Yes (Admin) |
-
-**Location:** `backend/app/routes/comprehensive_auth_routes.py`
-
-## Frontend Integration
-
-### Token Storage
-
-**Storage Method:** HTTP-only cookies (via `cookieUtils`)
-
-**Tokens Stored:**
-- `access_token`: JWT access token (1 day expiration)
-- `refresh_token`: Refresh token (7 days expiration)
-- `user`: User information JSON (7 days expiration)
-
-**Implementation:** `frontend/src/utils/tokenManager.ts` - `TokenManager` class
-
-### Authentication Flow
-
-1. **Login:** User submits credentials → `tokenManager.login()`
-2. **Token Storage:** Tokens stored in cookies
-3. **API Requests:** Access token automatically included in `Authorization` header
-4. **Token Refresh:** Automatic refresh before expiration
-5. **Logout:** Tokens cleared from cookies
-
-### API Request Authentication
-
-**Automatic Token Injection:**
-- `tokenManager.makeAuthenticatedRequest()` automatically adds `Authorization` header
-- Handles token refresh on 401 errors
-- Retries request with new token
-
-**Implementation:** `frontend/src/utils/tokenManager.ts` - `makeAuthenticatedRequest()` method
-
-### Protected Routes
-
-**Middleware:** `frontend/src/middleware.ts`
-- Checks authentication status
-- Redirects to login if not authenticated
-- Handles token refresh
-
-**Protected Route Pattern:** `[locale]/(protected)/**`
-
-## Configuration
-
-### Authentication Configuration
-
-**File:** `backend/app/config/auth_config.py` - `AuthConfig` class
-
-**Key Settings:**
-- `SECRET_KEY`: JWT signing key
-- `JWT_ALGORITHM`: Token algorithm (HS256)
-- `ACCESS_TOKEN_EXPIRE_MINUTES`: Access token lifetime (480 minutes / 8 hours)
-- `REFRESH_TOKEN_EXPIRE_DAYS`: Refresh token lifetime (7 days)
-- `MAX_LOGIN_ATTEMPTS`: Failed attempts before lockout (5)
-- `LOCKOUT_DURATION_MINUTES`: Base lockout duration (30 minutes)
-- `LOGIN_RATE_LIMIT_PER_MINUTE`: Rate limit (5 per minute)
-- `MAX_SESSIONS_PER_USER`: Maximum active sessions (3)
-- `PASSWORD_MIN_LENGTH`: Minimum password length (8)
-- `BCRYPT_ROUNDS`: Password hashing rounds (12)
-
-### Active Directory Configuration
-
-**File:** `backend/app/config/auth_config.py` - `ADConfig` class
-
-**Key Settings:**
-- `SERVER`: LDAP server address
-- `PORT`: LDAP port (636 for LDAPS)
-- `USE_SSL`: Enable SSL
-- `BASE_DN`: Base distinguished name
-- `USER_DN`: User organizational unit
-- `BIND_USER`: Service account DN
-- `BIND_PASSWORD`: Service account password
-- `USER_SEARCH_FILTER`: LDAP search filter
-
-## Related Files
-
-### Backend
-
-- **Routes:** `backend/app/routes/comprehensive_auth_routes.py`
-- **Service:** `backend/app/services/auth_service.py`
-- **AD Service:** `backend/app/services/enhanced_ad_service.py`
-- **Middleware:** `backend/app/middleware/auth_middleware.py`
-- **Config:** `backend/app/config/auth_config.py`
-- **Models:** `backend/app/models.py` (User, UserSession, LoginAttempt)
-- **Schemas:** `backend/app/schemas/auth_schemas.py`
-
-### Frontend
-
-- **Token Manager:** `frontend/src/utils/tokenManager.ts`
-- **API Utils:** `frontend/src/utils/api.ts`
-- **Auth Hook:** `frontend/src/hooks/useAuth.ts`
-- **Middleware:** `frontend/src/middleware.ts`
-- **Login Page:** `frontend/src/app/[locale]/(main)/auth/login/page.tsx`
-- **Register Page:** `frontend/src/app/[locale]/(main)/auth/register/page.tsx`
-
-## Token Lifecycle
-
-1. **Login:** User authenticates → Access token + Refresh token generated
-2. **API Requests:** Access token used in Authorization header
-3. **Token Expiration:** Access token expires after 8 hours
-4. **Token Refresh:** Refresh token used to get new access token
-5. **Session Expiration:** Refresh token expires after 7 days
-6. **Logout:** Refresh token invalidated, access token remains valid until expiration
-7. **Re-login Required:** User must login again after refresh token expiration
-
-## User Types
-
-### Internal Users
-
-- **Authentication:** Active Directory (LDAP)
-- **Account Creation:** Automatic on first login
-- **Password Management:** Through Active Directory
 - **User Type Value:** `"internal"`
 - **Data Sync:** Synced from AD on each login
 
@@ -570,4 +446,10 @@ Users have permissions based on their role:
 - **Token expired:** 401 with "Token has expired" message
 - **Rate limit exceeded:** 429 with "Too many login attempts" message
 - **Email not verified:** 400 with "Email address must be verified" message
+
+---
+
+## Related Documentation
+
+- **Password reset:** `docs/password-reset.md` - Forgot password flow, reset link, external users only
 

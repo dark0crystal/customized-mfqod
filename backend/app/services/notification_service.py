@@ -322,7 +322,7 @@ class EmailNotificationService:
             NotificationType.ITEM_CLAIMED: "Item Claim Notification",
             NotificationType.ACCOUNT_ACTIVATION: "Account Activation Required",
             NotificationType.PASSWORD_RESET: "Password Reset Request",
-            NotificationType.ITEM_APPROVAL: "Item Listing Approved",
+NotificationType.ITEM_APPROVAL: "Item Delivered",
             NotificationType.ITEM_REJECTION: "Item Listing Requires Review",
             NotificationType.SYSTEM_ALERT: "System Alert Notification",
             NotificationType.REMINDER: "Reminder Notification",
@@ -384,7 +384,7 @@ class EmailNotificationService:
             NotificationType.ITEM_CLAIMED: "An item has been claimed from our system.",
             NotificationType.ACCOUNT_ACTIVATION: "Please activate your account to continue.",
             NotificationType.PASSWORD_RESET: "You have requested a password reset.",
-            NotificationType.ITEM_APPROVAL: "Your item listing has been approved and is now visible.",
+NotificationType.ITEM_APPROVAL: "Your item has been successfully delivered.",
             NotificationType.ITEM_REJECTION: "Your item listing requires additional review.",
             NotificationType.SYSTEM_ALERT: "This is a system notification.",
             NotificationType.REMINDER: "This is a reminder notification.",
@@ -519,7 +519,7 @@ async def send_item_approval_notification(user_email: str, user_name: str, item_
     template_data = {
         "user_name": user_name,
         "item_title": item_title,
-        "admin_message": admin_message or "Your item has been approved."
+"admin_message": admin_message or ""
     }
     
     return await notification_service.send_templated_email(

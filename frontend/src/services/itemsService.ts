@@ -10,7 +10,8 @@ const getTokenFromCookies = (): string | null => {
   const cookies = document.cookie.split(";");
   for (const cookie of cookies) {
     const [name, value] = cookie.trim().split("=");
-    if (name === "access_token" || name === "token") {
+    if (name === "token") {
+
       return decodeURIComponent(value);
     }
   }

@@ -28,8 +28,6 @@ export const PERMISSIONS = {
   VIEW_ANALYTICS: 'can_view_analytics',
   
   // System & Admin
-  ADMIN: 'admin',
-  ADMIN_PANEL: 'can_access_admin',
   SYSTEM_CONFIG: 'can_configure_system',
   VIEW_SYSTEM_LOGS: 'can_view_system_logs',
   MANAGE_ROLES: 'can_manage_roles',

@@ -28,10 +28,6 @@ import { Link } from '@/i18n/navigation';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
-import { usePendingItemsCount } from '@/hooks/usePendingItemsCount';
-import { usePendingMissingItemsCount } from '@/hooks/usePendingMissingItemsCount';
-import { usePendingTransferRequestsCount } from '@/hooks/usePendingTransferRequestsCount';
-import { tokenManager } from '@/utils/tokenManager';
 
 // Helper to get user from cookies
 interface SidebarUser {
@@ -83,9 +79,20 @@ interface SideNavbarProps {
   className?: string;
   onClose?: () => void;
   showCollapseToggle?: boolean;
+  pendingItemsCount?: number;
+  pendingMissingItemsCount?: number;
+  pendingTransferRequestsCount?: number;
 }
 
-export default function SideNavbar({ className = '', onClose, showCollapseToggle = true }: SideNavbarProps) {
+export default function SideNavbar({
+  className = '',
+  onClose,
+  showCollapseToggle = true,
+  pendingItemsCount = 0,
+  pendingMissingItemsCount = 0,
+  pendingTransferRequestsCount = 0,
+}: SideNavbarProps) {
+
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [loadingLinks, setLoadingLinks] = useState<Set<string>>(new Set());
@@ -95,18 +102,7 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations('dashboard.sideNavbar');
-  const { count: pendingItemsCount } = usePendingItemsCount();
-  const { count: pendingMissingItemsCount } = usePendingMissingItemsCount();
-  const { count: pendingTransferRequestsCount } = usePendingTransferRequestsCount();
-  
-  // Log badge counts for debugging
-  useEffect(() => {
-    console.log('🏷️ [Pending Items Badge] Current badge counts:', {
-      pendingItemsCount,
-      pendingMissingItemsCount,
-      pendingTransferRequestsCount
-    });
-  }, [pendingItemsCount, pendingMissingItemsCount, pendingTransferRequestsCount]);
+
   
   const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
 
@@ -120,7 +116,8 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
           const cookies = document.cookie.split(';');
           for (const cookie of cookies) {
             const [name, value] = cookie.trim().split('=');
-            if (name === 'token' || name === 'access_token' || name === 'auth_token') {
+            if (name === 'token') {
+
               return decodeURIComponent(value);
             }
           }
@@ -353,111 +350,30 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
 
   // Check if user can access a nav item
   const canAccessItem = (item: NavItem): boolean => {
-    // Log sidebar permission checks
-    console.log(`[SIDEBAR] Checking access for "${item.id}" (${item.label})`);
-    
     if (permissionsLoading) {
-      console.log(`[SIDEBAR] Permissions still loading, denying access to ${item.id}`);
+
       return false;
     }
 
     if (!isAuthenticated && item.href !== '/auth/login') {
-      console.log(`[SIDEBAR] Access denied: not authenticated for ${item.id}`);
+
       return false;
     }
 
     // Check permission requirements
     if (item.requiredPermissions && item.requiredPermissions.length > 0) {
-      // Use hasAllPermissions if requireAllPermissions is true, otherwise use hasAnyPermission
       const hasPermission = item.requireAllPermissions 
         ? hasAllPermissions(item.requiredPermissions)
         : hasAnyPermission(item.requiredPermissions);
-      console.log(`[SIDEBAR] Permission check for "${item.id}":`, {
-        required: item.requiredPermissions,
-        requireAll: item.requireAllPermissions || false,
-        hasPermission,
-        userPermissions: permissions,
-        userPermissionCount: permissions.length
-      });
       if (!hasPermission) {
-        const permissionType = item.requireAllPermissions ? 'ALL' : 'ANY';
-        console.log(`[SIDEBAR] Access denied: missing permissions for ${item.id}. Required (${permissionType}): ${item.requiredPermissions.join(', ')}`);
+
         return false;
       }
     }
 
-    console.log(`[SIDEBAR] Access granted for "${item.id}"`);
     return true;
   };
 
-  // Log comprehensive permission status when permissions or navigation items change
-  useEffect(() => {
-    console.log('[SIDEBAR] Permission Status Update:');
-    console.log('  - Permissions loading:', permissionsLoading);
-    console.log('  - Is authenticated:', isAuthenticated);
-    console.log('  - User role:', userRole);
-    console.log('  - Role ID:', roleId);
-    console.log('  - Permissions count:', permissions.length);
-    console.log('  - Permissions:', permissions);
-    if (permissions.length > 0) {
-      console.log('  - Permission names:', permissions.join(', '));
-    }
-    
-    // Log user info from cookies
-    const userFromCookies = getUserFromCookies();
-    if (userFromCookies) {
-      console.log('[SIDEBAR] User from cookies:', {
-        id: userFromCookies.id,
-        email: userFromCookies.email,
-        role: userFromCookies.role,
-        role_id: userFromCookies.role_id
-      });
-    }
-    
-    // Log token info
-    const accessToken = tokenManager.getAccessToken();
-    const refreshToken = tokenManager.getRefreshToken();
-    const maskToken = (t: string | null): string => {
-      if (!t) return 'null';
-      if (t.length <= 20) return t;
-      return `${t.substring(0, 10)}...${t.substring(t.length - 10)}`;
-    };
-    console.log('[SIDEBAR] Token Status:');
-    console.log('  - Access token exists:', !!accessToken);
-    console.log('  - Access token (masked):', maskToken(accessToken));
-    console.log('  - Refresh token exists:', !!refreshToken);
-    console.log('  - Refresh token (masked):', maskToken(refreshToken));
-  }, [permissionsLoading, isAuthenticated, userRole, roleId, permissions.length]);
-  
-  useEffect(() => {
-    if (!permissionsLoading && isAuthenticated) {
-      console.log('[SIDEBAR] Permission status:', {
-        userRole,
-        isAuthenticated,
-        permissionCount: permissions.length,
-        permissions: permissions,
-        navigationItemsCount: navigationItems.length
-      });
-      
-      // Log access status for all navigation items
-      console.log('[SIDEBAR] Navigation items access status:');
-      navigationItems.forEach(item => {
-        // Check access inline to avoid dependency issues
-        let hasAccess = true;
-        if (item.requiredPermissions && item.requiredPermissions.length > 0) {
-          // Use the same logic as canAccessItem
-          hasAccess = item.requireAllPermissions 
-            ? hasAllPermissions(item.requiredPermissions)
-            : hasAnyPermission(item.requiredPermissions);
-        }
-        console.log(`  - ${item.id}: ${hasAccess ? '✓ Accessible' : '✗ Denied'}`, {
-          requiredPermissions: item.requiredPermissions || 'none',
-          requireAll: item.requireAllPermissions || false,
-          hasAccess
-        });
-      });
-    }
-  }, [permissions, permissionsLoading, isAuthenticated, userRole, hasAnyPermission, hasAllPermissions, navigationItems, pendingItemsCount, pendingMissingItemsCount, pendingTransferRequestsCount]);
 
   // Toggle expanded state for items with children
   const toggleExpanded = (itemId: string) => {
@@ -525,27 +441,6 @@ export default function SideNavbar({ className = '', onClose, showCollapseToggle
     const transferCount = typeof pendingTransferRequestsCount === 'number' ? pendingTransferRequestsCount : 0;
     const shouldShowTransferBadge = item.showBadge && transferCount > 0 && item.id === 'transfer-requests';
     
-    // Log badge calculation for debugging
-    if (item.id === 'transfer-requests' && item.showBadge) {
-      console.log('🔄 [Transfer Requests Badge] Badge calculation:', {
-        itemId: item.id,
-        pendingTransferRequestsCount,
-        transferCount,
-        shouldShowTransferBadge,
-        showBadge: item.showBadge
-      });
-    }
-    
-    // Log badge calculation for debugging (only for items menu item)
-    if (item.id === 'items' && item.showBadge) {
-      console.log('🎯 [Pending Items Badge] Badge calculation for items menu:', {
-        itemId: item.id,
-        badgeCount,
-        pendingItemsCount,
-        shouldShowBadge,
-        showBadge: item.showBadge
-      });
-    }
 
     return (
       <div key={item.id} className="mb-1">

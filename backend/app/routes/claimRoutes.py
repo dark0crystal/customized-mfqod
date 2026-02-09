@@ -105,7 +105,7 @@ async def get_claims(
 
 
 @router.get("/all", response_model=List[ClaimResponse])
-@require_permission("admin")
+@require_permission("can_manage_claims")
 async def get_all_claims(
     request: Request,
     skip: int = Query(0, ge=0),
@@ -183,7 +183,7 @@ async def get_claim(
             from app.services import permissionServices
             if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
                 has_access = True
-            elif permissionServices.is_super_admin(db, current_user.id):
+elif permissionServices.has_full_access(db, current_user.id):
                 has_access = True
         
         if not has_access:
@@ -250,7 +250,7 @@ async def delete_claim(
 # ===========================
 
 @router.get("/{claim_id}/check-existing-approved")
-@require_permission("admin")
+@require_permission("can_manage_claims")
 async def check_existing_approved_claim(
     claim_id: str,
     request: Request,
@@ -281,7 +281,7 @@ async def check_existing_approved_claim(
 
 
 @router.patch("/{claim_id}/approve", response_model=ClaimResponse)
-@require_permission("admin")
+@require_permission("can_manage_claims")
 async def approve_claim(
     claim_id: str,
     status_update: ClaimStatusUpdate,
@@ -315,7 +315,7 @@ async def approve_claim(
 
 
 @router.patch("/{claim_id}/reject", response_model=ClaimResponse)
-@require_permission("admin")
+@require_permission("can_manage_claims")
 async def reject_claim(
     claim_id: str,
     status_update: ClaimStatusUpdate,
@@ -345,7 +345,7 @@ async def reject_claim(
 # ===========================
 
 @router.get("/stats/summary")
-@require_permission("admin")
+@require_permission("can_manage_claims")
 async def get_claims_stats(
     request: Request,
     current_user: User = Depends(get_current_user_required),
@@ -530,7 +530,7 @@ async def get_claim_images(
             from app.services import permissionServices
             if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
                 has_access = True
-            elif permissionServices.is_super_admin(db, current_user.id):
+elif permissionServices.has_full_access(db, current_user.id):
                 has_access = True
         
         if not has_access:
@@ -639,7 +639,7 @@ async def send_visit_notification(
         has_access = False
         if claim.item_id and can_user_manage_item(current_user.id, claim.item_id, db):
             has_access = True
-        elif permissionServices.is_super_admin(db, current_user.id):
+elif permissionServices.has_full_access(db, current_user.id):
             has_access = True
         
         if not has_access:

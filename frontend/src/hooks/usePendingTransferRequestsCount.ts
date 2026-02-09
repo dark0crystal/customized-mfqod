@@ -20,7 +20,8 @@ export function usePendingTransferRequestsCount() {
   useEffect(() => {
     fetchCount();
     
-    const interval = setInterval(fetchCount, 30000); // Refresh every 30 seconds
+    const interval = setInterval(fetchCount, 60000); // Refresh every 60 seconds
+
     
     return () => clearInterval(interval);
   }, []);

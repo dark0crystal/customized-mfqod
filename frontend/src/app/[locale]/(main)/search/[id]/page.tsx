@@ -111,7 +111,8 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  const [session, setSession] = useState<{ access_token: string; user: { id: string; email: string; first_name: string; last_name: string } } | null>(null);
+  const [session, setSession] = useState<{ token: string; user: { id: string; email: string; first_name: string; last_name: string } } | null>(null);
+
   const t = useTranslations('claim');
   const locale = useLocale();
   const { id } = use(params);
@@ -158,7 +159,8 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
           const cookies = document.cookie.split(';');
           for (const cookie of cookies) {
             const [name, value] = cookie.trim().split('=');
-            if (name === 'token' || name === 'access_token' || name === 'auth_token') {
+            if (name === 'token') {
+
               return decodeURIComponent(value);
             }
           }
@@ -206,7 +208,8 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
     const accessToken = tokenManager.getAccessToken();
     const user = tokenManager.getUser();
     if (accessToken && user) {
-      setSession({ access_token: accessToken, user });
+      setSession({ token: accessToken, user });
+
     }
   }, []);
 
@@ -226,7 +229,8 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
   const [claimSuccessMessage, setClaimSuccessMessage] = useState<string | null>(null);
 
   const onSubmit: SubmitHandler<ClaimFormFields> = async (data) => {
-    if (!session?.access_token) {
+    if (!session?.token) {
+
       setError('Please log in to submit a claim');
       return;
     }
@@ -239,7 +243,8 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
       const claimResponse = await apiRequest('/api/claims/', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${session.token}`
+
         },
         body: JSON.stringify({
           title: data.title,

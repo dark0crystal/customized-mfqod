@@ -7,7 +7,7 @@ python-multipart==0.0.6
 sqlalchemy==2.0.23
 alembic==1.12.1
 sqlmodel==0.0.31
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.11
 
 # Authentication and Security
 python-jose[cryptography]==3.3.0
@@ -17,12 +17,12 @@ bcrypt==4.1.2
 cryptography==41.0.7
 
 # Active Directory Integration
-python-ldap==3.4.3
+python-ldap==3.4.5
 ldap3==2.9.1
 
 # Data validation and serialization
-pydantic[email]==2.7.0
-email-validator==2.1.0
+pydantic[email]==2.10.4
+email-validator>=2.2.0
 
 # HTTP client
 httpx==0.25.2
@@ -60,7 +60,7 @@ slowapi==0.1.9  # FastAPI rate limiting library
 phonenumbers==8.13.25
 
 # Image processing
-Pillow==10.1.0
+Pillow==11.0.0
 
 # Export functionality
 openpyxl==3.1.2

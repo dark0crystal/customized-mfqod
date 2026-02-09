@@ -62,7 +62,8 @@ const getTokenFromCookies = (): string | null => {
     const cookies = document.cookie.split(';');
     for (const cookie of cookies) {
       const [name, value] = cookie.trim().split('=');
-      if (name === 'token' || name === 'access_token' || name === 'auth_token') {
+      if (name === 'token') {
+
         return decodeURIComponent(value);
       }
     }
@@ -618,9 +619,12 @@ export default function ReportFoundItem() {
 
         {/* File Upload Component */}
         <div>
-          <label className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
-            {c("uploadImagesOptional")}
-          </label>
+          {c("uploadImagesOptional") && (
+            <label className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
+              {c("uploadImagesOptional")}
+            </label>
+          )}
+
           <CompressorFileInput
             onFilesSelected={setCompressedFiles}
             showValidation={true}

@@ -182,8 +182,8 @@ class TokenManager {
   // =======================================
 
   setTokens(accessToken: string, refreshToken?: string, user?: User): void {
-    cookieUtils.set("access_token", accessToken, 1); // 1 day for access token
-    cookieUtils.set("token", accessToken, 1); // Backward compatibility
+    cookieUtils.set("token", accessToken, 1); // 1 day for access token
+
     
     if (refreshToken) {
       cookieUtils.set("refresh_token", refreshToken, 7); // 7 days for refresh token
@@ -197,7 +197,8 @@ class TokenManager {
   }
 
   getAccessToken(): string | null {
-    return cookieUtils.get("access_token") || cookieUtils.get("token");
+    return cookieUtils.get("token");
+
   }
 
   getRefreshToken(): string | null {
@@ -210,7 +211,7 @@ class TokenManager {
   }
 
   clearTokens(): void {
-    cookieUtils.remove("access_token");
+
     cookieUtils.remove("refresh_token");
     cookieUtils.remove("token");
     cookieUtils.remove("user");

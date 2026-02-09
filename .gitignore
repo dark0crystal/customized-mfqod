@@ -1,8 +1,6 @@
 # Uploaded images and user content (stored in storage/, mounted at runtime)
 storage/
-<<<<<<< HEAD
-.cursor/
-=======# Application logs (do not upload to GitHub)
+
+# Application logs (do not upload to GitHub)
 backend/logs/
 *.log
->>>>>>> 6c7dddca46fd68f85a0ea41f456cfb166db95a24

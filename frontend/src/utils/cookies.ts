@@ -70,6 +70,7 @@ export const cookieUtils = {
   // Clear all auth cookies
   clearAuth: () => {
     cookieUtils.delete('token')
+    cookieUtils.delete('access_token') // Legacy cleanup
     cookieUtils.delete('user')
   }
 }

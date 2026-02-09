@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Alexandria } from "next/font/google";
 import { getLocale } from "next-intl/server";
 import "leaflet/dist/leaflet.css";
+import SplashScreenTracker from "@/components/SplashScreenTracker";
 
 const alexandria = Alexandria({
   subsets: ["latin"],
@@ -32,6 +33,7 @@ export default async function RootLayout({
         className={`${alexandria.className} antialiased ${direction === 'rtl' ? 'rtl' : 'ltr'}`}
         suppressHydrationWarning
       >
+        <SplashScreenTracker />
         {children}
       </body>
     </html>

@@ -108,6 +108,17 @@ class ChangePasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     email: EmailStr = Field(..., description="Email address for password reset")
 
+class ResetPasswordConfirm(BaseModel):
+    token: str = Field(..., description="Password reset token from email")
+    new_password: str = Field(..., min_length=8, description="New password")
+
+    @validator('new_password')
+    def validate_new_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+
 class UserProfileUpdateRequest(BaseModel):
     first_name: Optional[str] = Field(None, min_length=1, max_length=50)
     last_name: Optional[str] = Field(None, min_length=1, max_length=50)

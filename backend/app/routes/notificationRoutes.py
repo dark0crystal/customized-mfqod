@@ -154,7 +154,7 @@ async def send_templated_email_endpoint(
 
 
 @router.post("/send-bulk-notification")
-@require_permission("admin")
+@require_permission("can_configure_system")
 async def send_bulk_notification_endpoint(
     bulk_request: BulkNotificationRequest,
     background_tasks: BackgroundTasks,
@@ -305,7 +305,7 @@ async def get_notification_types():
 
 
 @router.get("/email-config")
-@require_permission("admin")
+@require_permission("can_configure_system")
 async def get_email_config(current_user=Depends(get_current_user_required)):
     """
     Get email configuration status
@@ -325,7 +325,7 @@ async def get_email_config(current_user=Depends(get_current_user_required)):
 
 
 @router.post("/validate-email-config")
-@require_permission("admin")
+@require_permission("can_configure_system")
 async def validate_email_config(current_user=Depends(get_current_user_required)):
     """
     Validate email configuration

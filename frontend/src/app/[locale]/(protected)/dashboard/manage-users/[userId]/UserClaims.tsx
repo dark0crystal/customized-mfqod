@@ -26,9 +26,7 @@ interface Claim {
 const getAuthHeaders = (): HeadersInit => {
   const token = document.cookie
     .split('; ')
-    .find(row => row.startsWith('access_token='))
-    ?.split('=')[1] || document.cookie
-    .split('; ')
+
     .find(row => row.startsWith('token='))
     ?.split('=')[1];
   return {

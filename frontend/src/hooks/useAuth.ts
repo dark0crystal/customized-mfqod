@@ -34,10 +34,10 @@ export function useAuth(): UseAuthReturn {
     try {
       const currentUser = tokenManager.getUser()
       const isAuth = tokenManager.isAuthenticated()
-      
+
       setUser(currentUser)
       setIsLoading(false)
-      
+
       // If not authenticated and not on login page, redirect with returnUrl
       if (!isAuth && typeof window !== 'undefined' && !window.location.pathname.includes('/auth/login')) {
         const currentPath = window.location.pathname
@@ -50,6 +50,7 @@ export function useAuth(): UseAuthReturn {
       setIsLoading(false)
     }
   }, [router])
+
 
   // Initialize auth state
   useEffect(() => {

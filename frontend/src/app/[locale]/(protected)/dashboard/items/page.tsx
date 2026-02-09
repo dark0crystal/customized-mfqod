@@ -61,7 +61,8 @@ function getTokenFromCookies(): string | null {
   if (typeof document === "undefined") return null;
   
   // Try multiple cookie names for token
-  const match = document.cookie.match(/(?:^|;\s*)(?:token|access_token)=([^;]*)/);
+  const match = document.cookie.match(/(?:^|;\s*)token=([^;]*)/);
+
   return match ? decodeURIComponent(match[1]) : null;
 }
 
@@ -583,7 +584,8 @@ export default function ItemsPage() {
               <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                 {t("filters.dateRange")}
               </label>
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 items-center">
+
                 <input
                   type="date"
                   placeholder={t("filters.fromDate")}
@@ -593,6 +595,7 @@ export default function ItemsPage() {
                   className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-xs sm:text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
                   style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
                 />
+                <span className="text-xs sm:text-sm text-gray-600 font-medium shrink-0">{t("filters.to")}</span>
                 <input
                   type="date"
                   placeholder={t("filters.toDate")}

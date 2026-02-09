@@ -81,7 +81,8 @@ const ItemTypesManager = () => {
   const getTokenFromCookies = useCallback((): string | null => {
     if (typeof document !== 'undefined') {
       // Try the same cookie names as in your PermissionsContext
-      const token = getCookie('token') || getCookie('jwt') || getCookie('access_token');
+      const token = getCookie('token') || getCookie('jwt');
+
       return token;
     }
     return null;

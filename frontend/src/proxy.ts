@@ -8,8 +8,7 @@ const intlMiddleware = createMiddleware(routing);
 // Function to check if user is authenticated via JWT token in cookies
 function isAuthenticated(request: NextRequest): boolean {
   const token = request.cookies.get('token') || 
-                request.cookies.get('jwt') || 
-                request.cookies.get('access_token');
+                request.cookies.get('jwt');
   
   if (!token) {
     return false;
@@ -57,7 +56,7 @@ function getLocaleFromPathname(pathname: string): string {
   return 'ar'; // Default locale
 }
 
-export default function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // Check if this is a protected route
@@ -78,7 +77,6 @@ export default function middleware(request: NextRequest) {
       // Clear expired or invalid tokens from cookies
       response.cookies.delete('token');
       response.cookies.delete('jwt');
-      response.cookies.delete('access_token');
       response.cookies.delete('refresh_token');
       response.cookies.delete('user');
       
@@ -86,7 +84,7 @@ export default function middleware(request: NextRequest) {
     }
     
     // Note: Detailed permission checking is done in server components
-    // Middleware only handles authentication. Permission verification happens
+    // Proxy only handles authentication. Permission verification happens
     // at the page level using server components for better security and performance.
   }
   

@@ -49,10 +49,11 @@ export function usePendingMissingItemsCount() {
     
     fetchCount();
     
-    // Refresh count periodically (every 30 seconds)
+    // Refresh count periodically (every 60 seconds)
     const interval = setInterval(() => {
       fetchCount();
-    }, 30000);
+    }, 60000);
+
 
     return () => {
       isMountedRef.current = false;

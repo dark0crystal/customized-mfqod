@@ -338,62 +338,7 @@ sudo systemctl start lost-found-api
 sudo systemctl status lost-found-api
 ```
 
-### 5. Nginx Reverse Proxy (Recommended)
 
-Create `/etc/nginx/sites-available/lost-found-api`:
-
-```nginx
-server {
-    listen 80;
-    server_name api.yourdomain.com;
-
-    # Redirect HTTP to HTTPS
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name api.yourdomain.com;
-
-    ssl_certificate /path/to/ssl/cert.pem;
-    ssl_certificate_key /path/to/ssl/key.pem;
-
-    client_max_body_size 10M;
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_redirect off;
-    }
-
-    location /static {
-        alias /path/to/customized-mfqod/storage/uploads/images;
-    }
-}
-```
-
-Enable and restart:
-```bash
-sudo ln -s /etc/nginx/sites-available/lost-found-api /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-## Production Checklist
-
-### Security
-
-- [ ] Change all default passwords and secrets
-- [ ] Enable HTTPS/SSL certificates
-- [ ] Configure firewall rules
-- [ ] Set up rate limiting (already configured)
-- [ ] Enable CORS with specific origins only
-- [ ] Set `DEBUG=false` in production
-- [ ] Use environment variables for sensitive data
-- [ ] Regular security updates
 
 ### Performance
 
@@ -511,7 +456,8 @@ uvicorn app.main:app --reload
 
 ---
 
-**Last Updated**: 2025-01-09
+**Last Updated**: 2026-02-8
+
 **Version**: 2.0.0
 
 

@@ -10,7 +10,7 @@ from sqlalchemy.sql import func as sql_func
 from fastapi import HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from app.models import User, UserType, LoginAttempt, LoginAttemptStatus, UserSession, Role, Permission
+from app.models import User, UserType, LoginAttempt, LoginAttemptStatus, UserSession, Role, Permission, PasswordResetToken
 from app.config.auth_config import AuthConfig
 from app.services.enhanced_ad_service import EnhancedADService
 from app.db.database import get_session
@@ -679,7 +679,107 @@ class AuthService:
                 session.updated_at = now
         
         db.commit()
-    
+async def request_password_reset(self, email: str, db: Session) -> bool:
+        """
+        Request password reset for external user. Always returns True to avoid email enumeration.
+        If user exists and is external, generates token, stores it, and sends email.
+        """
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            logger.info(f"Password reset requested for non-existent user: {email}")
+            return True  # Keep silent for non-existent (avoid enumeration)
+        if user.user_type != UserType.EXTERNAL:
+            logger.info(f"Password reset requested for internal user: {email}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Internal users must reset their password through the organization's website or portal. This form is for external users only."
+            )
+
+        # Rate limit: max 3 reset requests per hour per user
+        one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+        recent_requests = db.query(PasswordResetToken).filter(
+            and_(
+                PasswordResetToken.user_id == user.id,
+                PasswordResetToken.created_at > one_hour_ago
+            )
+        ).count()
+        if recent_requests >= 3:
+            logger.warning(f"Password reset rate limit exceeded for {email}")
+            return True
+
+        if not user.password:
+            logger.info(f"Password reset requested for external user without password: {email}")
+            return True
+
+        # Invalidate any existing unused tokens for this user
+        db.query(PasswordResetToken).filter(
+            and_(
+                PasswordResetToken.user_id == user.id,
+                PasswordResetToken.used == False,
+                PasswordResetToken.expires_at > datetime.now(timezone.utc)
+            )
+        ).update({"used": True})
+
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=self.config.PASSWORD_RESET_TOKEN_EXPIRE_HOURS)
+
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token=token,
+            expires_at=expires_at,
+            used=False
+        )
+        db.add(reset_token)
+        db.commit()
+
+        frontend_base = self.config.FRONTEND_BASE_URL.rstrip("/")
+        reset_link = f"{frontend_base}/en/auth/reset-password?token={token}"
+
+        try:
+            from app.services.notification_service import send_password_reset_email
+            user_name = f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email
+            await send_password_reset_email(user.email, user_name, reset_link)
+            logger.info(f"Password reset email sent to {user.email}")
+        except Exception as e:
+            logger.error(f"Failed to send password reset email: {e}")
+            db.rollback()
+            raise
+
+        return True
+
+    def confirm_password_reset(self, token: str, new_password: str, db: Session) -> bool:
+        """
+        Confirm password reset with token. Validates token, updates password, marks token used.
+        """
+        now = datetime.now(timezone.utc)
+        reset_record = db.query(PasswordResetToken).filter(
+            and_(
+                PasswordResetToken.token == token,
+                PasswordResetToken.used == False,
+                PasswordResetToken.expires_at > now
+            )
+        ).first()
+
+        if not reset_record:
+            return False
+
+        user = db.query(User).filter(User.id == reset_record.user_id).first()
+        if not user or user.user_type != UserType.EXTERNAL:
+            return False
+
+        if not self._is_password_strong(new_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=self._get_password_requirements()
+            )
+
+        user.password = self._hash_password(new_password)
+        user.updated_at = now
+        reset_record.used = True
+        db.commit()
+
+        logger.info(f"Password reset completed for user {user.email}")
+        return True
     async def _update_user_from_ad_data(self, user: User, ad_data: Dict[str, Any], db: Session):
         """Update user information from AD data"""
         user.first_name = ad_data.get('first_name') or user.first_name

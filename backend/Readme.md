@@ -77,6 +77,23 @@ Active Directory:
 
 
 ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+Permissions & Roles Setup (setup_permissions.sql):
+
+Run this SQL script to initialize permissions and roles:
+
+  cd backend
+  psql -U your_username -d your_database_name -f setup_permissions.sql
+
+Or with connection string:
+  psql "postgresql://user:password@localhost:5432/dbname" -f setup_permissions.sql
+
+Creates:
+  - 15 permissions (can_manage_items, can_manage_users, etc.)
+  - 3 roles: super_admin (all permissions), moderator (item management), user (no permissions)
+
+Prerequisites: Run migrations first (alembic upgrade head)
+
+------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
 Fine-Grained Control (Actions per Role) using Roles + Permissions — also known as RBAC with Permissions.
 
 🧠 What It Means

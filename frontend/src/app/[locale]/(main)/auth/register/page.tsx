@@ -17,96 +17,69 @@ import {
 import PasswordStrengthIndicator from '@/components/auth/PasswordStrengthIndicator'
 import { authApi } from '@/utils/api'
 
+const signupSchema = z.object({
+  email: z.string().email(),
+  first_name: z.string().min(1),
+  last_name: z.string().min(1),
+  username: z.string().optional(),
+  phone_number: z.string().optional(),
+  password: z.string().min(8),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+})
+
+type SignupFormData = z.infer<typeof signupSchema>
+
+function getTranslatedError(error: string, t: (key: string) => string): string {
+  const lower = error.toLowerCase()
+  if (lower.includes('email') && lower.includes('already')) return t("emailAlreadyRegistered")
+  if (lower.includes('invalid')) return t("otpInvalid")
+  return error
+}
+
 export default function Register() {
   const t = useTranslations("auth.register")
-  
-  // Password validation schema - simplified to just require 8+ characters
-  const passwordSchema = z.string()
-    .min(8, t("validation.passwordMinLength"))
-
-  // Registration form schema
-  const signupSchema = z.object({
-    email: z.string().email(t("validation.emailRequired")),
-    password: passwordSchema,
-    confirmPassword: z.string(),
-    first_name: z.string()
-      .min(1, t("validation.firstNameRequired"))
-      .max(50, t("validation.firstNameMaxLength")),
-    last_name: z.string()
-      .min(1, t("validation.lastNameRequired"))
-      .max(50, t("validation.lastNameMaxLength")),
-    username: z.string()
-      .min(3, t("validation.usernameMinLength"))
-      .max(30, t("validation.usernameMaxLength"))
-      .regex(/^[a-zA-Z0-9_.-]+$/, t("validation.usernameInvalidChars"))
-      .optional()
-      .or(z.literal('')),
-    phone_number: z.string()
-      .regex(/^\+?[\d\s\-\(\)]+$/, t("validation.phoneInvalid"))
-      .optional()
-      .or(z.literal(''))
-  }).refine((data) => data.password === data.confirmPassword, {
-    message: t("validation.passwordsDontMatch"),
-    path: ["confirmPassword"],
-  })
-
-  type SignupFormData = z.infer<typeof signupSchema>
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const router = useRouter()
+  const [formData, setFormData] = useState<SignupFormData | null>(null)
+  const [otpEmail, setOtpEmail] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [showOtpStep, setShowOtpStep] = useState(false)
+  const [resendTimer, setResendTimer] = useState(0)
+  const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [showOtpStep, setShowOtpStep] = useState(false)
-  const [otpCode, setOtpCode] = useState('')
-  const [otpEmail, setOtpEmail] = useState('')
   const [otpError, setOtpError] = useState<string | null>(null)
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
-  const [isSendingOtp, setIsSendingOtp] = useState(false)
-  const [resendTimer, setResendTimer] = useState(0)
-  const [formData, setFormData] = useState<SignupFormData | null>(null)
-  const router = useRouter()
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  // Resend timer countdown
-  useEffect(() => {
-    if (resendTimer > 0) {
-      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000)
-      return () => clearTimeout(timer)
-    }
-  }, [resendTimer])
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    watch,
-    setError
-  } = useForm<SignupFormData>({
+  const { register, handleSubmit, formState: { errors }, setError, watch } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
-    mode: 'onChange'
   })
-
   const password = watch('password')
+
+  useEffect(() => {
+    if (resendTimer <= 0) return
+    const id = setInterval(() => setResendTimer((t) => t - 1), 1000)
+    return () => clearInterval(id)
+  }, [resendTimer])
 
   const onSubmit = async (data: SignupFormData) => {
     setIsSendingOtp(true)
     setApiError(null)
-    setOtpError(null)
-
     try {
-      // Send OTP to email
       const response = await authApi.sendOtp(data.email)
-
       if (response.error) {
-        setApiError(response.error)
+        setApiError(getTranslatedError(response.error, t))
         return
       }
-
-      // Store form data for later registration
       setFormData(data)
       setOtpEmail(data.email)
       setShowOtpStep(true)
-      setResendTimer(60) // 60 seconds before resend allowed
-
+      setResendTimer(60)
     } catch (error) {
       console.error('Send OTP error:', error)
       setApiError(t("networkError"))
@@ -162,7 +135,8 @@ export default function Register() {
           })
         }
         
-        setOtpError(registerResponse.error)
+        setOtpError(getTranslatedError(registerResponse.error, t))
+
         return
       }
 
@@ -193,7 +167,7 @@ export default function Register() {
       const response = await authApi.sendOtp(otpEmail)
 
       if (response.error) {
-        setOtpError(response.error)
+        setOtpError(getTranslatedError(response.error, t))
         return
       }
 
