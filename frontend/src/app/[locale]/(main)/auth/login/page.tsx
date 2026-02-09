@@ -131,10 +131,10 @@ export default function Login() {
               href="/auth/forgot-password"
               className="text-sm font-medium transition-colors"
               style={{ color: '#3277AE' }}
-              onMouseEnter={(e) => {
+              onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
                 e.currentTarget.style.color = '#2a5f94';
               }}
-              onMouseLeave={(e) => {
+              onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
                 e.currentTarget.style.color = '#3277AE';
               }}
             >
@@ -148,13 +148,8 @@ export default function Login() {
 
         <p className="text-xs text-gray-500">
           {t.rich("termsNotice", {
-            terms: (chunks) => (
-              <Link href="/legal/terms" className="font-medium underline" style={{ color: '#3277AE' }}>
-                {chunks}
-              </Link>
-            ),
-            privacy: (chunks) => (
-              <Link href="/legal/privacy" className="font-medium underline" style={{ color: '#3277AE' }}>
+            link: (chunks) => (
+              <Link href="/legal/privacy-terms" className="font-medium underline" style={{ color: '#3277AE' }}>
                 {chunks}
               </Link>
             ),
@@ -170,12 +165,12 @@ export default function Login() {
               backgroundColor: '#3277AE',
               '--tw-ring-color': '#3277AE'
             } as React.CSSProperties & { [key: string]: string }}
-            onMouseEnter={(e) => {
+            onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
               if (!isLoading) {
                 e.currentTarget.style.backgroundColor = '#2a5f94';
               }
             }}
-            onMouseLeave={(e) => {
+            onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
               if (!isLoading) {
                 e.currentTarget.style.backgroundColor = '#3277AE';
               }
@@ -204,10 +199,10 @@ export default function Login() {
             href="/auth/register" 
             className="font-medium transition-colors"
             style={{ color: '#3277AE' }}
-            onMouseEnter={(e) => {
+            onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
               e.currentTarget.style.color = '#2a5f94';
             }}
-            onMouseLeave={(e) => {
+            onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
               e.currentTarget.style.color = '#3277AE';
             }}
           >

@@ -73,11 +73,45 @@
     "guides": "User Guides",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
+    "privacyAndTerms": "Privacy and Terms",
     "dashboard": "Dashboard",
     "Register": "Sign In",
     "developer": "Made With ❤️",
+    "developedBy": "Developed by Al-Mardas Saif AlBusaidi",
     "copyright": "Copyright © 2025 Deanship of students affairs",
     "description": "Mfqod makes it easy for you to find your lost property"
+  },
+  "legal": {
+    "title": "Terms of Service and Privacy Policy",
+    "intro": "These regulations aim to govern the operation of the Mfqod website at Sultan Qaboos University to ensure the preservation of lost items within the university campus and their return to their owners in an organized and transparent manner.",
+    "section1": {
+      "title": "I. Jurisdiction",
+      "p1": "The Office of the Administrative Director (Deanship of Student Affairs) is responsible for receiving lost items within the university campus, preserving them, documenting them, and returning them to their owners in accordance with the procedures approved by the Deanship of Student Affairs.",
+      "p2": "Administrative directors of colleges and university centers and units are responsible for receiving and delivering lost items and recording them on the Mfqod website.",
+      "p3": "Lost items (received and delivered) are tracked through the Mfqod website, and reports can be generated from it."
+    },
+    "section2": {
+      "title": "II. Procedures for Receiving Lost Items",
+      "p1": "When any lost item is found within the university, it shall be delivered to the nearest administrative director's office.",
+      "p2": "The lost item is recorded in a special register containing a serial number, date, place of discovery, and accurate description of the item within the Mfqod website.",
+      "p3": "Valuable lost items are sent to the Office of the Administrative Director at the Deanship of Student Affairs within 24 hours of receipt."
+    },
+    "section3": {
+      "title": "III. Procedures for Delivering Lost Items",
+      "p1": "Lost items shall not be delivered except after verifying the recipient's identity and matching the description with the register.",
+      "p2": "The recipient signs a special register for receiving the lost item.",
+      "p3": "Unclaimed items are preserved for no less than (90) days, after which appropriate action is taken by the Deanship."
+    },
+    "section4": {
+      "title": "IV. Announcement and Communication",
+      "p1": "Lost items are announced periodically through the Mfqod website.",
+      "p2": "Lost items can be reported or inquired about through the Mfqod website, university email, or by visiting the nearest administrative director's office."
+    },
+    "section5": {
+      "title": "V. General Provisions",
+      "p1": "All employees dealing with lost items must maintain the confidentiality of information related to lost items and their owners.",
+      "p2": "It is prohibited to dispose of any lost item before the end of the specified regulatory period."
+    }
   },
   "trustedBy": {
     "title": "Proudly Trusted By"
@@ -552,7 +586,7 @@
       "steps": {
         "welcome": {
           "title": "Welcome to Your Dashboard!",
-          "description": "This is your command center for warehouse operations. Here you'll see everything at a glance - orders, stock levels, and incoming shipments."
+          "description": "This is your command center for the lost and found system. Here you'll see everything at a glance - missing items, found items, and claims."
         },
         "userInfo": {
           "title": "Your Profile Information",
@@ -1421,7 +1455,7 @@
         "passwordRequired": "Password must be at least 6 characters"
       },
       "forgotPassword": "Forgot password?",
-      "termsNotice": "By logging in, you accept the <terms>Terms of Use</terms> and <privacy>Privacy Policy</privacy>."
+      "termsNotice": "By logging in, you accept our <link>Privacy and Terms</link>."
     },
     "forgotPasswordPage": {
       "title": "Forgot Password",
