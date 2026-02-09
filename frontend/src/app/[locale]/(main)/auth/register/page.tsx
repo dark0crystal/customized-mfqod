@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -17,26 +17,36 @@ import {
 import PasswordStrengthIndicator from '@/components/auth/PasswordStrengthIndicator'
 import { authApi } from '@/utils/api'
 
-const signupSchema = z.object({
-  email: z.string().email(),
-  first_name: z.string().min(1),
-  last_name: z.string().min(1),
-  username: z.string().optional(),
-  phone_number: z.string().optional(),
-  password: z.string().min(8),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-})
-
-type SignupFormData = z.infer<typeof signupSchema>
+type SignupFormData = {
+  email: string
+  first_name: string
+  last_name: string
+  username?: string
+  phone_number?: string
+  password: string
+  confirmPassword: string
+}
 
 function getTranslatedError(error: string, t: (key: string) => string): string {
   const lower = error.toLowerCase()
   if (lower.includes('email') && lower.includes('already')) return t("emailAlreadyRegistered")
   if (lower.includes('invalid')) return t("otpInvalid")
   return error
+}
+
+function buildSignupSchema(passwordsDontMatchMessage: string) {
+  return z.object({
+    email: z.string().email(),
+    first_name: z.string().min(1),
+    last_name: z.string().min(1),
+    username: z.string().optional(),
+    phone_number: z.string().optional(),
+    password: z.string().min(8),
+    confirmPassword: z.string(),
+  }).refine((data) => data.password === data.confirmPassword, {
+    message: passwordsDontMatchMessage,
+    path: ["confirmPassword"],
+  })
 }
 
 export default function Register() {
@@ -55,6 +65,11 @@ export default function Register() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  const signupSchema = useMemo(
+    () => buildSignupSchema(t("validation.passwordsDontMatch")),
+    [t]
+  )
 
   const { register, handleSubmit, formState: { errors }, setError, watch } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
@@ -311,7 +326,7 @@ export default function Register() {
               }}
               className="text-sm text-gray-600 hover:text-gray-800"
             >
-              ← Back to form
+              {t("backToForm")}
             </button>
           </div>
         </div>

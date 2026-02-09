@@ -852,7 +852,8 @@
       "verifyingOtp": "Verifying...",
       "otpVerified": "Email verified successfully! Creating your account...",
       "otpDescription": "We've sent a 6-digit verification code to {email}. Please enter it below to verify your email address.",
-      "universityUsersNotice": "University Users: Use your university credentials to log in directly. External registration is for non-university users only."
+      "universityUsersNotice": "University Users: Use your university credentials to log in directly. External registration is for non-university users only.",
+      "backToForm": "← Back to form"
     }
   },
   "permissions": {

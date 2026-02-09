@@ -87,6 +87,54 @@ async def reset_password(
         )
 
 
+@router.post("/auth/login", summary="Login")
+async def login(
+    request: Request,
+    login_request: LoginRequest,
+    db: Session = Depends(get_session)
+):
+    """
+    Authenticate user with email/username and password. Returns access_token, refresh_token, and user info.
+    Supports both internal (AD) and external (database) users.
+    """
+    result = await auth_service.authenticate_user(
+        login_request.email_or_username,
+        login_request.password,
+        request,
+        db,
+    )
+    return result
+
+
+@router.post("/auth/refresh", summary="Refresh access token")
+async def refresh_token(
+    refresh_request: RefreshTokenRequest,
+    db: Session = Depends(get_session)
+):
+    """
+    Issue a new access token using a valid refresh token.
+    """
+    try:
+        result = await auth_service.refresh_access_token(refresh_request.refresh_token, db)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token refresh error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
+        )
+
+
+@router.post("/auth/logout", summary="Logout")
+async def logout():
+    """
+    Logout. Client should discard tokens. Optional server-side invalidation can be added later.
+    """
+    return {"message": "Logged out successfully"}
+
+
 @router.get("/auth/me", summary="Get current user (alias for dashboard)")
 async def get_current_user_me(current_user: User = Depends(get_current_user_required)):
     """Return current user in same shape as GET /api/users/me for frontend compatibility."""
