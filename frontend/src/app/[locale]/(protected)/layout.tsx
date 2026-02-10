@@ -1,12 +1,23 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname } from '@/i18n/navigation'
 import { tokenManager } from '@/utils/tokenManager'
 import { PermissionsProvider } from '@/PermissionsContext'
 
 interface ProtectedLayoutProps {
   children: React.ReactNode
+}
+
+function AuthOverlay({ message }: { message: string }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+        <p className="text-gray-600">{message}</p>
+      </div>
+    </div>
+  )
 }
 
 export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
@@ -15,38 +26,31 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
 
   useEffect(() => {
-    // Check if user is authenticated
     const authStatus = tokenManager.isAuthenticated()
-    setIsAuthenticated(authStatus)
-    
+    queueMicrotask(() => setIsAuthenticated(authStatus))
+
     if (!authStatus) {
-      // Redirect to login page with returnUrl parameter
       const returnUrl = encodeURIComponent(pathname || '/')
       router.push(`/auth/login?returnUrl=${returnUrl}`)
     }
   }, [router, pathname])
 
-  // Show loading while checking authentication
+  // While checking auth, show overlay but still render children so the tree can hydrate on refresh.
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Checking authentication...</p>
-        </div>
-      </div>
+      <PermissionsProvider>
+        <AuthOverlay message="Checking authentication..." />
+        {children}
+      </PermissionsProvider>
     )
   }
 
-  // Show loading or redirect if not authenticated
+  // Not authenticated: do not mount dashboard (avoids 401s and broken state). Show overlay only.
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Redirecting to login...</p>
-        </div>
-      </div>
+      <PermissionsProvider>
+        <AuthOverlay message="Redirecting to login..." />
+      </PermissionsProvider>
     )
   }
 

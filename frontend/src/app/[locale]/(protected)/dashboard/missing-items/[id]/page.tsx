@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, use, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import Image from "next/image";
 import { Mail } from "lucide-react";

@@ -94,9 +94,17 @@ export default function UserInfo() {
           throw new Error(errorData.detail || `Failed to fetch user data: ${res.status}`);
         }
 
-        const payload = await res.json();
+        const text = await res.text();
+        let payload: { user?: unknown } | null = null;
+        if (text) {
+          try {
+            payload = JSON.parse(text);
+          } catch {
+            throw new Error("Invalid user data received from server");
+          }
+        }
         // Backend returns { user: {...} }; support both shapes
-        const data = payload?.user ?? payload;
+        const data = (payload?.user ?? payload) as User | null;
 
         // Ensure we have the required fields
         if (!data || !data.id || !data.email) {

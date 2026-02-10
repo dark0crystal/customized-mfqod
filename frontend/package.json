@@ -5,10 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "dev:turbopack": "next dev --turbopack",
-
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "postinstall": "node scripts/patch-next-navigation.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",

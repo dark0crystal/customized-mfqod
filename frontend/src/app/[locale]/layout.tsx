@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages, setRequestLocale } from "next-intl/server";
 import { hasLocale } from "next-intl";
 import { notFound } from "next/navigation";
-import { getMessages } from "next-intl/server";
-import { NextIntlClientProvider } from "next-intl";
 import { routing } from "@/i18n/routing";
 
 export const metadata: Metadata = {
@@ -10,23 +10,23 @@ export const metadata: Metadata = {
   description: "مفقود - Lost and Found System",
 };
 
-/**
- * Single [locale] layout so all pages under /en/... and /ar/... receive
- * the same NextIntlClientProvider with messages and locale. This ensures
- * translations from en.json / ar.json are available in every page.
- */
-export default async function LocaleLayout({
-  children,
-  params,
-}: Readonly<{
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
+
+type Props = {
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
-}>) {
+};
+
+export default async function LocaleLayout({ children, params }: Props) {
   const { locale } = await params;
 
   if (!hasLocale(routing.locales, locale)) {
     notFound();
   }
+
+  setRequestLocale(locale);
 
   const messages = await getMessages();
 

@@ -24,8 +24,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import Brand from '@/components/navbar/Brand';
-import { Link } from '@/i18n/navigation';
-import { usePathname, useRouter } from 'next/navigation';
+import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -142,8 +141,21 @@ export default function SideNavbar({
         });
 
         if (res.ok) {
-          const payload = await res.json();
-          const data = payload?.user ?? payload;
+          const text = await res.text();
+          let payload: { user?: unknown } | null = null;
+          if (text) {
+            try {
+              payload = JSON.parse(text);
+            } catch {
+              setUser(getUserFromCookies());
+              return;
+            }
+          }
+          const data = (payload?.user ?? payload) as SidebarUser | null;
+          if (!data) {
+            setUser(getUserFromCookies());
+            return;
+          }
           // Build full name from components if name is missing
           if (!data.name && (data.first_name || data.last_name)) {
             const nameParts = [data.first_name, data.middle_name, data.last_name].filter(Boolean);

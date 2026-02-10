@@ -2,99 +2,81 @@ import createMiddleware from 'next-intl/middleware';
 import { NextRequest, NextResponse } from 'next/server';
 import { routing } from './i18n/routing';
 
-// Create the internationalization middleware
+// next-intl middleware: runs first for locale negotiation, redirects, and x-next-intl-locale header
 const intlMiddleware = createMiddleware(routing);
 
-// Function to check if user is authenticated via JWT token in cookies
+// Base64url decode (JWT payload uses base64url, not standard base64)
+function base64UrlDecode(str: string): string {
+  const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = base64.length % 4;
+  const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
+  return atob(padded);
+}
+
 function isAuthenticated(request: NextRequest): boolean {
-  const token = request.cookies.get('token') || 
-                request.cookies.get('jwt');
-  
-  if (!token) {
-    return false;
-  }
+  const token =
+    request.cookies.get('token') || request.cookies.get('jwt');
+
+  if (!token?.value) return false;
 
   try {
-    // Decode JWT token to check if it's valid
-    const payload = JSON.parse(atob(token.value.split('.')[1]));
-    
-    // Check if token is expired
-    if (payload.exp && payload.exp < Date.now() / 1000) {
+    const parts = token.value.split('.');
+    if (parts.length !== 3) return false;
+
+    const payloadJson = base64UrlDecode(parts[1]);
+    const payload = JSON.parse(payloadJson) as { exp?: number };
+
+    if (payload.exp != null && payload.exp < Date.now() / 1000) {
       return false;
     }
-    
     return true;
   } catch {
     return false;
   }
 }
 
-// Function to check if a route is protected
 function isProtectedRoute(pathname: string): boolean {
-  // Remove locale prefix for checking
   const pathWithoutLocale = pathname.replace(/^\/(en|ar)/, '') || '/';
-  
-  // Protected routes include:
-  // - /dashboard/** (all dashboard routes)
-  // - /search (search routes)
-  // - Any route that should require authentication
-  const protectedPatterns = [
-    /^\/dashboard/,  // Matches /dashboard, /en/dashboard, /ar/dashboard, etc.
-    /^\/search/,     // Matches /search, /en/search, /ar/search, etc.
-  ];
-  
-  return protectedPatterns.some(pattern => pattern.test(pathWithoutLocale));
+  const protectedPatterns = [/^\/dashboard/, /^\/search/];
+  return protectedPatterns.some((pattern) => pattern.test(pathWithoutLocale));
 }
 
-// Function to extract locale from pathname
 function getLocaleFromPathname(pathname: string): string {
   const segments = pathname.split('/').filter(Boolean);
-  // Locales are 'en' or 'ar'
   if (segments.length > 0 && (segments[0] === 'en' || segments[0] === 'ar')) {
     return segments[0];
   }
-  return 'ar'; // Default locale
+  return routing.defaultLocale;
 }
 
+/**
+ * Next.js 16 proxy (middleware).
+ * 1. Run next-intl middleware first so locale is negotiated and headers set.
+ * 2. Then apply auth: redirect to login for protected routes when not authenticated.
+ */
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
-  // Check if this is a protected route
-  if (isProtectedRoute(pathname)) {
-    // Check authentication for protected routes
-    if (!isAuthenticated(request)) {
-      // Extract locale from pathname
-      const locale = getLocaleFromPathname(pathname);
-      
-      // Create login URL with locale preserved and returnUrl parameter
-      const loginUrl = new URL(`/${locale}/auth/login`, request.url);
-      // Store the original pathname as returnUrl so user can be redirected back after login
-      loginUrl.searchParams.set('returnUrl', pathname);
-      
-      // Create response with redirect
-      const response = NextResponse.redirect(loginUrl);
-      
-      // Clear expired or invalid tokens from cookies
-      response.cookies.delete('token');
-      response.cookies.delete('jwt');
-      response.cookies.delete('refresh_token');
-      response.cookies.delete('user');
-      
-      return response;
-    }
-    
-    // Note: Detailed permission checking is done in server components
-    // Proxy only handles authentication. Permission verification happens
-    // at the page level using server components for better security and performance.
+
+  // Step 1: Run next-intl middleware (locale negotiation, redirects, rewrites)
+  const response = intlMiddleware(request);
+
+  // Step 2: For protected routes, enforce auth (override with redirect if needed)
+  if (isProtectedRoute(pathname) && !isAuthenticated(request)) {
+    const locale = getLocaleFromPathname(pathname);
+    const loginUrl = new URL(`/${locale}/auth/login`, request.url);
+    loginUrl.searchParams.set('returnUrl', pathname);
+
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    redirectResponse.cookies.delete('token');
+    redirectResponse.cookies.delete('jwt');
+    redirectResponse.cookies.delete('refresh_token');
+    redirectResponse.cookies.delete('user');
+    return redirectResponse;
   }
-  
-  // Apply internationalization middleware for all other routes
-  return intlMiddleware(request);
+
+  return response;
 }
- 
+
 export const config = {
-  // Match all pathnames except for
-  // - … if they start with `/api`, `/trpc`, `/_next` or `/_vercel`
-  // - … the ones containing a dot (e.g. `favicon.ico`)
-  matcher: '/((?!api|trpc|_next|_vercel|.*\\..*).*)'
+  matcher: '/((?!api|trpc|_next|_vercel|.*\\..*).*)',
 };

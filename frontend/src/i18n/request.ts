@@ -32,9 +32,15 @@ export default getRequestConfig(async ({requestLocale}) => {
     ? requested
     : routing.defaultLocale;
  
-  // Load messages for current locale
-  const messages = (await import(`../../messages/${locale}.json`)).default;
-  
+  // Load messages for current locale (standard: messages/ at project root per next-intl docs)
+  let messages;
+  try {
+    messages = (await import(`../../messages/${locale}.json`)).default;
+  } catch {
+    console.warn(`Messages for locale "${locale}" not found, using en`);
+    messages = (await import(`../../messages/en.json`)).default;
+  }
+
   // If locale is not English, merge English messages as fallback
   let finalMessages = messages;
   if (locale !== 'en') {
@@ -52,7 +58,11 @@ export default getRequestConfig(async ({requestLocale}) => {
   return {
     locale,
     messages: finalMessages,
-    // Add direction metadata for dynamic RTL/LTR support
-    direction: locale === 'ar' ? 'rtl' : 'ltr'
+    direction: locale === 'ar' ? 'rtl' : 'ltr',
+    // Prevent missing keys from throwing and breaking the app (e.g. dashboard)
+    getMessageFallback({ namespace, key }) {
+      const path = [namespace, key].filter(Boolean).join('.');
+      return path || '…';
+    },
   };
 });

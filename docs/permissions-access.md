@@ -76,8 +76,35 @@ if not await check_user_permission(db_session, current_user.id, "can_manage_bran
 
 ---
 
+## Testing guidance ✅
 
+- Unit tests: mock `permissionServices.check_user_permission` to return True/False and assert the route handler behavior.
+- Integration tests: create a test user, assign role/permission in the test DB, call the protected endpoint and assert 200; then remove permission and assert 403.
+- Edge cases: test the `has_full_access` bypass; verify branch-scoped checks (e.g., branch manager only acting on their branches).
 
+---
+
+## Logging, auditing & debugging 🕵️‍♂️
+
+- Ensure permission failures are logged with context (user id, route, permission name) to help debugging.
+- When investigating: check request headers/cookies for the auth token, confirm the middleware sets `current_user`, and verify the DB has the expected permission/role assignments.
+
+---
+
+## Performance & caching notes ⚡
+
+- Repeated permission checks for the same user during a request can be cached per-request (or loaded in batch) to avoid N database calls.
+- Consider including user's permission claims in the auth token/session if your security model supports it (tradeoffs: token revocation complexity).
+
+---
+
+## Best practices & quick checklist ✅
+
+- Use decorators for straightforward route-level protection.
+- Use programmatic checks for resource-scoped or conditional authorization (branch managers, item-level logic).
+- Keep frontend checks as UX-only; never rely on them for security.
+- Keep `setup_permissions.sql` and API docs in sync when adding permissions.
+- Add tests for new permission-protected behavior.
 
 
 

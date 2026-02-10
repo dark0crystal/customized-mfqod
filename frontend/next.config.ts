@@ -7,9 +7,16 @@
 // export default nextConfig;
 
 
+import path from 'path';
 import {NextConfig} from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
- 
+
+// Next 16: resolve path to real navigation impl for webpack (sync resolve needed in config)
+const nextNavPath = path.join(
+  path.dirname(require.resolve('next/package.json')),
+  'dist/client/components/navigation.js'
+);
+
 const nextConfig: NextConfig = {
     output: 'standalone', // Enable standalone output for Docker
     experimental: {
@@ -67,7 +74,28 @@ const nextConfig: NextConfig = {
         // your project has type errors.
         // ignoreBuildErrors: true,
     },
+    webpack: (config) => {
+        config.resolve.alias = {
+            ...config.resolve.alias,
+            'next/navigation': nextNavPath,
+        };
+        return config;
+    },
+    turbopack: {
+        // Use package-relative path so Turbopack resolves inside node_modules/next
+        resolveAlias: {
+            'next/navigation': 'next/dist/client/components/navigation.js',
+        },
+    },
 };
  
-const withNextIntl = createNextIntlPlugin();
+const withNextIntl = createNextIntlPlugin({
+  experimental: {
+    messages: {
+      path: './messages',
+      locales: ['en', 'ar'],
+      format: 'json',
+    },
+  },
+});
 export default withNextIntl(nextConfig);

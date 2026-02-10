@@ -25,13 +25,13 @@ These are the consolidated permissions inserted by `setup_permissions.sql` (name
 - `can_manage_organizations` — Full organization management (create, view, edit, delete).
 - `can_manage_users` — Full user management access (create, view, edit, delete).
 - `can_manage_claims` — Full claim management (view, create, process/approve/reject).
-
+- `admin` — Admin access (top-level/admin role; full system access).
 - `can_view_system_logs` — Can view system logs / audit logs.
 - `can_manage_roles` — Can create/edit/delete roles.
 - `can_manage_permissions` — Can create/edit/delete permissions and assign them to roles.
 - `can_view_analytics` — Can view system analytics and statistics.
 - `can_configure_system` — Can configure system settings.
-
+- `can_access_admin` — Can access admin panel.
 - `can_manage_transfer_requests` — Full transfer request management (create, view, approve, reject).
 
 Note: there are a few additional helper/legacy names floating in example files, but these are covered by the consolidated permissions above.
@@ -88,8 +88,22 @@ Developer tools:
 
 ---
 
+## 6) Recommendations & Best practices
 
+1. Keep the permissions list small and consolidated (current approach) to simplify role management and auditing.
+2. Use descriptive permission names and keep descriptions in sync (update `setup_permissions.sql` and migration docs as needed).
+3. Add integration tests for key permission-protected endpoints (e.g., ensure `can_manage_roles` is required to create new roles, verify `can_manage_users` rights for destructive actions).
+4. Add a short Admin guide section describing how to add new permissions and assign them to roles (if you want, I can add that as a `docs/admin-permissions.md`).
 
+---
+
+If you'd like, I can now:
+- Add a small table mapping all routes → permissions in `docs/permissions.md` (full audit), or
+- Add a short 'Admin guide' doc with step-by-step instructions to create and assign permissions via API and SQL.
+
+Tell me which next step you'd like. ✅
+
+---
 
 ## Expanded guide
 

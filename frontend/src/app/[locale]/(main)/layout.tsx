@@ -1,26 +1,24 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import { setRequestLocale } from "next-intl/server";
 import { hasLocale } from "next-intl";
-import { routing } from "@/i18n/routing";
 import { notFound } from "next/navigation";
+import { routing } from "@/i18n/routing";
 import NavBar from "@/components/navbar/Navbar";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "مفقود | MFQOD",
   description: "مفقود",
 };
 
-export default async function MainLayout({
-  children,
-  params
-}: Readonly<{
-  children: React.ReactNode;
-  params: Promise<{ locale: string }>;
-}>) {
+type Props = { children: React.ReactNode; params: Promise<{ locale: string }> };
+
+export default async function MainLayout({ children, params }: Props) {
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) {
     notFound();
   }
+  setRequestLocale(locale);
 
   return (
     <>

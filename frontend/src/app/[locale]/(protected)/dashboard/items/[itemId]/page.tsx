@@ -937,7 +937,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
                 <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">S.NO</th>
                 <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('title') || 'Title'}</th>
                 <th style="padding: 12px; text-align: ${locale === 'ar' ? 'right' : 'left'}; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('description') || 'Description'}</th>
-                <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('status') || 'Status'}</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${t('statusLabel') || t('status') || 'Status'}</th>
                 <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${tItems('filters.itemType') || 'Item Type'}</th>
                 <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 12px; font-weight: bold;">${locale === 'ar' ? 'المبلغ' : 'Reporter'}</th>
               </tr>

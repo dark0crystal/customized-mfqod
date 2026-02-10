@@ -731,6 +731,10 @@
         "branch": "الفرع",
         "allBranches": "جميع الفروع",
         "dateRange": "نطاق التاريخ",
+        "clearAllFilters": "مسح جميع المرشحات",
+        "fromDate": "من تاريخ",
+        "to": "إلى",
+        "toDate": "إلى تاريخ",
         "deletionStatus": "حالة الحذف للعنصر",
         "markedForDeletion": "محذوف",
         "active": "غير محذوف",
@@ -818,6 +822,119 @@
         "type": "النوع",
         "email": "البريد الإلكتروني",
         "viewDetails": "عرض تفاصيل المطالبة",
+        "tour": {
+          "helpGuide": "دليل المساعدة",
+          "stepIndicator": "الخطوة {current} من {total}",
+          "close": "إغلاق",
+          "next": "التالي",
+          "previous": "السابق",
+          "finish": "إنهاء",
+          "goToStep": "الانتقال إلى الخطوة {step}",
+          "steps": {
+            "welcome": {
+              "title": "مرحباً بك في صفحة تفاصيل الغرض!",
+              "description": "تعرض هذه الصفحة معلومات شاملة حول الغرض المحدد. هنا يمكنك عرض جميع التفاصيل وإدارة حالة الغرض وعرض المطالبات وتنفيذ إجراءات مختلفة."
+            },
+            "itemInformation": {
+              "title": "معلومات الغرض",
+              "description": "يعرض هذا القسم عنوان الغرض ووصفه والملاحظات الداخلية. يمكنك رؤية الحالة الحالية والموقع وجميع التفاصيل ذات الصلة حول الغرض هنا."
+            },
+            "itemImages": {
+              "title": "صور الغرض",
+              "description": "عرض جميع الصور المرتبطة بهذا الغرض. يمكنك التصفح عبر معرض الصور لرؤية زوايا وتفاصيل مختلفة للغرض."
+            },
+            "itemStatus": {
+              "title": "إدارة حالة الغرض",
+              "description": "استخدم هذا القسم لتغيير حالة الغرض. يمكنك تعيينه إلى معلق أو معتمد أو ملغي أو تم التصرف به. عند الموافقة، ستحتاج إلى اختيار مطالبة مرتبطة."
+            },
+            "claims": {
+              "title": "قسم المطالبات",
+              "description": "يعرض هذا القسم جميع المطالبات المقدمة لهذا الغرض. يمكنك عرض تفاصيل المطالبات والموافقة عليها وإدارة العلاقة بين الأغراض والمطالبات."
+            },
+            "location": {
+              "title": "معلومات الموقع",
+              "description": "عرض موقع الغرض الحالي والفرع والمنظمة. يمكنك أيضاً طلب نقل إلى فرع آخر إذا كان لديك الصلاحيات اللازمة."
+            },
+            "requestTransfer": {
+              "title": "طلب النقل",
+              "description": "استخدم هذا الزر لطلب نقل هذا الغرض إلى فرع آخر. انقر على الزر لفتح نموذج طلب النقل حيث يمكنك اختيار فرع الوجهة وإضافة ملاحظات حول النقل."
+            }
+          }
+        }
+      },
+      "status": {
+        "pending": "في الانتظار",
+        "approved": "تم الإستلام",
+        "cancelled": "ملغي",
+        "disposed": "تم التصرف",
+        "claims": "مطالبات"
+      },
+      "validation": {
+        "noFutureDates": "لا يمكن أن تكون التواريخ في المستقبل",
+        "fromDateAfterToDate": "يجب أن يكون تاريخ البداية قبل أو يساوي تاريخ النهاية",
+        "toDateBeforeFromDate": "يجب أن يكون تاريخ النهاية بعد أو يساوي تاريخ البداية"
+      },
+      "detail": {
+        "loading": "جاري التحميل...",
+        "itemNotFound": "الغرض غير موجود",
+        "backToItems": "العودة إلى الأغراض",
+        "unknownUser": "مستخدم غير معروف",
+        "itemInformation": "معلومات الغرض",
+        "itemId": "رقم الغرض",
+        "itemNumber": "الغرض رقم {id}",
+        "statusLabel": "الحالة",
+        "created": "أُنشئ",
+        "lastUpdated": "آخر تحديث",
+        "createdBy": "أبلغ عنه",
+        "notAvailable": "غير متاح",
+        "location": "الموقع",
+        "noLocation": "لم يتم تحديد الموقع",
+        "title": "العنوان",
+        "description": "الوصف",
+        "approvalStatus": "الحالة",
+        "pending": "في الانتظار",
+        "noDescription": "لا يوجد وصف",
+        "disposalNote": "ملاحظة التصرف",
+        "claimer": "المدعي",
+        "email": "البريد الإلكتروني",
+        "approved": "تم الإستلام",
+        "cancelled": "ملغي",
+        "status": "الحالة",
+        "noClaimsToApprove": "لا يمكن الموافقة على هذا الغرض. لا توجد مطالبات. يرجى إنشاء مطالبة أولاً.",
+        "noClaimForApproved": "لا يمكن الموافقة على هذا الغرض. يرجى اختيار مطالبة أولاً.",
+        "pleaseSelectClaim": "يرجى اختيار مطالبة",
+        "disposeItemFailed": "فشل التصرف بالغرض",
+        "disposeItemSuccess": "تم التصرف بالغرض بنجاح",
+        "updateStatusError": "فشل تحديث الحالة",
+        "cannotTransferToCurrentBranch": "لا يمكن نقل الغرض إلى نفس الفرع",
+        "transferRequestSubmitted": "تم إرسال طلب النقل بنجاح",
+        "transferRequestFailed": "فشل إرسال طلب النقل",
+        "deleteItemFailed": "فشل حذف الغرض",
+        "exportPDFError": "خطأ في إنشاء ملف PDF. يرجى المحاولة مرة أخرى.",
+        "deletionStatus": "حالة الحذف",
+        "markedForDeletion": "محدد للحذف",
+        "active": "نشط",
+        "itemImages": "صور الغرض",
+        "image": "صورة",
+        "images": "صور",
+        "itemSummary": "ملخص الغرض",
+        "claims": "المطالبات",
+        "itemStatus": "حالة الغرض",
+        "selectNewStatus": "اختر الحالة الجديدة",
+        "selectStatus": "اختر الحالة",
+        "updating": "جاري التحديث...",
+        "update": "تحديث",
+        "save": "حفظ التغييرات",
+        "cancel": "إلغاء",
+        "editItem": "تعديل الغرض",
+        "organization": "الجامعة",
+        "branch": "الفرع",
+        "status": {
+          "pending": "في الانتظار",
+          "approved": "تم الإستلام",
+          "cancelled": "ملغي",
+          "disposed": "تم التصرف"
+        },
         "tour": {
           "helpGuide": "دليل المساعدة",
           "stepIndicator": "الخطوة {current} من {total}",

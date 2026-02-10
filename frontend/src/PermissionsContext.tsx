@@ -141,11 +141,14 @@ export function PermissionsProvider({ children }: PermissionsProviderProps) {
       }
 
       const responseText = await response.text();
-
+      const trimmed = responseText.trim();
 
       let permissionsData: PermissionResponse[] = [];
+      if (!trimmed) {
+        return [];
+      }
       try {
-        permissionsData = JSON.parse(responseText);
+        permissionsData = JSON.parse(trimmed);
       } catch {
         throw new Error('Invalid JSON response from permissions API');
       }

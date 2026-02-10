@@ -5,7 +5,7 @@ import { z } from "zod";
 import { useState, useEffect } from "react";
 import ReactConfetti from "react-confetti";
 import { useTranslations, useLocale } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { Link } from '@/i18n/navigation';
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import ImageCarousel, { CarouselImage } from "@/components/ImageCarousel";

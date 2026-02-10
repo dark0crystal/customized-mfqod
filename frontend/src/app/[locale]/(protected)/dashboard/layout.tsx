@@ -1,28 +1,25 @@
 import type { Metadata } from "next";
+import { setRequestLocale } from "next-intl/server";
 import { hasLocale } from "next-intl";
-import "./globals.css";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { PermissionsProvider } from "@/PermissionsContext";
 import DashboardShell from "./DashboardShell";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Admin Dashboard",
   description: "Admin dashboard layout",
 };
 
-export default async function AdminLayout({
-  children,
-  params
-}: Readonly<{
-  children: React.ReactNode;
-  params: Promise<{ locale: string }>;
-}>) {
-  const { locale } = await params;
+type Props = { children: React.ReactNode; params: Promise<{ locale: string }> };
 
+export default async function AdminLayout({ children, params }: Props) {
+  const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) {
     notFound();
   }
+  setRequestLocale(locale);
 
   return (
     <PermissionsProvider>

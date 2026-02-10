@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, use, useRef } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { tokenManager } from '@/utils/tokenManager';
 import { formatDateOnly } from '@/utils/dateFormatter';
