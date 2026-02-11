@@ -300,7 +300,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
 
     } catch (error: any) {
       console.error("Error updating form:", error);
-      alert(error.message || "An unexpected error occurred");
+      alert(error.message || c("unexpectedError"));
     } finally {
       setIsProcessing(false);
     }

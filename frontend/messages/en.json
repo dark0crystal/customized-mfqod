@@ -4,8 +4,7 @@
     "about": "Go to the about page",
     "search": "Search Lost Items",
     "report": "Report Found Item",
-    "description": "Mfqod makes it easy for you to find your lost property",
-    "versionMessage": "Mfqod Trail Version 1.0.2 officially released!"
+    "description": "Mfqod makes it easy for you to find your lost property"
   },
   "stats": {
     "itemsCount": "Items Count",
@@ -28,25 +27,6 @@
     "signout": "Sign Out"
   },
   "storage": {
-    "org": {
-      "SQU": "Sultan Qaboos University",
-      "UTAS Muscat": "UTAS Muscat",
-      "UTAS Ibra": "UTAS Ibra",
-      "Bin Omair": "Bin Omair Library",
-      "UTAS Nizwa": "UTAS Nizwa"
-    },
-    "place": {
-      "SQU Library": "SQU Library",
-      "SQU Lost and Found Department": "SQU Lost and Found Department",
-      "UTAS Muscat Library": "UTAS Muscat Library",
-      "UTAS Muscat Lost and Found Department": "UTAS Muscat Lost and Found Department",
-      "UTAS Ibra Library": "UTAS Ibra Library",
-      "UTAS Ibra Lost and Found Department": "UTAS Ibra Lost and Found Department",
-      "Bin Omair Library": "Bin Omair Library",
-      "Bin Omair Lost and Found Department": "Bin Omair Lost and Found Department",
-      "UTAS Nizwa Library": "UTAS Nizwa Library",
-      "UTAS Nizwa Lost and Found Department": "UTAS Nizwa Lost and Found Department"
-    },
     "country": {
       "Oman": "Oman"
     }
@@ -78,7 +58,7 @@
     "Register": "Sign In",
     "developer": "Made With ❤️",
     "developedBy": "Developed by Al-Mardas Saif AlBusaidi",
-    "copyright": "Copyright © 2025 Deanship of students affairs",
+    "copyright": "Copyright © 2026 Deanship of students affairs",
     "description": "Mfqod makes it easy for you to find your lost property"
   },
   "legal": {
@@ -256,7 +236,13 @@
     "note": "Thank you for helping return lost items to their owners.",
     "internalDescription": "Special Description for Site Administrators (Optional)",
     "placeholderInternalDescription": "Enter detailed internal information (visible only to administrators)",
-    "internalDescriptionDisclaimer": "This field is only visible to users with item management permissions"
+    "internalDescriptionDisclaimer": "This field is only visible to users with item management permissions",
+    "loginFirstToSubmit": "Please log in first to submit an item.",
+    "authenticationRequired": "Authentication required. Please log in again.",
+    "userInfoNotFound": "User information not found. Please log in again.",
+    "itemCreationFailed": "Item creation failed",
+    "addressCreationFailed": "Address creation failed",
+    "unexpectedError": "An unexpected error occurred"
   },
   "report-missing": {
     "title": "Report Something You Lost",
@@ -292,6 +278,7 @@
     "goToLogin": "Go to Login",
     "authenticationRequired": "Authentication required. Please log in first.",
     "authenticationFailed": "Authentication failed. Please log in again.",
+    "userInfoNotFound": "User information not found. Please log in again.",
     "loginFirstToSubmit": "Please log in first to submit a missing item.",
     "missingItemCreationFailed": "Missing item creation failed",
     "addressCreationFailed": "Address creation failed",
@@ -439,6 +426,8 @@
   },
   "userDetails": {
     "title": "Edit User Management",
+    "pleaseSelectOrganization": "Please select an organization",
+    "pleaseSelectBranch": "Please select a branch",
     "currentlyManagedBranches": "Currently Managed Branches",
     "noBranchesManaged": "No branches currently managed by this user.",
     "assignNewBranchManagement": "Assign New Branch Management",
@@ -487,7 +476,7 @@
       "auditLogs": "Audit & Logs",
       "analytics": "Analytics",
       "help": "How to Use",
-      "adminPanel": "Admin Panel",
+      "adminPanel": "Dashboard",
       "itemTypes": "Item Types",
       "manageUsers": "Manage Users",
       "managePermissions": "Manage Permissions",

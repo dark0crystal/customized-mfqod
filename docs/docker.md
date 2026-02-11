@@ -215,6 +215,8 @@ The following directories are mounted as volumes for persistence:
 - `./storage` - Uploaded images and files
 - `./backend/logs` - Application logs
 
+For full details on storage layout, backend paths, and changing the storage location, see **[Storage Guide](storage.md)**.
+
 Create directories and set permissions:
 
 ```bash

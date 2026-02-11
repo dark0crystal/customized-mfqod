@@ -1,11 +1,10 @@
 {
   "HomePage": {
     "title": "مغيّب شي؟ مفقود بيساعدك",
-    "about": "Go to the about page",
+    "about": "من نحن",
     "search": "أبحث عن مفقود",
     "report": "استمارة المفقودات",
-    "description": "مفقود يسهل عليك تحصل ممتلكاتك المفقودة",
-    "versionMessage": "إطلاق مفقود النسخة التجريبية v1.0.2 "
+    "description": "مفقود يسهل عليك تحصل ممتلكاتك المفقودة"
   },
   "stats": {
     "itemsCount": "عدد العناصر",
@@ -28,25 +27,6 @@
     "signout": "تسجيل الخروج"
   },
   "storage": {
-    "org": {
-      "SQU": "جامعة السلطان قابوس",
-      "UTAS Muscat": "جامعة التقنية والعلوم التطبيقية مسقط",
-      "UTAS Ibra": "جامعة التقنية والعلوم التطبيقية إبراء",
-      "Bin Omair": "مكتبة بن عمير",
-      "UTAS Nizwa": "جامعة التقنية والعلوم التطبيقية نزوى"
-    },
-    "place": {
-      "SQU Library": "مكتبة جامعة السلطان قابوس",
-      "SQU Lost and Found Department": "قسم المفقودات بجامعة السلطان قابوس",
-      "UTAS Muscat Library": "مكتبة جامعة التقنية والعلوم التطبيقية مسقط",
-      "UTAS Muscat Lost and Found Department": "قسم المفقودات بجامعة التقنية والعلوم التطبيقية مسقط",
-      "UTAS Ibra Library": "مكتبة جامعة التقنية والعلوم التطبيقية إبراء",
-      "UTAS Ibra Lost and Found Department": "قسم المفقودات بجامعة التقنية والعلوم التطبيقية إبراء",
-      "Bin Omair Library": "مكتبة بن عمير",
-      "Bin Omair Lost and Found Department": "قسم المفقودات بمكتبة بن عمير",
-      "UTAS Nizwa Library": "مكتبة جامعة التقنية والعلوم التطبيقية نزوى",
-      "UTAS Nizwa Lost and Found Department": "قسم المفقودات بجامعة التقنية والعلوم التطبيقية نزوى"
-    },
     "country": {
       "Oman": "عُمان"
     }
@@ -78,7 +58,7 @@
     "Register": "تسجيل دخول",
     "developer": "صمم بــ❤️",
     "developedBy": "طور بواسطة المرداس بن سيف البوسعيدي",
-    "copyright": "Copyright © 2025 عمادة شؤون الطلبة",
+    "copyright": "Copyright © 2026 عمادة شؤون الطلبة",
     "description": "مفقود يسهل عليك تحصل ممتلكاتك المفقودة"
   },
   "legal": {
@@ -256,7 +236,13 @@
     "note": "شكراً لمساعدتك في إعادة الأغراض المفقودة لأصحابها.",
     "internalDescription": "وصف خاص لمشرفي الموقع (إختياري)",
     "placeholderInternalDescription": "أدخل معلومات داخلية مفصلة (مرئية فقط للمشرفين)",
-    "internalDescriptionDisclaimer": "هذا الحقل مرئي فقط للمستخدمين الذين لديهم صلاحيات إدارة الأغراض"
+    "internalDescriptionDisclaimer": "هذا الحقل مرئي فقط للمستخدمين الذين لديهم صلاحيات إدارة الأغراض",
+    "loginFirstToSubmit": "يرجى تسجيل الدخول أولاً لإرسال غرض.",
+    "authenticationRequired": "المصادقة مطلوبة. يرجى تسجيل الدخول مرة أخرى.",
+    "userInfoNotFound": "لم يتم العثور على معلومات المستخدم. يرجى تسجيل الدخول مرة أخرى.",
+    "itemCreationFailed": "فشل إنشاء الغرض",
+    "addressCreationFailed": "فشل إنشاء العنوان",
+    "unexpectedError": "حدث خطأ غير متوقع"
   },
   "report-missing": {
     "title": "استمارة المفقودات",
@@ -293,6 +279,7 @@
     "goToLogin": "الذهاب لتسجيل الدخول",
     "authenticationRequired": "المصادقة مطلوبة. يرجى تسجيل الدخول أولاً.",
     "authenticationFailed": "فشلت المصادقة. يرجى تسجيل الدخول مرة أخرى.",
+    "userInfoNotFound": "لم يتم العثور على معلومات المستخدم. يرجى تسجيل الدخول مرة أخرى.",
     "loginFirstToSubmit": "يرجى تسجيل الدخول أولاً لإرسال غرض مفقود.",
     "missingItemCreationFailed": "فشل إنشاء الغرض المفقود",
     "addressCreationFailed": "فشل إنشاء العنوان",
@@ -441,6 +428,8 @@
   },
   "userDetails": {
     "title": "تعديل إدارة المستخدم",
+    "pleaseSelectOrganization": "يرجى اختيار جامعة",
+    "pleaseSelectBranch": "يرجى اختيار فرع",
     "currentlyManagedBranches": "الفروع المُدارة حالياً",
     "noBranchesManaged": "لا توجد فروع مُدارة حالياً من قبل هذا المستخدم.",
     "assignNewBranchManagement": "تعيين إدارة فرع جديد",
@@ -489,7 +478,7 @@
       "auditLogs": "سجلات التدقيق",
       "analytics": "التحليلات",
       "help": "كيفية الاستخدام",
-      "adminPanel": "لوحة الإدارة",
+      "adminPanel": "لوحة التحكم",
       "itemTypes": "أنواع الأغراض",
       "manageUsers": "إدارة المستخدمين",
       "managePermissions": "إدارة الصلاحيات",

@@ -99,7 +99,7 @@ export default function EditUserRole({ userId }: { userId: string }) {
     e.preventDefault();
 
     if (!selectedRole) {
-      setErrorMessage("Please select a role");
+      setErrorMessage(t("pleaseSelectRole"));
       return;
     }
 

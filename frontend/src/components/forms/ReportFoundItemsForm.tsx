@@ -337,7 +337,7 @@ export default function ReportFoundItem() {
 
   const onSubmit = async (data: ItemFormFields) => {
     if (authError) {
-      alert("Please log in first to submit an item.");
+      alert(c("loginFirstToSubmit"));
       return;
     }
 
@@ -346,14 +346,14 @@ export default function ReportFoundItem() {
 
       const token = getTokenFromCookies();
       if (!token) {
-        setAuthError("Authentication required. Please log in again.");
+        setAuthError(c("authenticationRequired"));
         return;
       }
 
       // Get current user ID from token manager
       const currentUser = tokenManager.getUser();
       if (!currentUser || !currentUser.id) {
-        setAuthError("User information not found. Please log in again.");
+        setAuthError(c("userInfoNotFound"));
         setIsProcessing(false);
         return;
       }
@@ -381,7 +381,7 @@ export default function ReportFoundItem() {
       });
 
       if (!itemResponse.ok) {
-        let errorMessage = "Item creation failed";
+        let errorMessage = c("itemCreationFailed");
         try {
           const errorData = await itemResponse.json();
           errorMessage = errorData.detail || errorMessage;
@@ -419,7 +419,7 @@ export default function ReportFoundItem() {
       });
 
       if (!addressResponse.ok) {
-        let errorMessage = "Address creation failed";
+        let errorMessage = c("addressCreationFailed");
         try {
           const errorData = await addressResponse.json();
           errorMessage = errorData.detail || errorMessage;
@@ -445,7 +445,7 @@ export default function ReportFoundItem() {
 
     } catch (error: unknown) {
       console.error("Error submitting form:", error);
-      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+      const errorMessage = error instanceof Error ? error.message : c("unexpectedError");
       alert(errorMessage);
     } finally {
       setIsProcessing(false);
@@ -552,18 +552,18 @@ export default function ReportFoundItem() {
         {canManageItems && (
           <div>
             <label htmlFor="internal_description" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">
-              {c("internalDescription") || "Internal Description"}
+              {c("internalDescription")}
             </label>
             <textarea
               id="internal_description"
               {...register("internal_description")}
-              placeholder={c("placeholderInternalDescription") || "Enter detailed internal information (visible only to administrators)"}
+              placeholder={c("placeholderInternalDescription")}
               rows={4}
               className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
               style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
             />
             <p className="mt-1 text-xs text-gray-500">
-              {c("internalDescriptionDisclaimer") || "This field is only visible to users with item management permissions"}
+              {c("internalDescriptionDisclaimer")}
             </p>
             {errors.internal_description && (
               <p className="mt-2 text-sm text-red-500">{errors.internal_description.message}</p>

@@ -255,7 +255,7 @@ export default function ReportMissingItem() {
       // Get current user ID from token manager
       const currentUser = tokenManager.getUser();
       if (!currentUser || !currentUser.id) {
-        setAuthError(c("authenticationRequired") || "User information not found. Please log in again.");
+        setAuthError(c("userInfoNotFound"));
         setIsProcessing(false);
         return;
       }

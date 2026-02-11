@@ -10,8 +10,8 @@ import { PermissionsProvider } from "@/PermissionsContext";
 import DashboardShell from "./DashboardShell";
 
 export const metadata: Metadata = {
-  title: "Admin Dashboard",
-  description: "Admin dashboard layout",
+  title: "Dashboard",
+  description: "dashboard layout",
 };
 
 export default async function AdminLayout({
