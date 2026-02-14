@@ -11,8 +11,7 @@ export function usePendingTransferRequestsCount() {
     try {
       const pendingCount = await getPendingTransferRequestsCount();
       setCount(pendingCount);
-    } catch (error) {
-      console.error('Error fetching pending transfer requests count:', error);
+    } catch {
       setCount(0);
     }
   };

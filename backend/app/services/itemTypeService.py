@@ -5,9 +5,10 @@ from datetime import datetime, timezone
 import uuid
 import os
 import logging
+from app.config.storage_config import ITEM_TYPES_IMAGES_DIR
 
 logger = logging.getLogger(__name__)
-ITEM_TYPES_IMAGES_DIR = "../storage/uploads/itemTypesImages"
+
 
 class ItemTypeService:
     def __init__(self, db: Session):

@@ -58,7 +58,7 @@
     "Register": "تسجيل دخول",
     "developer": "صمم بــ❤️",
     "developedBy": "طور بواسطة المرداس بن سيف البوسعيدي",
-    "copyright": "Copyright © 2026 عمادة شؤون الطلبة",
+    "copyright": "Copyright © 2026 عمادة شؤون الطلبة، جميع الحقوق محفوظة",
     "description": "مفقود يسهل عليك تحصل ممتلكاتك المفقودة"
   },
   "legal": {
@@ -242,7 +242,10 @@
     "userInfoNotFound": "لم يتم العثور على معلومات المستخدم. يرجى تسجيل الدخول مرة أخرى.",
     "itemCreationFailed": "فشل إنشاء الغرض",
     "addressCreationFailed": "فشل إنشاء العنوان",
-    "unexpectedError": "حدث خطأ غير متوقع"
+    "unexpectedError": "حدث خطأ غير متوقع",
+    "titleRequired": "يرجى إدخال ما وجدته",
+    "contentRequired": "يرجى إضافة تفاصيل عن الغرض",
+    "itemTypeRequired": "يرجى اختيار نوع الغرض"
   },
   "report-missing": {
     "title": "استمارة المفقودات",

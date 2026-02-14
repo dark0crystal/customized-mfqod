@@ -138,7 +138,6 @@ export default function ReportMissingItem() {
           uploadedImagePaths.push(result.data.url);
         }
       } catch (error) {
-        console.error('Error uploading image:', file.name, error);
         errors.push(error as UploadError);
       }
     }
@@ -190,8 +189,6 @@ export default function ReportMissingItem() {
         } else if (organizationsResponse.status === 401) {
           setAuthError(c("authenticationFailed"));
           return;
-        } else {
-          console.error('Failed to fetch organizations');
         }
 
         // Fetch item types with authentication
@@ -206,12 +203,9 @@ export default function ReportMissingItem() {
         } else if (itemTypesResponse.status === 401) {
           setAuthError(c("authenticationFailed"));
           return;
-        } else {
-          console.error('Failed to fetch item types');
         }
 
-      } catch (error) {
-        console.error('Error fetching data:', error);
+      } catch {
       } finally {
         setIsLoading(false);
       }
@@ -283,7 +277,6 @@ export default function ReportMissingItem() {
           const errorData = await missingItemResponse.json();
           errorMessage = errorData.detail || errorMessage;
         } catch {
-          console.error('Could not parse error response');
         }
         throw new Error(errorMessage);
       }
@@ -294,15 +287,11 @@ export default function ReportMissingItem() {
       // STEP 2: Upload images if any
       let uploadedImagePaths: string[] = [];
       if (compressedFiles.length > 0) {
-        console.log("Uploading images...");
         uploadedImagePaths = await uploadImages(missingItemId, compressedFiles);
-        console.log("Images uploaded:", uploadedImagePaths);
-        
         // Clear upload progress after completion
         setUploadProgress(null);
       }
 
-      console.log("Missing item and images uploaded successfully");
       setConfetti(true);
       reset();
       setCompressedFiles([]);
@@ -316,7 +305,6 @@ export default function ReportMissingItem() {
       }, 3000);
 
     } catch (error: unknown) {
-      console.error("Error submitting form:", error);
       alert(error instanceof Error ? error.message : c("unexpectedError"));
     } finally {
       setIsProcessing(false);

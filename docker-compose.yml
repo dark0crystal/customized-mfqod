@@ -13,6 +13,9 @@ services:
       - "8000:8000"
     env_file:
       - backend/.env
+    environment:
+      # So uploads go to the mounted volume (./storage on host)
+      - STORAGE_BASE=/storage
     # DATABASE_URL is read from backend/.env (no override here)
     volumes:
       # Mount storage directory for persistent uploads

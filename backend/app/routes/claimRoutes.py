@@ -456,9 +456,9 @@ async def upload_image_to_claim(
             )
         
         # Create upload directory and generate unique filename
+        from app.config.storage_config import UPLOAD_DIR
         create_upload_directory()
         unique_filename = generate_unique_filename(file.filename, detected_format)
-        UPLOAD_DIR = "../storage/uploads/images"
         file_path = os.path.join(UPLOAD_DIR, unique_filename)
         
         # Save the file
@@ -582,10 +582,11 @@ async def delete_claim_image(
         
         # Delete the image file
         import os
+        from app.config.storage_config import UPLOAD_DIR
         if image.url:
             # Extract filename from URL
             filename = image.url.split("/")[-1]
-            file_path = os.path.join("../storage/uploads/images", filename)
+            file_path = os.path.join(UPLOAD_DIR, filename)
             if os.path.exists(file_path):
                 try:
                     os.remove(file_path)

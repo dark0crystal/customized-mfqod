@@ -1,6 +1,6 @@
 # services/imageService.py
 from sqlalchemy.orm import Session
-from app.models import Image, User, Item
+from app.models import Image, User, Item, Claim, MissingItem
 from typing import Optional
 from app.services import permissionServices
 from app.middleware.branch_auth_middleware import can_user_manage_item
@@ -114,4 +114,43 @@ class ImageService:
         ).delete()
         self.db.commit()
         return deleted_count
+
+    def can_user_attach_image(self, user_id: str, imageable_type: str, imageable_id: str) -> bool:
+        """
+        Check if user is allowed to attach an image to the given entity.
+        Used to prevent IDOR on upload-multiple-images and upload_image_to_item.
+        """
+        if imageable_type == "item":
+            item = self.db.query(Item).filter(Item.id == imageable_id).first()
+            if not item:
+                return False
+            if permissionServices.has_full_access(self.db, user_id):
+                return True
+            if item.user_id == user_id:
+                return True
+            return can_user_manage_item(user_id, imageable_id, self.db)
+
+        if imageable_type == "claim":
+            from app.services.claimService import ClaimService
+            claim_service = ClaimService(self.db)
+            return claim_service.can_user_edit_claim(user_id, imageable_id)
+
+        if imageable_type == "missingitem":
+            missing = self.db.query(MissingItem).filter(MissingItem.id == imageable_id).first()
+            if not missing:
+                return False
+            if permissionServices.has_full_access(self.db, user_id):
+                return True
+            if permissionServices.check_user_permission(self.db, user_id, "can_manage_missing_items"):
+                return True
+            return missing.user_id == user_id
+
+        return False
+
+    def can_user_delete_image(self, user_id: str, image: Image) -> bool:
+        """
+        Check if user is allowed to delete this image (based on its entity).
+        Used to prevent IDOR on delete_image.
+        """
+        return self.can_user_attach_image(user_id, image.imageable_type, image.imageable_id)
         

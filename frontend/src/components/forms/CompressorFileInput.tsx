@@ -112,7 +112,6 @@ const CompressorFileInput: React.FC<CompressorFileInputProps> = ({
               reader.readAsDataURL(compressedFile);
             },
             error: (err: any) => {
-              console.error("Compression error:", err);
               reject(err);
             },
           });
@@ -140,7 +139,6 @@ const CompressorFileInput: React.FC<CompressorFileInputProps> = ({
       }
 
     } catch (error) {
-      console.error("Error processing files:", error);
     } finally {
       setIsProcessing(false);
     }

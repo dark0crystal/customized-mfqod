@@ -43,9 +43,8 @@ export default getRequestConfig(async ({requestLocale}) => {
       // Deep merge: English as base, current locale messages override (take precedence)
       // This way missing keys in current locale will fall back to English
       finalMessages = deepMerge(englishMessages, messages);
-    } catch (error) {
+    } catch {
       // If English messages can't be loaded, just use current locale messages
-      console.warn('Could not load English messages for fallback:', error);
     }
   }
  

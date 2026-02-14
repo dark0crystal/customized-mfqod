@@ -18,17 +18,23 @@ interface PermissionCheckResult {
 
 /**
  * Extract JWT token from cookies
+ * Decodes URL-encoded value since the client stores the token with encodeURIComponent
  */
 export async function getTokenFromCookies(): Promise<string | null> {
   try {
     const cookieStore = await cookies();
-    const token =
+    const raw =
       cookieStore.get('token')?.value ||
       cookieStore.get('jwt')?.value;
 
-    return token || null;
-  } catch (error) {
-    console.error('Error getting cookies:', error);
+    if (!raw) return null;
+    // Client sets cookie with encodeURIComponent(token), so dots become %2E — decode so JWT parse works
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
+  } catch {
     return null;
   }
 }
@@ -77,8 +83,11 @@ export async function getUserPermissions(token: string): Promise<PermissionCheck
       };
     }
 
+    // Ensure role_id is string (JWT may encode it as number)
+    const roleId = String(payload.role_id);
+
     // Call backend API to get permissions for the role
-    const response = await fetch(`${API_BASE}/api/permissions/role/${payload.role_id}`, {
+    const response = await fetch(`${API_BASE}/api/permissions/role/${roleId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -88,8 +97,8 @@ export async function getUserPermissions(token: string): Promise<PermissionCheck
     });
 
     if (!response.ok) {
-      // If unauthorized, token might be invalid
-      if (response.status === 401) {
+      // 401: invalid/expired token; 404: role not found — treat as no permissions
+      if (response.status === 401 || response.status === 404) {
         return {
           hasPermission: false,
           hasFullAccess: false,
@@ -101,8 +110,6 @@ export async function getUserPermissions(token: string): Promise<PermissionCheck
 
     const permissions: Array<{ id: string; name: string }> = await response.json();
     const permissionNames = permissions.map(p => p.name);
-
-    // Check if user has full access (all critical permissions)
     const criticalPermissions = [
       'can_manage_items',
       'can_manage_missing_items',
@@ -116,7 +123,6 @@ export async function getUserPermissions(token: string): Promise<PermissionCheck
       'can_manage_roles',
       'can_manage_permissions',
     ];
-
     const hasFullAccess = criticalPermissions.every(perm => permissionNames.includes(perm));
 
     return {
@@ -126,8 +132,7 @@ export async function getUserPermissions(token: string): Promise<PermissionCheck
       userId: payload.user_id || payload.sub,
       roleId: payload.role_id,
     };
-  } catch (error) {
-    console.error('Error fetching user permissions:', error);
+  } catch {
     return {
       hasPermission: false,
       hasFullAccess: false,

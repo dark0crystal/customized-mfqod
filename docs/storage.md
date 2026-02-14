@@ -54,18 +54,22 @@ So in the container, **`/storage`** is the root of the uploaded files (backed by
 
 ## Backend Configuration
 
-Storage paths are defined and used in several backend files. All paths are **relative to the backend application directory** (`/app` in Docker).
+Storage paths are defined in **one place** so they work regardless of how the app is run (project root, `backend/`, or Docker).
 
-| Path constant              | Value (default)                        | Purpose                    |
-|---------------------------|----------------------------------------|----------------------------|
-| `UPLOAD_DIR`              | `../storage/uploads/images`            | Item images                |
-| `ITEM_TYPES_IMAGES_DIR`   | `../storage/uploads/itemTypesImages`   | Item type images           |
+- **`backend/app/config/storage_config.py`**  
+  Sets `STORAGE_BASE` from the env var `STORAGE_BASE` if present (e.g. in Docker: `/storage`), otherwise `project_root/storage` (project root is derived from the config file’s location).  
+  Then: `UPLOAD_DIR = STORAGE_BASE/uploads/images`, `ITEM_TYPES_IMAGES_DIR = STORAGE_BASE/uploads/itemTypesImages`.
 
-### Files that define or use these paths
+| Path constant              | When `STORAGE_BASE` not set       | When `STORAGE_BASE=/storage` (Docker) |
+|---------------------------|------------------------------------|--------------------------------------|
+| `UPLOAD_DIR`              | `<project_root>/storage/uploads/images` | `/storage/uploads/images`           |
+| `ITEM_TYPES_IMAGES_DIR`   | `<project_root>/storage/uploads/itemTypesImages` | `/storage/uploads/itemTypesImages` |
+
+### Files that use these paths
 
 | File | Usage |
 |------|--------|
-| `backend/app/main.py` | Defines both paths, creates directories, mounts FastAPI static file routes. |
+| `backend/app/main.py` | Imports paths, creates directories, mounts FastAPI static file routes. |
 | `backend/app/routes/imageRoutes.py` | `UPLOAD_DIR` — upload and serve item images. |
 | `backend/app/routes/itemTypeRoutes.py` | `ITEM_TYPES_IMAGES_DIR` — upload and serve item type images. |
 | `backend/app/routes/claimRoutes.py` | `UPLOAD_DIR` — claim-related image handling. |
@@ -94,7 +98,7 @@ backend:
 ```
 
 - **Left side (`./storage`):** Path on the host (project root). Change this if you move the folder (e.g. `./frontend/storage`).
-- **Right side (`/storage`):** Path inside the container. The backend’s `../storage` resolves to this.
+- **Right side (`/storage`):** Path inside the container. The backend is configured with `STORAGE_BASE=/storage` so uploads use this mount.
 
 ### Dockerfile (backend)
 

@@ -37,7 +37,6 @@ export async function getPendingTransferRequestsCount(): Promise<number> {
       return 0;
     }
   } catch (error) {
-    console.error('Error fetching pending transfer requests count:', error);
     return 0;
   }
 }

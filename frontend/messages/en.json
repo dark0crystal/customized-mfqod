@@ -58,7 +58,7 @@
     "Register": "Sign In",
     "developer": "Made With ❤️",
     "developedBy": "Developed by Al-Mardas Saif AlBusaidi",
-    "copyright": "Copyright © 2026 Deanship of students affairs",
+    "copyright": "Copyright © 2026 Deanship of Student Affairs. All rights reserved.",
     "description": "Mfqod makes it easy for you to find your lost property"
   },
   "legal": {
@@ -242,7 +242,10 @@
     "userInfoNotFound": "User information not found. Please log in again.",
     "itemCreationFailed": "Item creation failed",
     "addressCreationFailed": "Address creation failed",
-    "unexpectedError": "An unexpected error occurred"
+    "unexpectedError": "An unexpected error occurred",
+    "titleRequired": "Please enter what you found",
+    "contentRequired": "Please add details about the item",
+    "itemTypeRequired": "Please select an item type"
   },
   "report-missing": {
     "title": "Report Something You Lost",

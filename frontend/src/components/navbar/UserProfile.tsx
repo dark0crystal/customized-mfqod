@@ -34,7 +34,6 @@ export default function UserProfile() {
       await logout();
       setIsDropdownOpen(false);
     } catch (error) {
-      console.error('Logout failed:', error);
     }
   };
 

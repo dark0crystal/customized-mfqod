@@ -51,9 +51,7 @@ class TokenManager {
     this.baseUrl = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
     this.detectLocale();
     // Load translations asynchronously (will use defaults until loaded)
-    this.loadTranslations().catch(err => {
-      console.warn('Failed to load translations:', err);
-    });
+    this.loadTranslations().catch(() => {});
     this.setupVisibilityHandling();
     this.startTokenMonitoring();
   }
@@ -103,14 +101,12 @@ class TokenManager {
       // This is a fallback - in production, translations should be loaded via next-intl
       const messages = await import(`../../messages/${this.currentLocale}.json`);
       this.translations = messages.default;
-    } catch (error) {
-      console.warn('Could not load translations, using default English messages:', error);
+    } catch {
       // Fallback to English if locale file doesn't exist
       try {
         const englishMessages = await import(`../../messages/en.json`);
         this.translations = englishMessages.default;
-      } catch (e) {
-        console.error('Could not load English translations:', e);
+      } catch {
       }
     }
   }
@@ -192,7 +188,6 @@ class TokenManager {
       cookieUtils.set("user", JSON.stringify(user), 7);
     }
     
-    console.log('Tokens stored successfully');
   }
 
   getAccessToken(): string | null {
@@ -212,7 +207,6 @@ class TokenManager {
     cookieUtils.remove("refresh_token");
     cookieUtils.remove("token");
     cookieUtils.remove("user");
-    console.log('Tokens cleared');
   }
 
   isAuthenticated(): boolean {
@@ -243,8 +237,7 @@ class TokenManager {
           .join('')
       );
       return JSON.parse(jsonPayload);
-    } catch (error) {
-      console.error('Error decoding JWT:', error);
+    } catch {
       return null;
     }
   }
@@ -287,7 +280,6 @@ class TokenManager {
 
     // Check if refresh token is expired before attempting refresh
     if (this.isRefreshTokenExpired()) {
-      console.warn('Refresh token is expired, cannot refresh access token');
       const errorMessage = this.getTranslation('auth.session.refreshTokenExpired');
       const error = new Error(errorMessage) as Error & { isAuthError: boolean };
       error.isAuthError = true;
@@ -354,7 +346,6 @@ class TokenManager {
       // Update access token
       this.setTokens(data.access_token);
       
-      console.log('Token refreshed successfully');
       return data.access_token;
     } catch (error: unknown) {
       // Ensure timeout is cleared
@@ -377,13 +368,11 @@ class TokenManager {
       // Auth errors (401, expired refresh token, etc.)
       const authError = error as Error & { isAuthError?: boolean; status?: number };
       if (authError.isAuthError || authError.status === 401) {
-        console.error('Token refresh failed - authentication error:', error);
         this.handleAuthFailure();
         throw error;
       }
       
       // Other errors
-      console.error('Token refresh failed:', error);
       this.handleAuthFailure();
       throw error;
     }
@@ -425,10 +414,8 @@ class TokenManager {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         this.isMonitoringPaused = true;
-        console.log('Token monitoring paused (tab inactive)');
       } else {
         this.isMonitoringPaused = false;
-        console.log('Token monitoring resumed (tab active)');
         // Check token status immediately when tab becomes visible
         this.checkTokenStatus();
       }
@@ -456,7 +443,6 @@ class TokenManager {
       
       // Refresh if needed
       if (tokenInfo.needs_refresh && !tokenInfo.is_expired) {
-        console.log('Proactively refreshing token...');
         await this.refreshAccessToken();
       }
       
@@ -471,8 +457,6 @@ class TokenManager {
       }
     } catch (error) {
       // Don't clear tokens on network/CORS errors - retry with exponential backoff
-      console.error('Error checking token status:', error);
-      
       // Only clear tokens if it's a clear authentication error, not a network issue
       if (error instanceof Error && error.message.includes('401') && !this.isCorsOrNetworkError(error)) {
         this.handleAuthFailure();
@@ -480,7 +464,6 @@ class TokenManager {
         // Retry with exponential backoff for network errors
         this.retryCount++;
         const delay = Math.min(1000 * Math.pow(2, this.retryCount - 1), 30000); // Max 30 seconds
-        console.log(`Retrying token check in ${delay}ms (attempt ${this.retryCount}/${this.maxRetries})`);
         setTimeout(() => {
           if (!this.isMonitoringPaused) {
             this.checkTokenStatus();
@@ -562,7 +545,6 @@ class TokenManager {
       // 401 errors are already handled by makeAuthenticatedRequest with refresh
       // If we still get 401 here, it means refresh failed
       if (response.status === 401) {
-        console.error('Token info request failed after refresh attempt');
         return {
           expires_at: null,
           seconds_remaining: 0,
@@ -572,8 +554,7 @@ class TokenManager {
         };
       }
 
-      // For other errors (403, 500, etc.), log and return default
-      console.error(`Token info request failed with status: ${response.status}`);
+      // For other errors (403, 500, etc.), return default
       return {
         expires_at: null,
         seconds_remaining: 0,
@@ -586,14 +567,12 @@ class TokenManager {
       if (error instanceof Error) {
         // CORS errors - don't clear tokens, will retry
         if (this.isCorsOrNetworkError(error)) {
-          console.error('CORS/Network error getting token info:', error.message);
           // Re-throw to trigger retry logic in checkTokenStatus
           throw error;
         }
         
         // Authentication errors (no token, refresh failed) - already handled by makeAuthenticatedRequest
         if (error.message.includes('No access token') || error.message.includes('Token refresh failed')) {
-          console.error('Authentication error getting token info:', error);
           return {
             expires_at: null,
             seconds_remaining: 0,
@@ -604,8 +583,7 @@ class TokenManager {
         }
       }
 
-      // Unknown errors - log and re-throw to trigger retry logic
-      console.error('Error getting token info:', error);
+      // Unknown errors - re-throw to trigger retry logic
       throw error;
     }
   }
@@ -628,7 +606,6 @@ class TokenManager {
 
     // Check if access token is expired before making request
     if (this.isTokenExpired(token)) {
-      console.log('Access token expired, attempting refresh before request');
       try {
         token = await this.refreshAccessToken();
       } catch (refreshError: unknown) {
@@ -638,7 +615,6 @@ class TokenManager {
           throw refreshError;
         }
         // For network errors, continue with expired token and let the server handle it
-        console.warn('Token refresh failed, proceeding with expired token:', refreshError);
       }
     }
 
@@ -726,7 +702,6 @@ class TokenManager {
           // For network errors during refresh, throw the original 401 response
           // This allows the caller to handle it appropriately
           if (authError.isNetworkError) {
-            console.warn('Network error during token refresh, returning 401 response');
             return response; // Return the original 401 response
           }
           
@@ -739,7 +714,6 @@ class TokenManager {
       const newToken = response.headers.get('X-New-Token');
       if (newToken) {
         this.setTokens(newToken);
-        console.log('Token auto-refreshed via header');
       }
 
       return response;
@@ -793,7 +767,6 @@ class TokenManager {
       
       return data;
     } catch (error) {
-      console.error('Login failed:', error);
       throw error;
     }
   }
@@ -813,8 +786,7 @@ class TokenManager {
           body: JSON.stringify({ refresh_token: refreshToken }),
         });
       }
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch {
     } finally {
       this.clearTokens();
       this.stopTokenMonitoring();
@@ -826,7 +798,6 @@ class TokenManager {
   // =======================================
 
   private handleAuthFailure(): void {
-    console.log('Authentication failed, clearing tokens');
     this.clearTokens();
     this.stopTokenMonitoring();
     this.showSessionExpiredMessage();
@@ -842,7 +813,6 @@ class TokenManager {
   }
 
   private handleSessionExpired(): void {
-    console.log('Session expired, clearing tokens');
     this.clearTokens();
     this.stopTokenMonitoring();
     this.showSessionExpiredMessage();
@@ -859,7 +829,6 @@ class TokenManager {
 
   private showSessionWarning(minutes: number): void {
     const message = this.getTranslation('auth.session.expiringSoon', { minutes });
-    console.warn(message);
     
     // Show browser notification if available
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
@@ -878,8 +847,6 @@ class TokenManager {
 
   private showSessionExpiredMessage(): void {
     const message = this.getTranslation('auth.session.expired');
-    console.error(message);
-    
     // Show browser notification if available
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       const title = this.currentLocale === 'ar' ? 'انتهت الجلسة' : 'Session Expired';

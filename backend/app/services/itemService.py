@@ -793,8 +793,8 @@ class ItemService:
                 Image.imageable_id == item_id
             ).all()
             
-            # Delete image files from storage
-            UPLOAD_DIR = "../storage/uploads/images"
+            # Delete image files from storage (use shared storage config)
+            from app.config.storage_config import UPLOAD_DIR
             for image in images:
                 if image.url:
                     try:

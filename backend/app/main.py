@@ -18,14 +18,11 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from app.services.sync_scheduler import start_scheduler, stop_scheduler
-from app.utils.logging_config import setup_logging
 import os
 import sys
 
 import logging
 
-# Setup comprehensive logging
-setup_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -122,13 +119,12 @@ async def validation_exception_handler(request: FastAPIRequest, exc: RequestVali
         content={"detail": exc.errors(), "body": exc.body}
     )
 
-# Create the directory if it doesn't exist
-UPLOAD_DIR = "../storage/uploads/images"
+# Create the directory if it doesn't exist (paths from config are cwd-independent)
+from app.config.storage_config import UPLOAD_DIR, ITEM_TYPES_IMAGES_DIR
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/static/images", StaticFiles(directory=UPLOAD_DIR), name="images")
 
 # Create the directory for item type images if it doesn't exist
-ITEM_TYPES_IMAGES_DIR = "../storage/uploads/itemTypesImages"
 os.makedirs(ITEM_TYPES_IMAGES_DIR, exist_ok=True)
 app.mount("/static/item-types-images", StaticFiles(directory=ITEM_TYPES_IMAGES_DIR), name="item-types-images")
 
@@ -146,9 +142,6 @@ async def startup_event():
         # Start background job scheduler
         await start_scheduler()
         logger.info("Background scheduler started successfully")
-        
-        # Create logs directory
-        os.makedirs("logs", exist_ok=True)
         
         logger.info("University Lost & Found System started successfully")
         

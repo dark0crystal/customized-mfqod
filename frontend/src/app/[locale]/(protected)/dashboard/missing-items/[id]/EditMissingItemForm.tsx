@@ -173,7 +173,6 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
 
         if (response.ok) {
           const data = await response.json();
-          console.log('Missing item data:', data);
           setMissingItem(data);
 
           // Set form values
@@ -184,11 +183,8 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           // Organization selection is no longer based on addresses
         } else if (response.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
-        } else {
-          console.error('Failed to fetch missing item');
         }
-      } catch (error) {
-        console.error('Error fetching missing item:', error);
+      } catch {
       }
     };
 
@@ -212,7 +208,6 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
 
         if (organizationsResponse.ok) {
           const organizationsData = await organizationsResponse.json();
-          console.log('Organizations loaded:', organizationsData);
           setOrganizations(organizationsData);
           setOrgSelectDisabled(organizationsData.length === 1);
         } else if (organizationsResponse.status === 401) {
@@ -234,8 +229,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           return;
         }
 
-      } catch (error) {
-        console.error('Error fetching data:', error);
+      } catch {
       } finally {
         setIsLoading(false);
       }
@@ -285,12 +279,10 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           const errorData = await updateResponse.json();
           errorMessage = errorData.detail || errorMessage;
         } catch {
-          console.error('Could not parse error response');
         }
         throw new Error(errorMessage);
       }
 
-      console.log("Missing item updated successfully");
       setConfetti(true);
 
       // Redirect after success
@@ -298,9 +290,8 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
         router.push("/dashboard/missing-items");
       }, 3000);
 
-    } catch (error: any) {
-      console.error("Error updating form:", error);
-      alert(error.message || c("unexpectedError"));
+    } catch (error: unknown) {
+      alert(error instanceof Error ? error.message : c("unexpectedError"));
     } finally {
       setIsProcessing(false);
     }

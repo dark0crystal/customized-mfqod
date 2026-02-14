@@ -60,7 +60,6 @@ export async function apiRequest<T = any>(
 
     return { data }
   } catch (error) {
-    console.error('API request failed:', error)
     return {
       error: error instanceof Error ? error.message : 'Network error occurred',
     }

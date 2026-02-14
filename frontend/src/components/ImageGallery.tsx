@@ -62,7 +62,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       try {
         await onDelete(imageId);
       } catch (error) {
-        console.error("Failed to delete image:", error);
         alert("Failed to delete image. Please try again.");
       } finally {
         setIsDeleting(null);

@@ -50,7 +50,6 @@ const PermissionsManager = () => {
       const data = await res.json();
       setPermissions(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Failed to fetch permissions:', error);
       setError(t('failedToLoadPermissions'));
       setPermissions([]);
     }
@@ -63,7 +62,6 @@ const PermissionsManager = () => {
       const data = await res.json();
       setRoles(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Failed to fetch roles:', error);
       setError(t('failedToLoadRoles'));
       setRoles([]);
     }
@@ -76,7 +74,6 @@ const PermissionsManager = () => {
       const data = await res.json();
       setAssignedPermissions(Array.isArray(data) ? data.map((p: Permission) => p.id) : []);
     } catch (error) {
-      console.error('Failed to fetch assigned permissions:', error);
       setError(t('failedToLoadRolePermissions'));
       setAssignedPermissions([]);
     }
@@ -103,7 +100,6 @@ const PermissionsManager = () => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setSuccess(t('permissionsAssignedSuccessfully'));
     } catch (error) {
-      console.error('Failed to assign permissions:', error);
       setError(t('failedToAssignPermissions'));
     }
   };
@@ -122,7 +118,6 @@ const PermissionsManager = () => {
         setError(t('failedToDeletePermission'));
       }
     } catch (error) {
-      console.error('Failed to delete permission:', error);
       setError(t('failedToDeletePermission'));
     }
   };
@@ -148,7 +143,6 @@ const PermissionsManager = () => {
         setError(t('failedToUpdatePermission'));
       }
     } catch (error) {
-      console.error('Failed to update permission:', error);
       setError(t('failedToUpdatePermission'));
     }
   };
@@ -169,7 +163,6 @@ const PermissionsManager = () => {
         setError(t('failedToCreatePermission'));
       }
     } catch (error) {
-      console.error('Failed to create permission:', error);
       setError(t('failedToCreatePermission'));
     }
   };

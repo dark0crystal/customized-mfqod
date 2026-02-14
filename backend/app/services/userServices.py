@@ -7,7 +7,7 @@ from app.models import User, Role, UserStatus, UserSession, LoginAttempt
 from app.utils.security import hash_password, verify_password
 import uuid
 from datetime import datetime, timezone, timedelta
-from jose import jwt
+import jwt
 import os
 from dotenv import load_dotenv
 import asyncio
@@ -16,8 +16,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 load_dotenv()
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
+# Use same defaults as auth_config so tokens from auth_service (iss: university-lost-found-auth) verify
+SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-production")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
 TOKEN_EXPIRATION_MINUTES = 30  # Original token expiration
 ACCESS_TOKEN_EXPIRATION_MINUTES = 30  # Short-lived access token
 REFRESH_TOKEN_EXPIRATION_DAYS = 7     # Long-lived refresh token
@@ -135,7 +136,7 @@ async def verify_jwt_token(token: str):
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 async def get_current_user_from_token(token: str, session: Session):
@@ -573,7 +574,7 @@ async def refresh_access_token(refresh_token: str, session: Session) -> Dict[str
         
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Refresh token has expired")
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 async def get_current_user_with_auto_refresh(token: str, session: Session) -> Tuple[Dict[str, Any], Optional[str]]:
@@ -641,14 +642,16 @@ async def get_current_user_with_auto_refresh(token: str, session: Session) -> Tu
         
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
 def get_token_expiry_info(token: str) -> Dict[str, Any]:
     """Get token expiration information without full verification"""
     try:
-        # Decode without verification to get expiry info
-        unverified_payload = jwt.get_unverified_claims(token)
+        # Decode without verification to get expiry info (PyJWT)
+        unverified_payload = jwt.decode(
+            token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_signature": False}
+        )
         exp_timestamp = unverified_payload.get("exp")
         
         if exp_timestamp:

@@ -1,10 +1,10 @@
 import ManageUsers from "./ManageUsers";
-import { WithPermissions } from "@/lib/server/withPermissions";
+import ProtectedPage from '@/components/protection/ProtectedPage';
 
-export default async function ManageUsersPage() {
+export default function ManageUsersPage() {
   return (
-    <WithPermissions permission="can_manage_users">
+    <ProtectedPage requiredPermission="can_manage_users">
       <ManageUsers />
-    </WithPermissions>
+    </ProtectedPage>
   );
 }

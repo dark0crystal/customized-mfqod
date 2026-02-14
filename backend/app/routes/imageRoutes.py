@@ -8,6 +8,7 @@ from app.utils.permission_decorator import extract_user_from_token
 from app.schemas.image_schema import UploadImageRequest
 from app.services.imageService import ImageService
 from app.middleware.auth_middleware import get_current_user_required
+from app.middleware.branch_auth_middleware import require_branch_access
 from app.models import User
 from app.utils.permission_decorator import require_permission
 import shutil
@@ -16,12 +17,11 @@ from PIL import Image
 import io
 import logging
 from fastapi.responses import FileResponse
-from typing import Optional
 
 router = APIRouter()
 
-# Configuration
-UPLOAD_DIR = "../storage/uploads/images"  # Relative to backend directory
+# Configuration (use shared storage config so path works regardless of cwd)
+from app.config.storage_config import UPLOAD_DIR
 ALLOWED_MIME_TYPES = {
     "image/jpeg",
     "image/png",
@@ -86,7 +86,6 @@ def has_dangerous_extension(filename: str) -> bool:
     for ext in parts[1:]:
         if f".{ext}" in DANGEROUS_EXTENSIONS:
             return True
-    print("not allooooowoo--------exten")
     return False
 
 def validate_image_with_pillow(file_content: bytes) -> tuple[bool, str]:
@@ -162,14 +161,25 @@ def generate_unique_filename(original_filename: str, detected_format: Optional[s
     unique_id = str(uuid.uuid4())
     return f"{unique_id}{ext}"
 
+def _resolve_safe_path(filename: str) -> Optional[str]:
+    """
+    Resolve filename to a path under UPLOAD_DIR. Returns None if path would escape (path traversal).
+    """
+    if not filename or ".." in filename or "/" in filename or "\\" in filename:
+        return None
+    abs_upload = os.path.abspath(os.path.realpath(UPLOAD_DIR))
+    candidate = os.path.abspath(os.path.realpath(os.path.join(UPLOAD_DIR, filename)))
+    if not candidate.startswith(abs_upload) or not os.path.exists(candidate):
+        return None
+    return candidate
+
+
 @router.get("/{filename}")
 async def serve_image(filename: str):
-    """Serve images from uploads directory"""
-    file_path = os.path.join(UPLOAD_DIR, filename)
-    
-    if not os.path.exists(file_path):
+    """Serve images from uploads directory. Path traversal is blocked."""
+    file_path = _resolve_safe_path(filename)
+    if not file_path:
         raise HTTPException(status_code=404, detail="Image not found")
-    
     return FileResponse(file_path)
 
 @router.get("/items/{item_id}/images/")
@@ -194,12 +204,20 @@ async def get_item_images(
     images = image_service.get_images_by_item_id(item_id, user=user)
     return images
 
+# Allowed URL prefix for attach_image to prevent arbitrary URL injection (e.g. javascript:, external phishing)
+ALLOWED_IMAGE_URL_PREFIX = "/static/images/"
+
+
 @router.post("/images/attach/", response_model=dict)
 async def attach_image(
     image_data: UploadImageRequest,
     db: Session = Depends(get_session),
-    image_service: ImageService = Depends(get_image_service)
+    image_service: ImageService = Depends(get_image_service),
+    current_user: User = Depends(get_current_user_required),
 ):
+    """Attach an existing image URL to an entity. Requires authentication. URL must be an existing static image path."""
+    if not image_data.url.startswith(ALLOWED_IMAGE_URL_PREFIX) or ".." in image_data.url:
+        raise HTTPException(status_code=400, detail="Invalid image URL format")
     try:
         image = image_service.upload_image(
             url=image_data.url,
@@ -217,12 +235,11 @@ async def upload_image_to_item(
     request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_session),
-    image_service: ImageService = Depends(get_image_service)
+    image_service: ImageService = Depends(get_image_service),
+    _: None = Depends(require_branch_access()),
 ):
+    """Upload image to an item. Requires branch access (owner, branch manager, or full access)."""
     try:
-        # Authenticate user
-        user_id = extract_user_from_token(request)
-        
         is_valid, error_message, detected_format = is_valid_image(file)
         if not is_valid:
             raise HTTPException(
@@ -312,9 +329,19 @@ async def upload_multiple_images(
     image_service: ImageService = Depends(get_image_service)
 ):
     try:
-        # Authenticate user
         user_id = extract_user_from_token(request)
-        
+
+        if imageable_type not in ("item", "claim", "missingitem"):
+            raise HTTPException(
+                status_code=400,
+                detail={"error": "INVALID_ENTITY", "message": "imageable_type must be item, claim, or missingitem"}
+            )
+        if not image_service.can_user_attach_image(user_id, imageable_type, imageable_id):
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied: You do not have permission to attach images to this entity"
+            )
+
         if len(files) > 10:
             raise HTTPException(
                 status_code=400, 
@@ -428,6 +455,9 @@ async def delete_image(
         image = image_service.get_image_by_id(image_id)
         if not image:
             raise HTTPException(status_code=404, detail="Image not found")
+
+        if not image_service.can_user_delete_image(user_id, image):
+            raise HTTPException(status_code=403, detail="Access denied: You do not have permission to delete this image")
 
         filename = os.path.basename(image.url)
         file_path = os.path.join(UPLOAD_DIR, filename)

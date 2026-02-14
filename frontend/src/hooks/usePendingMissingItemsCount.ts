@@ -33,7 +33,6 @@ export function usePendingMissingItemsCount() {
       // Only update state if this is still the current request and component is mounted
       if (currentRequestId === requestIdRef.current && isMountedRef.current) {
         setError(errorMessage);
-        console.error('Error fetching pending missing items count:', err);
         setCount(0);
       }
     } finally {

@@ -1,12 +1,12 @@
 import ReportFoundItem from "@/components/forms/ReportFoundItemsForm"
-import { WithPermissions } from "@/lib/server/withPermissions"
+import ProtectedPage from '@/components/protection/ProtectedPage'
 
-export default async function ReportItem() {
+export default function ReportItem() {
   return (
-    <WithPermissions permission="can_manage_items">
+    <ProtectedPage requiredPermission="can_manage_items">
       <div>
         <ReportFoundItem/>
       </div>
-    </WithPermissions>
+    </ProtectedPage>
   )
 }

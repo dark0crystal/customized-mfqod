@@ -85,8 +85,8 @@ from datetime import datetime, timezone
 
 router = APIRouter()
 
-# Configuration for item type images
-ITEM_TYPES_IMAGES_DIR = "../storage/uploads/itemTypesImages"
+# Configuration for item type images (use shared storage config)
+from app.config.storage_config import ITEM_TYPES_IMAGES_DIR
 ALLOWED_MIME_TYPES = {
     "image/jpeg",
     "image/png",

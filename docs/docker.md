@@ -185,6 +185,31 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 - Graceful shutdown handling
 - Service dependencies (frontend waits for backend)
 
+## Running One-Off Backend Scripts
+
+To run setup scripts (e.g. permissions, Sultan Qaboos University organization) inside the backend container with the same `DATABASE_URL` as the running app:
+
+```bash
+# From project root
+
+# Add Sultan Qaboos University organization
+docker-compose run --rm backend python setup_sultan_qaboos_organization.py
+
+# Setup permissions and roles
+docker-compose run --rm backend python setup_permissions.py
+```
+
+Or use the Makefile:
+
+```bash
+make setup-squ-org      # Add Sultan Qaboos University organization
+make setup-permissions # Setup permissions and roles
+```
+
+**Note:** `docker-compose run` starts a one-off container that uses the same `backend/.env` and can reach the same database as the main backend service. The `--rm` flag removes the container after the script exits.
+
+---
+
 ## Database Connection
 
 ### Connecting to External Database

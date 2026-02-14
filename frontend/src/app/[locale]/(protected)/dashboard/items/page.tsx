@@ -173,7 +173,6 @@ export default function ItemsPage() {
       // FastAPI will parse "false" string as boolean False
       const showAllValue = filters?.showAll === true ? "true" : "false";
       params.append("show_all", showAllValue);
-      console.log('Fetching items with status:', filters?.status, 'show_all:', showAllValue);
       
       params.append("skip", "0");
       params.append("limit", "100");
@@ -343,7 +342,6 @@ export default function ItemsPage() {
       showAll: showAllValue,
     };
     
-    console.log('applyFilters called with:', { status: filters.status, showAllValue, viewMode, filters });
     fetchItems(filters);
   };
 

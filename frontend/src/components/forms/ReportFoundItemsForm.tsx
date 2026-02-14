@@ -120,16 +120,16 @@ export default function ReportFoundItem() {
   const { hasPermission } = usePermissions();
   const canManageItems = hasPermission('can_manage_items');
 
-  // useForm with empty orgnization by default, will set after fetch
+  // useForm with validation; mode 'onChange' so errors show and isValid updates as user fills
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isValid },
     reset,
     setValue,
     watch
   } = useForm<ItemFormFields>({
-    // resolver: zodResolver(itemFormSchema),
+    mode: "onChange",
     defaultValues: {
       country: "Oman",
       type: "",
@@ -140,7 +140,6 @@ export default function ReportFoundItem() {
     }
   });
 
-  // Watch for organization changes
   const watchedOrganization = watch("orgnization");
 
   // Helper function to upload images using new service
@@ -162,7 +161,6 @@ export default function ReportFoundItem() {
           uploadedImagePaths.push(result.data.url);
         }
       } catch (error) {
-        console.error('Error uploading image:', file.name, error);
         errors.push(error as UploadError);
       }
     }
@@ -184,14 +182,40 @@ export default function ReportFoundItem() {
     }
   }, []);
 
-  // Fetch data on component mount - get user's managed branches and derive organizations
-  // Note: Only fetches branches that the current user manages, not all branches
+  // Fetch data on component mount: organizations from /api/organizations/, then managed branches
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
 
-        // Fetch user's managed branches only (not all branches)
+        // 1. Fetch all organizations (same as Report Missing Item form)
+        const organizationsResponse = await fetch(`${API_BASE_URL}/api/organizations/`, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        });
+
+        let organizationsData: Organization[] = [];
+        if (organizationsResponse.ok) {
+          organizationsData = await organizationsResponse.json();
+          setOrganizations(organizationsData);
+
+          // Set default organization to first if available and not already set
+          if (
+            organizationsData.length > 0 &&
+            !hasSetDefaultOrg.current
+          ) {
+            setValue("orgnization", organizationsData[0].id);
+            hasSetDefaultOrg.current = true;
+          }
+
+          // If only one organization, disable the select
+          setOrgSelectDisabled(organizationsData.length === 1);
+        } else if (organizationsResponse.status === 401) {
+          setAuthError("Authentication failed. Please log in again.");
+          return;
+        }
+
+        // 2. Fetch user's managed branches only (for branch dropdown, filtered by selected org)
         const branchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
           method: 'GET',
           headers: getAuthHeaders(),
@@ -199,60 +223,27 @@ export default function ReportFoundItem() {
 
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
-          // branchesData contains only branches managed by the current user
-          // Filter by organization if one is already selected
+          // Filter by first organization if we have orgs (default selected above)
+          const orgIdToFilter = organizationsData.length > 0 ? organizationsData[0].id : null;
           let filteredBranches = branchesData;
-          if (watchedOrganization) {
+          if (orgIdToFilter) {
             filteredBranches = branchesData.filter(
-              (branch: Branch) => branch.organization_id === watchedOrganization
+              (branch: Branch) => branch.organization_id === orgIdToFilter
             );
           }
           setBranches(filteredBranches);
 
-          // Extract unique organizations from managed branches
-          const orgMap = new Map();
-          branchesData.forEach((branch: Branch) => {
-            if (branch.organization_id && branch.organization) {
-              if (!orgMap.has(branch.organization_id)) {
-                orgMap.set(branch.organization_id, {
-                  id: branch.organization_id,
-                  name_ar: branch.organization.name_ar,
-                  name_en: branch.organization.name_en,
-                  description_ar: branch.organization.description_ar,
-                  description_en: branch.organization.description_en,
-                });
-              }
-            }
-          });
-
-          const uniqueOrganizations = Array.from(orgMap.values());
-          setOrganizations(uniqueOrganizations);
-
-          // Set default organization to first if available and not already set
-          if (
-            uniqueOrganizations.length > 0 &&
-            !hasSetDefaultOrg.current
-          ) {
-            setValue("orgnization", uniqueOrganizations[0].id);
-            hasSetDefaultOrg.current = true;
-          }
-
-          // If only one organization, disable the select
-          setOrgSelectDisabled(uniqueOrganizations.length === 1);
-
-          // If only one branch available, select it
-          if (filteredBranches.length === 1) {
+          if (filteredBranches.length === 1 && orgIdToFilter) {
             setValue("branch_id", filteredBranches[0].id);
           }
         } else if (branchesResponse.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
           return;
         } else {
-          console.error('Failed to fetch managed branches');
           setBranches([]);
         }
 
-        // Fetch item types with authentication
+        // 3. Fetch item types with authentication
         const itemTypesResponse = await fetch(`${API_BASE_URL}/api/item-types/`, {
           method: 'GET',
           headers: getAuthHeaders(),
@@ -264,12 +255,8 @@ export default function ReportFoundItem() {
         } else if (itemTypesResponse.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
           return;
-        } else {
-          console.error('Failed to fetch item types');
         }
-
-      } catch (error) {
-        console.error('Error fetching data:', error);
+      } catch {
       } finally {
         setIsLoading(false);
       }
@@ -284,12 +271,10 @@ export default function ReportFoundItem() {
   }, [authError, API_BASE_URL, setValue]);
 
 
-  // Fetch user's managed branches when organization changes
-  // Note: This ensures branches are always filtered to only show managed branches for the selected organization
+  // When organization changes: fetch managed branches and filter by selected organization
   useEffect(() => {
     const fetchManagedBranches = async () => {
       try {
-        // Fetch only branches managed by the current user (not all branches)
         const branchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
           method: 'GET',
           headers: getAuthHeaders(),
@@ -297,36 +282,29 @@ export default function ReportFoundItem() {
 
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
-          // branchesData contains only branches managed by the current user
-          // Filter branches by selected organization if one is selected
+          // Filter to only branches of the selected organization that the user manages
           let filteredBranches = branchesData;
           if (watchedOrganization) {
             filteredBranches = branchesData.filter(
               (branch: Branch) => branch.organization_id === watchedOrganization
             );
           }
-          // Set branches state - this will only contain managed branches (filtered by org if selected)
           setBranches(filteredBranches);
 
-          // If only one branch available and matches organization, select it
           if (filteredBranches.length === 1 && watchedOrganization) {
             setValue("branch_id", filteredBranches[0].id);
-          } else if (!watchedOrganization && filteredBranches.length > 0 && !hasSetDefaultOrg.current) {
-            // Set first organization if not set
-            setValue("orgnization", filteredBranches[0].organization_id);
-            hasSetDefaultOrg.current = true;
           } else {
             setValue("branch_id", "");
           }
         } else if (branchesResponse.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
         } else {
-          console.error('Failed to fetch managed branches');
           setBranches([]);
+          setValue("branch_id", "");
         }
-      } catch (error) {
-        console.error('Error fetching managed branches:', error);
+      } catch {
         setBranches([]);
+        setValue("branch_id", "");
       }
     };
 
@@ -386,7 +364,6 @@ export default function ReportFoundItem() {
           const errorData = await itemResponse.json();
           errorMessage = errorData.detail || errorMessage;
         } catch {
-          console.error('Could not parse error response');
         }
         throw new Error(errorMessage);
       }
@@ -397,10 +374,7 @@ export default function ReportFoundItem() {
       // STEP 2: Upload images if any
       let uploadedImagePaths: string[] = [];
       if (compressedFiles.length > 0) {
-        console.log("Uploading images...");
         uploadedImagePaths = await uploadImages(itemId, compressedFiles);
-        console.log("Images uploaded:", uploadedImagePaths);
-
         // Clear upload progress after completion
         setUploadProgress(null);
       }
@@ -424,12 +398,10 @@ export default function ReportFoundItem() {
           const errorData = await addressResponse.json();
           errorMessage = errorData.detail || errorMessage;
         } catch {
-          console.error('Could not parse error response');
         }
         throw new Error(errorMessage);
       }
 
-      console.log("Item, images, and address uploaded successfully");
       setConfetti(true);
       reset();
       setCompressedFiles([]);
@@ -444,7 +416,6 @@ export default function ReportFoundItem() {
       }, 3000);
 
     } catch (error: unknown) {
-      console.error("Error submitting form:", error);
       const errorMessage = error instanceof Error ? error.message : c("unexpectedError");
       alert(errorMessage);
     } finally {
@@ -517,7 +488,7 @@ export default function ReportFoundItem() {
           <input
             type="text"
             id="title"
-            {...register("title")}
+            {...register("title", { required: c("titleRequired") })}
             placeholder={c("placeholderTitle")}
             className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
@@ -534,7 +505,7 @@ export default function ReportFoundItem() {
           </label>
           <textarea
             id="content"
-            {...register("content")}
+            {...register("content", { required: c("contentRequired") })}
             placeholder={c("placeholderDetails")}
             rows={4}
             className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
@@ -578,7 +549,7 @@ export default function ReportFoundItem() {
           </label>
           <select
             id="item_type_id"
-            {...register("item_type_id")}
+            {...register("item_type_id", { required: c("itemTypeRequired") })}
             className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
           >
@@ -678,7 +649,7 @@ export default function ReportFoundItem() {
           </label>
           <select
             id="orgnization"
-            {...register("orgnization")}
+            {...register("orgnization", { required: c("selectUniversityFirst") })}
             className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300"
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
             disabled={orgSelectDisabled}
@@ -704,7 +675,7 @@ export default function ReportFoundItem() {
           </label>
           <select
             id="branch_id"
-            {...register("branch_id")}
+            {...register("branch_id", { required: c("selectBranch") })}
             disabled={!watchedOrganization || branches.length === 0}
             className="w-full p-2.5 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
             style={{ "--tw-ring-color": "#3277AE" } as React.CSSProperties}
@@ -751,7 +722,7 @@ export default function ReportFoundItem() {
         <div className="text-center">
           <button
             type="submit"
-            disabled={isSubmitting || isProcessing || isLoading || !!authError}
+            disabled={isSubmitting || isProcessing || isLoading || !!authError || !isValid}
             className="w-full p-3 text-white font-semibold rounded-lg focus:outline-none focus:ring-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             style={{ backgroundColor: '#3277AE', "--tw-ring-color": "#3277AE" } as React.CSSProperties}
             onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.backgroundColor = '#2563eb'; }}

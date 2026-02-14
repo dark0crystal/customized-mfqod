@@ -39,8 +39,7 @@ export function useAuth(): UseAuthReturn {
       
       setUser(currentUser)
       setIsLoading(false)
-    } catch (err) {
-      console.error('Auth state update error:', err)
+    } catch {
       setError('Authentication state update failed')
       setIsLoading(false)
     }
@@ -94,8 +93,7 @@ export function useAuth(): UseAuthReturn {
       // Dispatch event to notify other components
       refreshAuthState()
       router.push('/auth/login')
-    } catch (err) {
-      console.error('Logout error:', err)
+    } catch {
       setError('Logout failed')
     } finally {
       setIsLoading(false)
@@ -109,8 +107,7 @@ export function useAuth(): UseAuthReturn {
       const updatedUser = tokenManager.getUser()
       setUser(updatedUser)
       setError(null)
-    } catch (err) {
-      console.error('Token refresh error:', err)
+    } catch {
       setError('Token refresh failed')
       // If refresh fails, logout user
       await logout()
@@ -213,7 +210,6 @@ export function useApiRequest<T = any>({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Request failed'
       setError(errorMessage)
-      console.error('API request error:', err)
     } finally {
       setIsLoading(false)
     }
@@ -270,7 +266,6 @@ export function useProtectedRoute(options: UseProtectedRouteOptions = {}) {
       
       // Legacy role-based check (deprecated - use permissions instead)
       if (requiredRole && !requiredPermission) {
-        console.warn('useProtectedRoute: requiredRole is deprecated. Use requiredPermission instead.')
         // Note: Role-based checks are removed. Use permission-based checks instead.
         // If you need role-based checks, assign appropriate permissions to roles.
       }
