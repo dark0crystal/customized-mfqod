@@ -1,0 +1,26 @@
+مرحباً {{ user_name }}،
+تم تحديد مطابقات محتملة لبلاغ فقدان الغرض "{{ missing_item_title }}".
+الفرع للزيارة: {{ branch_name }}
+{% if branch_phone1 %}هاتف 1: {{ branch_phone1 }}{% endif %}
+{% if branch_phone2 %}هاتف 2: {{ branch_phone2 }}{% endif %}
+
+أغراض للمراجعة:
+{% for item in items %}- {{ item.title }}: {{ item.url }}
+{% endfor %}
+{% if admin_note %}ملاحظة: {{ admin_note }}{% endif %}
+
+يرجى زيارة الفرع مع إثبات ملكية الغرض. هذه رسالة آلية.
+
+---
+Hello {{ user_name }},
+We have identified possible matches for your reported missing item "{{ missing_item_title }}".
+Branch to visit: {{ branch_name }}
+{% if branch_phone1 %}Phone 1: {{ branch_phone1 }}{% endif %}
+{% if branch_phone2 %}Phone 2: {{ branch_phone2 }}{% endif %}
+
+Items to review:
+{% for item in items %}- {{ item.title }}: {{ item.url }}
+{% endfor %}
+{% if admin_note %}Note: {{ admin_note }}{% endif %}
+
+Please visit the branch with proof of ownership. This is an automated message.

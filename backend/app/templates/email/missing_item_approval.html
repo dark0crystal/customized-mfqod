@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}تم الموافقة على بلاغ فقدان الغرض - Missing Item Approved - {{ system_name }}{% endblock %}
+
+{% block header_title %}تم الموافقة على بلاغ فقدان الغرض - Missing Item Approved{% endblock %}
+
+{% block content %}
+<!-- Arabic Section -->
+<div dir="rtl" lang="ar">
+    <h2>تم الموافقة على بلاغ فقدان الغرض</h2>
+    <p>مرحباً {{ user_name }}،</p>
+
+    <p>أخبار سارة! تمت الموافقة على بلاغ فقدان الغرض <strong>"{{ missing_item_title }}"</strong>.</p>
+
+    <p>تم مطابقة غرضك مع الغرض التالي في نظامنا:</p>
+    <div class="info-box" style="border: 1px solid #cccccc; padding: 10px; margin: 10px 0;">
+        <p style="margin: 0;"><strong>الغرض:</strong> {{ matched_item_title }}</p>
+        {% if admin_note %}
+        <p style="margin: 10px 0 0 0;"><strong>ملاحظة:</strong> {{ admin_note }}</p>
+        {% endif %}
+    </div>
+
+    <p>تم استلام غرضك وإغلاق الحالة.</p>
+
+    <p>شكراً لاستخدامكم نظام المفقودات.</p>
+    <p><em>هذه رسالة آلية.</em></p>
+</div>
+
+<hr style="margin: 30px 0; border: 1px solid #dee2e6;">
+
+<!-- English Section -->
+<div dir="ltr" lang="en">
+    <h2>Your missing item has been approved</h2>
+    <p>Hello {{ user_name }},</p>
+
+    <p>Great news! Your missing item report <strong>"{{ missing_item_title }}"</strong> has been approved.</p>
+
+    <p>Your item has been matched with the following item in our system:</p>
+    <div class="info-box" style="border: 1px solid #cccccc; padding: 10px; margin: 10px 0;">
+        <p style="margin: 0;"><strong>Item:</strong> {{ matched_item_title }}</p>
+        {% if admin_note %}
+        <p style="margin: 10px 0 0 0;"><strong>Note:</strong> {{ admin_note }}</p>
+        {% endif %}
+    </div>
+
+    <p>Your item has been received back and the case is now closed.</p>
+
+    <p>Thank you for using our lost and found system.</p>
+    <p><em>This is an automated message.</em></p>
+</div>
+{% endblock %}

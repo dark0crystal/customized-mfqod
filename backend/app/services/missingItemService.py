@@ -33,7 +33,7 @@ from app.schemas.missing_item_schema import (
     MissingItemResponse,
     MissingItemDetailResponse,
 )
-from app.services.notification_service import send_new_missing_item_alert, EmailNotificationService
+from app.services.notification_service import send_new_missing_item_alert, EmailNotificationService, NotificationType
 
 logger = logging.getLogger(__name__)
 
@@ -678,130 +678,54 @@ class MissingItemService:
                 raise ValueError("A note is required before setting status to visit")
 
     async def _send_visit_notification(self, missing_item: MissingItem, branch: Branch, items: List[Item], note: Optional[str], current_user: User):
-        """Notify reporter that matching items are available at a branch."""
+        """Notify reporter that matching items are available at a branch (bilingual email: Arabic + English)."""
         if not missing_item.user or not missing_item.user.email:
             return
 
         email_service = EmailNotificationService()
-        
-        # Get frontend base URL for generating links
         from app.config.email_config import email_settings
         frontend_base_url = email_settings.FRONTEND_BASE_URL.rstrip('/')
-        
-        # Build item information with links
-        item_titles = ", ".join([itm.title for itm in items]) if items else "items"
-        item_links_text = []
-        item_links_html = []
-        
-        for item in items:
-            item_url = f"{frontend_base_url}/dashboard/items/{item.id}"
-            item_links_text.append(f"- {item.title}: {item_url}")
-            item_links_html.append(f'<li><a href="{item_url}" style="text-decoration: underline;">{item.title}</a></li>')
 
         branch_name = branch.branch_name_en or branch.branch_name_ar or 'branch'
         user_name = missing_item.user.first_name or "User"
-        
-        # Get branch phone numbers
-        branch_phone1 = branch.phone1
-        branch_phone2 = branch.phone2
-        
-        subject = f"Update on your missing item: {missing_item.title}"
-        
-        # Build phone contact info
-        phone_info = ""
-        if branch_phone1 or branch_phone2:
-            phone_info = "\n\nBranch Contact Numbers:\n"
-            if branch_phone1:
-                phone_info += f"Phone 1: {branch_phone1}\n"
-            if branch_phone2:
-                phone_info += f"Phone 2: {branch_phone2}\n"
-        
-        # Text version with item links
-        text_body = (
-            f"Hello {user_name},\n\n"
-            f"We have identified possible matches for your reported missing item \"{missing_item.title}\".\n\n"
-            f"Branch to visit: {branch_name}"
-            + phone_info + "\n"
-            + f"Items to review:\n"
-            + "\n".join(item_links_text) + "\n\n"
-            + f"Note: {note or 'No additional note provided.'}\n\n"
-            + "Please visit the branch with proof of ownership.\n\n"
-            + "This is an automated message."
-        )
-        
-        # HTML version with clickable links
-        html_body = f"""
-        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6;">
-            <h2>Update on your missing item</h2>
-            <p>Hello {user_name},</p>
-            
-            <p>We have identified possible matches for your reported missing item <strong>"{missing_item.title}"</strong>.</p>
-            
-            <div style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
-                <strong>Branch to visit:</strong> {branch_name}
-                {f'<br><strong>Phone 1:</strong> <a href="tel:{branch_phone1}">{branch_phone1}</a>' if branch_phone1 else ''}
-                {f'<br><strong>Phone 2:</strong> <a href="tel:{branch_phone2}">{branch_phone2}</a>' if branch_phone2 else ''}
-            </div>
-            
-            <div style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
-                <strong>Items to review:</strong>
-                <ul style="margin-top: 10px;">
-                    {''.join(item_links_html)}
-                </ul>
-            </div>
-            
-            {f'<div style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;"><strong>Note:</strong> {note}</div>' if note else ''}
-            
-            <p>Please visit the branch with proof of ownership.</p>
-            
-            <p style="font-size: 12px; margin-top: 30px;">This is an automated message.</p>
-        </div>
-        """
+        items_with_links = [
+            {"title": itm.title, "url": f"{frontend_base_url}/dashboard/items/{itm.id}"}
+            for itm in (items or [])
+        ]
 
-        await email_service.send_email(
+        template_data = {
+            "user_name": user_name,
+            "missing_item_title": missing_item.title,
+            "branch_name": branch_name,
+            "branch_phone1": branch.phone1 if branch.phone1 else None,
+            "branch_phone2": branch.phone2 if branch.phone2 else None,
+            "items": items_with_links,
+            "admin_note": note if note else None,
+        }
+        await email_service.send_templated_email(
             to_email=missing_item.user.email,
-            subject=subject,
-            html_content=html_body,
-            text_content=text_body
+            notification_type=NotificationType.MISSING_ITEM_UPDATE,
+            template_data=template_data,
         )
 
     async def _send_approval_notification(self, missing_item: MissingItem, pending_item: Item, note: Optional[str], current_user: User):
-        """Notify reporter that their missing item has been approved and they received their item back."""
+        """Notify reporter that their missing item has been approved and they received their item back (bilingual email: Arabic + English)."""
         if not missing_item.user or not missing_item.user.email:
             return
 
         email_service = EmailNotificationService()
         user_name = f"{missing_item.user.first_name} {missing_item.user.last_name}".strip() or "User"
 
-        subject = f"Your missing item has been approved: {missing_item.title}"
-        text_body = (
-            f"Hello {missing_item.user.first_name},\n\n"
-            f"Great news! Your missing item report \"{missing_item.title}\" has been approved.\n\n"
-            f"Your item has been matched with the following item in our system:\n"
-            f"Item: {pending_item.title}\n"
-            f"{f'Note: {note}' if note else ''}\n\n"
-            f"Your item has been received back and the case is now closed.\n\n"
-            f"Thank you for using our lost and found system.\n\n"
-            "This is an automated message."
-        )
-        html_body = (
-            f"<p>Hello {missing_item.user.first_name},</p>"
-            f"<p>Great news! Your missing item report <strong>\"{missing_item.title}\"</strong> has been approved.</p>"
-            f"<p>Your item has been matched with the following item in our system:</p>"
-            f"<div style='border: 1px solid #cccccc; padding: 10px; margin: 10px 0;'>"
-            f"<strong>Item:</strong> {pending_item.title}<br/>"
-            f"{f'<strong>Note:</strong> {note}<br/>' if note else ''}"
-            f"</div>"
-            f"<p>Your item has been received back and the case is now closed.</p>"
-            f"<p>Thank you for using our lost and found system.</p>"
-            f"<p><em>This is an automated message.</em></p>"
-        )
-
-        await email_service.send_email(
+        template_data = {
+            "user_name": user_name,
+            "missing_item_title": missing_item.title,
+            "matched_item_title": pending_item.title,
+            "admin_note": note if note else None,
+        }
+        await email_service.send_templated_email(
             to_email=missing_item.user.email,
-            subject=subject,
-            html_content=html_body,
-            text_content=text_body
+            notification_type=NotificationType.MISSING_ITEM_APPROVAL,
+            template_data=template_data,
         )
 
     def _user_exists(self, user_id: str) -> bool:

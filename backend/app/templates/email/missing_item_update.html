@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}تحديث عن غرضك المفقود - Update on your missing item - {{ system_name }}{% endblock %}
+
+{% block header_title %}تحديث عن غرضك المفقود - Update on your missing item{% endblock %}
+
+{% block content %}
+<!-- Arabic Section -->
+<div dir="rtl" lang="ar">
+    <h2>تحديث عن غرضك المفقود</h2>
+    <p>مرحباً {{ user_name }}،</p>
+
+    <p>تم تحديد مطابقات محتملة لبلاغ فقدان الغرض <strong>"{{ missing_item_title }}"</strong>.</p>
+
+    <div class="info-box" style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0 0 10px 0;"><strong>الفرع للزيارة:</strong> {{ branch_name }}</p>
+        {% if branch_phone1 %}<p style="margin: 0 0 5px 0;"><strong>هاتف 1:</strong> <a href="tel:{{ branch_phone1 }}">{{ branch_phone1 }}</a></p>{% endif %}
+        {% if branch_phone2 %}<p style="margin: 0;"><strong>هاتف 2:</strong> <a href="tel:{{ branch_phone2 }}">{{ branch_phone2 }}</a></p>{% endif %}
+    </div>
+
+    <div class="info-box" style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0 0 10px 0;"><strong>أغراض للمراجعة:</strong></p>
+        <ul style="margin-top: 10px;">
+        {% for item in items %}
+            <li><a href="{{ item.url }}" style="text-decoration: underline;">{{ item.title }}</a></li>
+        {% endfor %}
+        </ul>
+    </div>
+
+    {% if admin_note %}
+    <div class="info-box" style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0;"><strong>ملاحظة:</strong> {{ admin_note }}</p>
+    </div>
+    {% endif %}
+
+    <p>يرجى زيارة الفرع مع إثبات ملكية الغرض.</p>
+    <p><em>هذه رسالة آلية.</em></p>
+</div>
+
+<hr style="margin: 30px 0; border: 1px solid #dee2e6;">
+
+<!-- English Section -->
+<div dir="ltr" lang="en">
+    <h2>Update on your missing item</h2>
+    <p>Hello {{ user_name }},</p>
+
+    <p>We have identified possible matches for your reported missing item <strong>"{{ missing_item_title }}"</strong>.</p>
+
+    <div class="info-box" style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0 0 10px 0;"><strong>Branch to visit:</strong> {{ branch_name }}</p>
+        {% if branch_phone1 %}<p style="margin: 0 0 5px 0;"><strong>Phone 1:</strong> <a href="tel:{{ branch_phone1 }}">{{ branch_phone1 }}</a></p>{% endif %}
+        {% if branch_phone2 %}<p style="margin: 0;"><strong>Phone 2:</strong> <a href="tel:{{ branch_phone2 }}">{{ branch_phone2 }}</a></p>{% endif %}
+    </div>
+
+    <div class="info-box" style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0 0 10px 0;"><strong>Items to review:</strong></p>
+        <ul style="margin-top: 10px;">
+        {% for item in items %}
+            <li><a href="{{ item.url }}" style="text-decoration: underline;">{{ item.title }}</a></li>
+        {% endfor %}
+        </ul>
+    </div>
+
+    {% if admin_note %}
+    <div class="info-box" style="border: 1px solid #cccccc; padding: 15px; margin: 20px 0;">
+        <p style="margin: 0;"><strong>Note:</strong> {{ admin_note }}</p>
+    </div>
+    {% endif %}
+
+    <p>Please visit the branch with proof of ownership.</p>
+    <p><em>This is an automated message.</em></p>
+</div>
+{% endblock %}

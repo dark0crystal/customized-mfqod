@@ -1,0 +1,16 @@
+مرحباً {{ user_name }}،
+أخبار سارة! تمت الموافقة على بلاغ فقدان الغرض "{{ missing_item_title }}".
+تم مطابقة غرضك مع: {{ matched_item_title }}
+{% if admin_note %}ملاحظة: {{ admin_note }}{% endif %}
+
+تم استلام غرضك وإغلاق الحالة. شكراً لاستخدامكم نظام المفقودات.
+
+---
+Hello {{ user_name }},
+Great news! Your missing item report "{{ missing_item_title }}" has been approved.
+Your item has been matched with: {{ matched_item_title }}
+{% if admin_note %}Note: {{ admin_note }}{% endif %}
+
+Your item has been received back and the case is now closed. Thank you for using our lost and found system.
+
+This is an automated message.

@@ -49,6 +49,8 @@ class NotificationType(Enum):
     NEW_CLAIM_ALERT = "new_claim_alert"
     NEW_ITEM_ALERT = "new_item_alert"
     NEW_MISSING_ITEM_ALERT = "new_missing_item_alert"
+    MISSING_ITEM_APPROVAL = "missing_item_approval"
+    MISSING_ITEM_UPDATE = "missing_item_update"
     EMAIL_VERIFICATION = "email_verification"
 
 
@@ -332,6 +334,8 @@ class EmailNotificationService:
             NotificationType.NEW_CLAIM_ALERT: "New Claim Submitted - Moderator Action Required",
             NotificationType.NEW_ITEM_ALERT: "New Item Posted - Moderator Review Required",
             NotificationType.NEW_MISSING_ITEM_ALERT: "New Missing Item Reported - Admin Review Required",
+            NotificationType.MISSING_ITEM_APPROVAL: "تم الموافقة على بلاغ فقدان غرضك - Your missing item has been approved",
+            NotificationType.MISSING_ITEM_UPDATE: "تحديث عن غرضك المفقود - Update on your missing item",
             NotificationType.EMAIL_VERIFICATION: "Verify Your Email Address - University Lost & Found System"
         }
         
