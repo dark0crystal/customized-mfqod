@@ -49,8 +49,8 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
+      context: frontend
+      dockerfile: Dockerfile
       target: runner
       args:
         - NEXT_PUBLIC_HOST_NAME=${NEXT_PUBLIC_HOST_NAME:-http://localhost:8000}

@@ -177,6 +177,23 @@ docker push your-registry/mfqod-backend:latest
 docker push your-registry/mfqod-frontend:latest
 ```
 
+### Deploying the frontend only (e.g. Cloud Run)
+
+The frontend `Dockerfile` is written so the **build context is the frontend directory**. You can build and deploy the frontend image from the repo root or from the `frontend/` folder:
+
+**From repo root (same as docker-compose):**
+```bash
+docker build -f frontend/Dockerfile -t mfqod-frontend:latest --build-arg NEXT_PUBLIC_HOST_NAME=https://your-api.example.com frontend
+```
+
+**From inside frontend (e.g. when your CI/CD uses the directory containing the Dockerfile as context):**
+```bash
+cd frontend
+docker build -t mfqod-frontend:latest --build-arg NEXT_PUBLIC_HOST_NAME=https://your-api.example.com .
+```
+
+For Cloud Run or similar: set the **build context** to the `frontend` directory and the Dockerfile to `frontend/Dockerfile` (or `Dockerfile` if the context is already `frontend`). Do not use the repo root as context with paths like `COPY frontend/` in the Dockerfile, or the build will fail with "/frontend: not found".
+
 ### Environment-Specific Configuration
 
 Create environment-specific compose files:

@@ -6,8 +6,8 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
-COPY frontend/package.json frontend/package-lock.json* ./
+# Copy package files (paths relative to build context = frontend dir)
+COPY package.json package-lock.json* ./
 # Install all dependencies (including devDependencies) needed for build
 RUN npm ci --legacy-peer-deps && npm cache clean --force
 
@@ -15,7 +15,7 @@ RUN npm ci --legacy-peer-deps && npm cache clean --force
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY frontend/ .
+COPY . .
 
 # Set build-time environment variable
 ARG NEXT_PUBLIC_HOST_NAME
