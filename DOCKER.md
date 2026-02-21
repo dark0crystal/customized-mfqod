@@ -1,6 +1,6 @@
 # Docker Setup Guide
 
-This guide explains how to run the application using Docker with production best practices.
+This guide explains how to run the application using Docker with production.
 
 ## Prerequisites
 
@@ -63,38 +63,6 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 - **Backend API:** http://localhost:8000
 - **API Documentation:** http://localhost:8000/api/docs
 
-## Production Best Practices Implemented
-
-### Security
-- ✅ Non-root users in containers
-- ✅ Read-only filesystem for frontend (with tmpfs for temp files)
-- ✅ Security options (no-new-privileges)
-- ✅ Minimal base images (Alpine for frontend, slim for backend)
-- ✅ No secrets in Dockerfiles
-- ✅ Health checks for monitoring
-
-### Performance
-- ✅ Multi-stage builds for smaller images
-- ✅ Layer caching optimization
-- ✅ Resource limits and reservations
-- ✅ Gunicorn with multiple workers for backend
-- ✅ Next.js standalone output for optimized frontend
-
-### Reliability
-- ✅ Health checks with retries
-- ✅ Restart policies (unless-stopped)
-- ✅ Log rotation (max 10MB, 3 files)
-- ✅ Graceful shutdown handling
-- ✅ Service dependencies (frontend waits for backend)
-
-### Maintainability
-- ✅ Separate development and production configs
-- ✅ Environment variable management
-- ✅ Volume mounts for persistent data
-- ✅ Network isolation
-- ✅ Clear container naming
-
-## Database Connection
 
 ### Connecting to External Database
 
