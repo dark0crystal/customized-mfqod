@@ -54,8 +54,7 @@ else:
         "http://localhost:3002",  # Current frontend port
         "http://127.0.0.1:3002",  # Alternative localhost for current port
         "http://frontend:3000",  # Docker service name for internal networking
-        # Add your production frontend URL here
-        # "https://yourdomain.com"
+        
     ]
 
 # Add security headers middleware (applied first due to reverse order)
