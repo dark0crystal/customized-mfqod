@@ -48,13 +48,14 @@ if cors_origins_env:
     origins = [origin.strip() for origin in cors_origins_env.split(",")]
 else:
     origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "http://127.0.0.1:3002",
-        "http://frontend:3000",
-        "https://mfqod.up.railway.app",  # Production frontend (Railway)
+        "http://localhost:3000",  # Your Next.js frontend
+        "http://127.0.0.1:3000",  # Alternative localhost
+        "http://localhost:3001",  # In case you use different port
+        "http://localhost:3002",  # Current frontend port
+        "http://127.0.0.1:3002",  # Alternative localhost for current port
+        "http://frontend:3000",  # Docker service name for internal networking
+        # Add your production frontend URL here
+        # "https://yourdomain.com"
     ]
 
 # Add security headers middleware (applied first due to reverse order)
@@ -117,28 +118,6 @@ async def validation_exception_handler(request: FastAPIRequest, exc: RequestVali
         status_code=422,
         content={"detail": exc.errors(), "body": exc.body}
     )
-
-
-def _add_cors_headers_to_response(response: JSONResponse, origin: Optional[str]) -> None:
-    """Add CORS headers to a response when origin is allowed."""
-    if origin and origin in origins:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-
-
-@app.exception_handler(Exception)
-async def unhandled_exception_handler(request: FastAPIRequest, exc: Exception):
-    """Handle any unhandled exception and ensure CORS headers are included (e.g. 500)."""
-    logger.exception("Unhandled exception: %s", exc)
-    origin = request.headers.get("origin")
-    response = JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error"},
-    )
-    _add_cors_headers_to_response(response, origin)
-    return response
 
 # Create the directory if it doesn't exist (paths from config are cwd-independent)
 from app.config.storage_config import UPLOAD_DIR, ITEM_TYPES_IMAGES_DIR
