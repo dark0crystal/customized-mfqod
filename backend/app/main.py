@@ -54,7 +54,6 @@ else:
         "http://localhost:3002",
         "http://127.0.0.1:3002",
         "http://frontend:3000",
-        "https://mfqod.up.railway.app",  # Production frontend (Railway)
     ]
 
 # Add security headers middleware (applied first due to reverse order)
