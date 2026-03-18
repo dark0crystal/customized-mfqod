@@ -33,11 +33,16 @@ class AuthService:
             return dt.replace(tzinfo=timezone.utc)
         return dt
     
-    async def authenticate_user(self, email_or_username: str, password: str, 
+    async def authenticate_user(self, email_or_username: str, password: str,
                               request: Request, db: Session) -> Dict[str, Any]:
         """
         Comprehensive user authentication supporting both internal and external users.
         Uses database-first lookup to determine user type.
+
+        **University (internal/AD) users** may provide either:
+        - **Username only** (e.g. `jdoe`) — used as-is for AD bind.
+        - **Full email** (e.g. `jdoe@university.edu`) — the part before `@` is used as the AD username; the domain is ignored for authentication.
+        Both formats are supported for lookup and for AD authentication.
         """
         try:
             # Get client info

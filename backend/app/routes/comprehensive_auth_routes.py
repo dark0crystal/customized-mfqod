@@ -39,6 +39,9 @@ auth_service = AuthService()
 ad_service = EnhancedADService()
 security = HTTPBearer()
 
+# ===========================
+# Login
+# ===========================
 @router.post("/login", response_model=LoginResponse, summary="User Login")
 async def login(
     credentials: LoginRequest,
@@ -75,6 +78,9 @@ async def login(
             detail="Authentication service error"
         )
 
+# ===========================
+# Send OTP (email verification)
+# ===========================
 @router.post("/send-otp", summary="Send OTP for Email Verification")
 async def send_otp(
     otp_request: SendOTPRequest,
@@ -126,6 +132,9 @@ async def send_otp(
             detail="Failed to send OTP"
         )
 
+# ===========================
+# Verify OTP
+# ===========================
 @router.post("/verify-otp", summary="Verify OTP Code")
 async def verify_otp(
     verify_request: VerifyOTPRequest,
@@ -162,6 +171,9 @@ async def verify_otp(
             detail="Failed to verify OTP"
         )
 
+# ===========================
+# Register External User
+# ===========================
 @router.post("/register", response_model=UserResponse, summary="Register External User")
 async def register(
     user_data: RegisterRequest,
@@ -202,6 +214,9 @@ async def register(
             detail="Registration failed"
         )
 
+# ===========================
+# Refresh Access Token
+# ===========================
 @router.post("/refresh", response_model=Dict[str, Any], summary="Refresh Access Token")
 async def refresh_token(
     refresh_request: RefreshTokenRequest,
@@ -227,6 +242,9 @@ async def refresh_token(
             detail="Token refresh failed"
         )
 
+# ===========================
+# Logout
+# ===========================
 @router.post("/logout", summary="User Logout")
 async def logout(
     refresh_request: RefreshTokenRequest,
@@ -250,6 +268,9 @@ async def logout(
             detail="Logout failed"
         )
 
+# ===========================
+# Get Current User (me)
+# ===========================
 @router.get("/me", response_model=UserResponse, summary="Get Current User")
 async def get_current_user_info(
     current_user: User = Depends(get_current_user_required),
@@ -267,6 +288,9 @@ async def get_current_user_info(
     
     return user_response
 
+# ===========================
+# Update User Profile (me)
+# ===========================
 @router.put("/me", response_model=UserResponse, summary="Update User Profile")
 async def update_profile(
     profile_data: UserProfileUpdateRequest,
@@ -324,6 +348,9 @@ async def update_profile(
             detail="Profile update failed"
         )
 
+# ===========================
+# Change Password
+# ===========================
 @router.post("/change-password", summary="Change Password")
 async def change_password(
     password_data: ChangePasswordRequest,
@@ -377,6 +404,9 @@ async def change_password(
             detail="Password change failed"
         )
 
+# ===========================
+# Request Password Reset
+# ===========================
 @router.post("/request-reset", summary="Request Password Reset")
 async def request_password_reset(
     reset_request: ResetPasswordRequest,
@@ -400,6 +430,9 @@ async def request_password_reset(
             detail="Failed to process password reset request"
         )
 
+# ===========================
+# Confirm Password Reset
+# ===========================
 @router.post("/reset-password", summary="Confirm Password Reset")
 async def reset_password(
     reset_confirm: ResetPasswordConfirm,
@@ -429,6 +462,9 @@ async def reset_password(
             detail="Failed to reset password"
         )
 
+# ===========================
+# Get User Sessions
+# ===========================
 @router.get("/sessions", summary="Get User Sessions")
 async def get_user_sessions(
     current_user: User = Depends(get_current_user_required),
@@ -454,6 +490,9 @@ async def get_user_sessions(
     
     return {"sessions": session_list}
 
+# ===========================
+# Revoke Session
+# ===========================
 @router.delete("/sessions/{session_id}", summary="Revoke Session")
 async def revoke_session(
     session_id: str,
@@ -479,7 +518,9 @@ async def revoke_session(
     
     return {"message": "Session revoked successfully"}
 
-# Admin endpoints
+# ===========================
+# Admin: Get All Users
+# ===========================
 @router.get("/admin/users", dependencies=[Depends(auth_middleware.require_admin())])
 async def get_all_users(
     skip: int = 0,
@@ -509,6 +550,9 @@ async def get_all_users(
         "limit": limit
     }
 
+# ===========================
+# Admin: Get Login Attempts
+# ===========================
 @router.get("/admin/login-attempts", dependencies=[Depends(auth_middleware.require_admin())])
 async def get_login_attempts(
     skip: int = 0,
@@ -546,6 +590,9 @@ async def get_login_attempts(
         "limit": limit
     }
 
+# ===========================
+# Admin: Trigger AD Sync
+# ===========================
 @router.post("/admin/sync-ad", dependencies=[Depends(auth_middleware.require_admin())])
 async def trigger_ad_sync(
     background_tasks: BackgroundTasks,
@@ -559,6 +606,9 @@ async def trigger_ad_sync(
     
     return {"message": "AD sync triggered successfully"}
 
+# ===========================
+# Admin: Get AD Sync Logs
+# ===========================
 @router.get("/admin/ad-sync-logs", dependencies=[Depends(auth_middleware.require_admin())])
 async def get_ad_sync_logs(
     skip: int = 0,
@@ -597,6 +647,9 @@ async def get_ad_sync_logs(
         "limit": limit
     }
 
+# ===========================
+# Admin: System Health Check
+# ===========================
 @router.get("/admin/health", dependencies=[Depends(auth_middleware.require_admin())])
 async def check_system_health(db: Session = Depends(get_session)):
     """
@@ -640,6 +693,9 @@ async def check_system_health(db: Session = Depends(get_session)):
             "error": str(e)
         }
 
+# ===========================
+# Admin: Diagnose AD
+# ===========================
 @router.post("/admin/diagnose-ad", dependencies=[Depends(auth_middleware.require_admin())])
 async def diagnose_ad(
     request: ADDiagnosticRequest,
@@ -793,6 +849,9 @@ async def diagnose_ad(
     
     return diagnostics
 
+# ===========================
+# Admin: Toggle User Active
+# ===========================
 @router.put("/admin/users/{user_id}/toggle-active", dependencies=[Depends(auth_middleware.require_admin())])
 async def toggle_user_active(
     user_id: str,

@@ -21,10 +21,9 @@ router = APIRouter()
 def get_organization_service(db: Session = Depends(get_session)) -> OrganizationService:
     return OrganizationService(db)
 
-# =========================== 
-# Organization Routes
 # ===========================
-
+# Create Organization
+# ===========================
 @router.post("/", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)
 def create_organization(
     organization: OrganizationCreate,
@@ -40,7 +39,9 @@ def create_organization(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating organization: {str(e)}")
 
-
+# ===========================
+# List Organizations
+# ===========================
 @router.get("/", response_model=List[OrganizationResponse])
 def get_organizations(
     request: Request,
@@ -55,7 +56,9 @@ def get_organizations(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving organizations: {str(e)}")
 
-
+# ===========================
+# Get Organization by ID
+# ===========================
 @router.get("/{organization_id}", response_model=OrganizationWithBranches)
 def get_organization(
     organization_id: str,
@@ -99,7 +102,9 @@ def get_organization(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving organization: {str(e)}")
 
-
+# ===========================
+# Update Organization
+# ===========================
 @router.put("/{organization_id}", response_model=OrganizationResponse)
 def update_organization(
     organization_id: str,
@@ -116,7 +121,9 @@ def update_organization(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating organization: {str(e)}")
 
-
+# ===========================
+# Delete Organization
+# ===========================
 @router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_organization(
     organization_id: str,
@@ -134,21 +141,10 @@ def delete_organization(
         raise HTTPException(status_code=500, detail=f"Error deleting organization: {str(e)}")
 
 
-# @router.get("/organizations/search/", response_model=List[OrganizationResponse])
-# def search_organizations(
-#     name: str = Query(..., min_length=1),
-#     request: Request,
-#     db: Session = Depends(get_session),
-#     org_service: OrganizationService = Depends(get_organization_service)
-# ):
-#     """Search organizations by name"""
-#     try:
-#         organization = org_service.get_organization_by_name(name)
-#         return [organization] if organization else []
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error searching organizations: {str(e)}")
 
-
+# ===========================
+# Get Organization Branches
+# ===========================
 @router.get("/{organization_id}/branches/", response_model=List[dict])
 def get_organization_branches(
     organization_id: str,
@@ -192,36 +188,3 @@ def get_organization_branches(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving organization branches: {str(e)}")
-
-
-# # =========================== 
-# # Statistics Routes
-# # ===========================
-
-# @router.get("/organizations/stats/summary")
-# def get_organizations_stats(
-#     request: Request,
-#     db: Session = Depends(get_session)
-# ):
-#     """Get organization statistics"""
-#     try:
-#         total_orgs = db.query(Organization).count()
-#         total_branches = db.query(Branch).count()
-        
-#         # Organizations with branches
-#         orgs_with_branches = db.query(Organization).filter(
-#             Organization.branches.any()
-#         ).count()
-        
-#         # Organizations without branches
-#         orgs_without_branches = total_orgs - orgs_with_branches
-        
-#         return {
-#             "total_organizations": total_orgs,
-#             "total_branches": total_branches,
-#             "organizations_with_branches": orgs_with_branches,
-#             "organizations_without_branches": orgs_without_branches,
-#             "average_branches_per_org": total_branches / total_orgs if total_orgs > 0 else 0
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error retrieving statistics: {str(e)}")

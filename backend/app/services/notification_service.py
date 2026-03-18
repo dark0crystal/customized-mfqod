@@ -271,10 +271,19 @@ class EmailNotificationService:
     ) -> Optional[Dict[str, str]]:
         """Get rendered template content"""
         try:
-            # Add common template variables
+            # System name from MAIL_FROM_NAME (env); support "Arabic | English" format
+            mail_from_name = (self.mail_from_name or "University Lost & Found System").strip()
+            if " | " in mail_from_name:
+                parts = [p.strip() for p in mail_from_name.split(" | ", 1)]
+                system_name_ar = parts[0] if parts[0] else mail_from_name
+                system_name_en = parts[1] if len(parts) > 1 and parts[1] else mail_from_name
+            else:
+                system_name_ar = system_name_en = mail_from_name
             template_data.update({
                 "current_year": datetime.now().year,
-                "system_name": "University Lost & Found System",
+                "system_name": mail_from_name,
+                "system_name_ar": system_name_ar,
+                "system_name_en": system_name_en,
                 "support_email": self.mail_from,
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
@@ -339,7 +348,7 @@ class EmailNotificationService:
     
     def _get_fallback_html(self, notification_type: NotificationType, data: Dict[str, Any]) -> str:
         """Generate fallback HTML content when template is not available"""
-        system_name = data.get("system_name", "University Lost & Found System")
+        system_name = data.get("system_name") or self.mail_from_name or "University Lost & Found System"
         user_name = data.get("user_name", "")
         
         html = f"""

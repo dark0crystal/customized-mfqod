@@ -27,6 +27,9 @@ class AddressResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# ===========================
+# Create Address
+# ===========================
 @router.post("/", response_model=AddressResponse, status_code=status.HTTP_201_CREATED)
 async def create_address(
     address: AddressCreate,
@@ -75,6 +78,9 @@ async def create_address(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error creating address: {str(e)}")
 
+# ===========================
+# List Addresses (with optional filters)
+# ===========================
 @router.get("/", response_model=List[AddressResponse])
 async def get_addresses(
     request: Request,
@@ -98,6 +104,9 @@ async def get_addresses(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving addresses: {str(e)}")
 
+# ===========================
+# Get Address by ID
+# ===========================
 @router.get("/{address_id}", response_model=AddressResponse)
 async def get_address(
     address_id: str,
@@ -118,6 +127,9 @@ async def get_address(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving address: {str(e)}")
 
+# ===========================
+# Update Address
+# ===========================
 @router.put("/{address_id}", response_model=AddressResponse)
 async def update_address(
     address_id: str,
@@ -167,6 +179,9 @@ async def update_address(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error updating address: {str(e)}")
 
+# ===========================
+# Delete Address
+# ===========================
 @router.delete("/{address_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_address(
     address_id: str,

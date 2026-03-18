@@ -27,10 +27,13 @@ def get_branch_service(db: Session = Depends(get_session)) -> BranchService:
 def get_address_service(db: Session = Depends(get_session)) -> AddressService:
     return AddressService(db)
 
-# =========================== 
+# ===========================
 # Branch Routes
 # ===========================
 
+# ===========================
+# Create Branch
+# ===========================
 @router.post("/", response_model=BranchResponse, status_code=status.HTTP_201_CREATED)
 @require_permission("can_manage_branches")
 def create_branch(
@@ -47,7 +50,9 @@ def create_branch(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating branch: {str(e)}")
 
-
+# ===========================
+# Get Public Branches (no auth)
+# ===========================
 @router.get("/public/", response_model=List[BranchWithOrganization])
 @rate_limit_public()
 def get_public_branches(
@@ -97,7 +102,9 @@ def get_public_branches(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving branches: {str(e)}")
 
-
+# ===========================
+# List Branches (authenticated)
+# ===========================
 @router.get("/", response_model=List[BranchWithOrganization])
 def get_branches(
     request: Request,
@@ -145,7 +152,9 @@ def get_branches(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving branches: {str(e)}")
 
-
+# ===========================
+# Get Branch by ID
+# ===========================
 @router.get("/{branch_id}", response_model=BranchWithOrganization)
 def get_branch(
     branch_id: str,
@@ -193,7 +202,9 @@ def get_branch(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving branch: {str(e)}")
 
-
+# ===========================
+# Update Branch
+# ===========================
 @router.put("/{branch_id}", response_model=BranchResponse)
 @require_permission("can_manage_branches")
 def update_branch(
@@ -211,7 +222,9 @@ def update_branch(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating branch: {str(e)}")
 
-
+# ===========================
+# Delete Branch
+# ===========================
 @router.delete("/{branch_id}", status_code=status.HTTP_204_NO_CONTENT)
 @require_permission("can_manage_branches")
 def delete_branch(
@@ -230,10 +243,13 @@ def delete_branch(
         raise HTTPException(status_code=500, detail=f"Error deleting branch: {str(e)}")
 
 
-# =========================== 
+# ===========================
 # Address Routes
 # ===========================
 
+# ===========================
+# Create Address
+# ===========================
 @router.post("/addresses/", response_model=AddressResponse, status_code=status.HTTP_201_CREATED)
 @require_permission("can_manage_addresses")
 def create_address(
@@ -250,7 +266,9 @@ def create_address(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating address: {str(e)}")
 
-
+# ===========================
+# List Addresses (with filters)
+# ===========================
 @router.get("/addresses/", response_model=List[AddressWithDetails])
 @require_permission("can_manage_addresses")
 def get_addresses(
@@ -298,7 +316,9 @@ def get_addresses(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving addresses: {str(e)}")
 
-
+# ===========================
+# Get Address by ID
+# ===========================
 @router.get("/addresses/{address_id}", response_model=AddressWithDetails)
 def get_address(
     address_id: str,
@@ -344,7 +364,9 @@ def get_address(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving address: {str(e)}")
 
-
+# ===========================
+# Update Address
+# ===========================
 @router.put("/addresses/{address_id}", response_model=AddressResponse)
 def update_address(
     address_id: str,
@@ -361,7 +383,9 @@ def update_address(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating address: {str(e)}")
 
-
+# ===========================
+# Delete Address
+# ===========================
 @router.delete("/addresses/{address_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_address(
     address_id: str,
@@ -379,10 +403,13 @@ def delete_address(
         raise HTTPException(status_code=500, detail=f"Error deleting address: {str(e)}")
 
 
-# =========================== 
+# ===========================
 # Additional utility routes
 # ===========================
 
+# ===========================
+# Get Branch Addresses
+# ===========================
 @router.get("/{branch_id}/addresses/", response_model=List[AddressWithDetails])
 def get_branch_addresses(
     branch_id: str,
@@ -441,10 +468,13 @@ def get_branch_addresses(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving branch addresses: {str(e)}")
     
-# =========================== 
+# ===========================
 # User-Branch Management Routes
 # ===========================
 
+# ===========================
+# Get User Managed Branches
+# ===========================
 @router.get("/users/{user_id}/managed-branches/", response_model=List[BranchWithOrganization])
 def get_user_managed_branches(
     user_id: str,
@@ -490,7 +520,9 @@ def get_user_managed_branches(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving user managed branches: {str(e)}")
 
-
+# ===========================
+# Assign Branch Manager
+# ===========================
 @router.post("/{branch_id}/managers/{user_id}", status_code=status.HTTP_201_CREATED)
 @require_permission("can_manage_users")
 def assign_branch_manager(
@@ -513,7 +545,9 @@ def assign_branch_manager(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error assigning branch manager: {str(e)}")
 
-
+# ===========================
+# Remove Branch Manager
+# ===========================
 @router.delete("/{branch_id}/managers/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 @require_permission("can_manage_users")
 def remove_branch_manager(
@@ -532,7 +566,9 @@ def remove_branch_manager(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error removing branch manager: {str(e)}")
 
-
+# ===========================
+# Get Branch Managers
+# ===========================
 @router.get("/{branch_id}/managers/", response_model=List[UserResponse])
 def get_branch_managers(
     branch_id: str,
@@ -568,7 +604,9 @@ def get_branch_managers(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving branch managers: {str(e)}")
 
-
+# ===========================
+# Get My Managed Branches
+# ===========================
 @router.get("/my-managed-branches/", response_model=List[BranchWithOrganization])
 def get_my_managed_branches(
     request: Request,

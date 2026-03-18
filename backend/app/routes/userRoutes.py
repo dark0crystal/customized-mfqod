@@ -35,9 +35,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 security = HTTPBearer()
 
-# =================== 
+# ===========================
 # Enhanced User Management with Auto-Refresh
-# =================== 
+# ===========================
 
 async def get_current_user_with_refresh(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -53,6 +53,9 @@ async def get_current_user_with_refresh(
     user_data, new_token = await validate_and_refresh_if_needed(token, session)
     return {"user": user_data, "new_token": new_token}
 
+# ===========================
+# Search Users
+# ===========================
 @router.get("/search", response_model=UserSearchResponse)
 async def search_users_endpoint(
     response: Response,
@@ -72,6 +75,9 @@ async def search_users_endpoint(
     
     return await search_users(session, email, name, role, status, page, limit)
 
+# ===========================
+# List Users (paginated)
+# ===========================
 @router.get("/", response_model=UserSearchResponse)
 async def get_users(
     response: Response,
@@ -86,6 +92,9 @@ async def get_users(
     
     return await get_all_users(session, page, limit)
 
+# ===========================
+# Get User by ID
+# ===========================
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     response: Response,
@@ -99,6 +108,9 @@ async def get_user(
     
     return await get_user_by_id(user_id, session)
 
+# ===========================
+# Get User by Email
+# ===========================
 @router.get("/email/{email}", response_model=UserResponse)
 async def get_user_by_email_endpoint(
     response: Response,
@@ -112,6 +124,9 @@ async def get_user_by_email_endpoint(
     
     return await get_user_by_email(email, session)
 
+# ===========================
+# Update User
+# ===========================
 @router.put("/{user_id}")
 @require_permission("can_manage_users")
 async def update_user_endpoint(
@@ -128,6 +143,9 @@ async def update_user_endpoint(
     
     return await update_user(user_id, user_update, session)
 
+# ===========================
+# Delete User (soft delete)
+# ===========================
 @router.delete("/{user_id}")
 @require_permission("can_manage_users")
 async def delete_user_endpoint(
@@ -143,6 +161,9 @@ async def delete_user_endpoint(
     
     return await delete_user(user_id, session)
 
+# ===========================
+# Permanently Delete User
+# ===========================
 @router.delete("/{user_id}/permanent")
 @require_permission("can_manage_users")
 async def permanently_delete_user_endpoint(
@@ -169,10 +190,13 @@ async def permanently_delete_user_endpoint(
     from app.services.userServices import permanently_delete_user
     return await permanently_delete_user(user_id, session)
 
-# =================== 
+# ===========================
 # Role Management with Auto-Refresh
-# =================== 
+# ===========================
 
+# ===========================
+# Get Users by Role
+# ===========================
 @router.get("/role/{role_name}", response_model=UserSearchResponse)
 async def get_users_by_role_endpoint(
     response: Response,
@@ -188,6 +212,9 @@ async def get_users_by_role_endpoint(
     
     return await get_users_by_role(role_name, session, page, limit)
 
+# ===========================
+# Update User Role
+# ===========================
 @router.put("/{user_id}/role")
 @require_permission("can_manage_users")
 async def update_user_role(
@@ -264,10 +291,13 @@ async def update_user_role(
     user_update = UserUpdate(role_name=role_update.role_name)
     return await update_user(user_id, user_update, session)
 
-# =================== 
+# ===========================
 # Status Management with Auto-Refresh
-# =================== 
+# ===========================
 
+# ===========================
+# Get Users by Status
+# ===========================
 @router.get("/status/{status_name}", response_model=UserSearchResponse)
 async def get_users_by_status_endpoint(
     response: Response,
@@ -283,6 +313,9 @@ async def get_users_by_status_endpoint(
     
     return await get_users_by_status(status_name, session, page, limit)
 
+# ===========================
+# Update User Status
+# ===========================
 @router.put("/{user_id}/status")
 @require_permission("can_manage_users")
 async def update_user_status(
@@ -300,6 +333,9 @@ async def update_user_status(
     user_update = UserUpdate(status_name=status_update.status_name)
     return await update_user(user_id, user_update, session)
 
+# ===========================
+# Activate User
+# ===========================
 @router.put("/{user_id}/activate")
 @require_permission("can_manage_users")
 async def activate_user_endpoint(
@@ -315,6 +351,9 @@ async def activate_user_endpoint(
     
     return await activate_user(user_id, session)
 
+# ===========================
+# Deactivate User
+# ===========================
 @router.put("/{user_id}/deactivate")
 @require_permission("can_manage_users")
 async def deactivate_user_endpoint(
@@ -330,10 +369,13 @@ async def deactivate_user_endpoint(
     
     return await deactivate_user(user_id, session)
 
-# =================== 
+# ===========================
 # Session Management
-# =================== 
+# ===========================
 
+# ===========================
+# Logout
+# ===========================
 @router.post("/logout")
 async def logout(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -344,6 +386,9 @@ async def logout(
     # For now, just return success message
     return {"message": "Logged out successfully"}
 
+# ===========================
+# Get Token Info
+# ===========================
 @router.get("/token/info", response_model=TokenInfoResponse)
 async def get_token_info(
     credentials: HTTPAuthorizationCredentials = Depends(security)
@@ -352,6 +397,9 @@ async def get_token_info(
     token = credentials.credentials
     return get_token_expiry_info(token)
 
+# ===========================
+# Get Current User (me)
+# ===========================
 @router.get("/me")
 async def get_current_user(
     response: Response,
@@ -366,10 +414,13 @@ async def get_current_user(
         "token_refreshed": current_user_data["new_token"] is not None
     }
 
-# =================== 
-# Bulk Operations (keeping original functionality)
-# =================== 
+# ===========================
+# Bulk Operations
+# ===========================
 
+# ===========================
+# Bulk User Action
+# ===========================
 @router.post("/bulk-action")
 @require_permission("can_manage_users")
 async def bulk_user_action(
@@ -411,10 +462,13 @@ async def bulk_user_action(
         "error_count": len(errors)
     }
 
-# =================== 
-# Statistics (keeping original functionality)
-# =================== 
+# ===========================
+# Statistics
+# ===========================
 
+# ===========================
+# Get User Statistics
+# ===========================
 @router.get("/stats")
 async def get_user_statistics(
     response: Response,

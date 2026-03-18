@@ -31,10 +31,13 @@ def get_claim_service(db: Session = Depends(get_session)) -> ClaimService:
     return ClaimService(db)
 
 
-# =========================== 
+# ===========================
 # Claim Routes
 # ===========================
 
+# ===========================
+# Create Claim
+# ===========================
 @router.post("/", response_model=ClaimResponse, status_code=status.HTTP_201_CREATED)
 async def create_claim(
     claim: ClaimCreate,
@@ -71,7 +74,9 @@ async def create_claim(
         logger.error(f"Error creating claim: {e}")
         raise HTTPException(status_code=500, detail=f"Error creating claim: {str(e)}")
 
-
+# ===========================
+# List Claims (with filters)
+# ===========================
 @router.get("/", response_model=List[ClaimResponse])
 async def get_claims(
     request: Request,
@@ -103,7 +108,9 @@ async def get_claims(
         logger.error(f"Error retrieving claims: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving claims: {str(e)}")
 
-
+# ===========================
+# Get All Claims (admin)
+# ===========================
 @router.get("/all", response_model=List[ClaimResponse])
 @require_permission("can_manage_claims")
 async def get_all_claims(
@@ -128,7 +135,9 @@ async def get_all_claims(
         logger.error(f"Error retrieving all claims: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving claims: {str(e)}")
 
-
+# ===========================
+# Get My Claims
+# ===========================
 @router.get("/my-claims", response_model=List[ClaimResponse])
 async def get_my_claims(
     request: Request,
@@ -147,7 +156,9 @@ async def get_my_claims(
         logger.error(f"Error retrieving user claims: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving user claims: {str(e)}")
 
-
+# ===========================
+# Get Claim by ID (with details)
+# ===========================
 @router.get("/{claim_id}")
 async def get_claim(
     claim_id: str,
@@ -201,7 +212,9 @@ async def get_claim(
         logger.error(f"Error retrieving claim {claim_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving claim: {str(e)}")
 
-
+# ===========================
+# Update Claim (PUT/PATCH)
+# ===========================
 @router.put("/{claim_id}")
 @router.patch("/{claim_id}")
 async def update_claim(
@@ -224,7 +237,9 @@ async def update_claim(
         logger.error(f"Error updating claim {claim_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error updating claim: {str(e)}")
 
-
+# ===========================
+# Delete Claim
+# ===========================
 @router.delete("/{claim_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_claim(
     claim_id: str,
@@ -245,10 +260,13 @@ async def delete_claim(
         raise HTTPException(status_code=500, detail=f"Error deleting claim: {str(e)}")
 
 
-# =========================== 
+# ===========================
 # Claim Management Routes (Admin)
 # ===========================
 
+# ===========================
+# Check Existing Approved Claim
+# ===========================
 @router.get("/{claim_id}/check-existing-approved")
 @require_permission("can_manage_claims")
 async def check_existing_approved_claim(
@@ -279,7 +297,9 @@ async def check_existing_approved_claim(
         logger.error(f"Error checking existing approved claim for claim {claim_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error checking existing approved claim: {str(e)}")
 
-
+# ===========================
+# Approve Claim
+# ===========================
 @router.patch("/{claim_id}/approve", response_model=ClaimResponse)
 @require_permission("can_manage_claims")
 async def approve_claim(
@@ -313,7 +333,9 @@ async def approve_claim(
         logger.error(f"Error approving claim {claim_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Error approving claim: {str(e)}")
 
-
+# ===========================
+# Reject Claim
+# ===========================
 @router.patch("/{claim_id}/reject", response_model=ClaimResponse)
 @require_permission("can_manage_claims")
 async def reject_claim(
@@ -340,10 +362,13 @@ async def reject_claim(
         raise HTTPException(status_code=500, detail=f"Error rejecting claim: {str(e)}")
 
 
-# =========================== 
+# ===========================
 # Statistics Routes
 # ===========================
 
+# ===========================
+# Get Claims Statistics
+# ===========================
 @router.get("/stats/summary")
 @require_permission("can_manage_claims")
 async def get_claims_stats(
@@ -362,10 +387,13 @@ async def get_claims_stats(
         raise HTTPException(status_code=500, detail=f"Error retrieving statistics: {str(e)}")
 
 
-# =========================== 
+# ===========================
 # Item-specific Claim Routes
 # ===========================
 
+# ===========================
+# Get Item Claims (with details)
+# ===========================
 @router.get("/item/{item_id}", response_model=List[ClaimWithDetails])
 async def get_item_claims(
     item_id: str,
@@ -403,10 +431,13 @@ async def get_item_claims(
         raise HTTPException(status_code=500, detail=f"Error retrieving item claims: {str(e)}")
 
 
-# =========================== 
+# ===========================
 # Claim Image Upload Routes
 # ===========================
 
+# ===========================
+# Upload Image to Claim
+# ===========================
 @router.post("/{claim_id}/upload-image/")
 async def upload_image_to_claim(
     claim_id: str,
@@ -504,7 +535,9 @@ async def upload_image_to_claim(
         logger.error(f"Upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
-
+# ===========================
+# Get Claim Images
+# ===========================
 @router.get("/{claim_id}/images/")
 async def get_claim_images(
     claim_id: str,
@@ -549,7 +582,9 @@ async def get_claim_images(
         logger.error(f"Error retrieving claim images: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving claim images: {str(e)}")
 
-
+# ===========================
+# Delete Claim Image
+# ===========================
 @router.delete("/{claim_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_claim_image(
     claim_id: str,
@@ -606,10 +641,13 @@ async def delete_claim_image(
         raise HTTPException(status_code=500, detail=f"Error deleting image: {str(e)}")
 
 
-# =========================== 
+# ===========================
 # Visit Notification Routes
 # ===========================
 
+# ===========================
+# Send Visit Notification to Claimant
+# ===========================
 @router.post("/{claim_id}/send-visit-notification")
 @require_permission("can_manage_claims")
 async def send_visit_notification(

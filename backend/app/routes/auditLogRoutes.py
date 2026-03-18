@@ -19,6 +19,9 @@ router = APIRouter()
 def get_audit_log_service(db: Session = Depends(get_session)) -> AuditLogService:
     return AuditLogService(db)
 
+# ===========================
+# List Audit Logs (filter, paginate, search)
+# ===========================
 @router.get("/", response_model=AuditLogListResponse)
 @require_permission("can_view_audit_logs")
 async def get_audit_logs(
@@ -75,6 +78,9 @@ async def get_audit_logs(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving audit logs: {str(e)}")
 
+# ===========================
+# Get Audit Log by ID
+# ===========================
 @router.get("/{log_id}", response_model=AuditLogResponse)
 @require_permission("can_view_audit_logs")
 async def get_audit_log(
@@ -95,6 +101,9 @@ async def get_audit_log(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving audit log: {str(e)}")
 
+# ===========================
+# Get Audit Logs by Entity (entity_type, entity_id)
+# ===========================
 @router.get("/entity/{entity_type}/{entity_id}", response_model=List[AuditLogResponse])
 @require_permission("can_view_audit_logs")
 async def get_audit_logs_by_entity(

@@ -13,12 +13,7 @@ services:
       - "8000:8000"
     env_file:
       - backend/.env
-    environment:
-      # Use PostgreSQL by default; can be overridden via host env
-      # This matches your existing local DB:
-      # postgresql://postgres:mfqod@localhost:5433/mfqod
-      # Inside Docker we must use host.docker.internal instead of localhost.
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:mfqod@host.docker.internal:5433/mfqod}
+    # DATABASE_URL is read from backend/.env (no override here)
     volumes:
       # Mount storage directory for persistent uploads
       - ./storage:/storage:rw

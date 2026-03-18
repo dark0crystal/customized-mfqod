@@ -49,10 +49,13 @@ router = APIRouter()
 def get_item_service(db: Session = Depends(get_session)) -> ItemService:
     return ItemService(db)
 
-# =========================== 
+# ===========================
 # Create Operations
 # ===========================
 
+# ===========================
+# Create Item
+# ===========================
 @router.post("/", response_model=ItemResponse, status_code=201)
 @require_permission("can_manage_items")
 async def create_item(
@@ -73,10 +76,13 @@ async def create_item(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating item: {str(e)}")
 
-# =========================== 
+# ===========================
 # Read Operations
 # ===========================
 
+# ===========================
+# Get Public Items (no auth)
+# ===========================
 @router.get("/public", response_model=ItemListResponse)
 @rate_limit_public()
 async def get_public_items(
@@ -116,6 +122,9 @@ async def get_public_items(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving public items: {str(e)}")
 
+# ===========================
+# List Items (with filters)
+# ===========================
 @router.get("/", response_model=ItemListResponse)
 @rate_limit_authenticated()
 async def get_items(
@@ -202,6 +211,9 @@ async def get_items(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving items: {str(e)}")
 
+# ===========================
+# Search Items
+# ===========================
 @router.get("/search/", response_model=ItemListResponse)
 @require_permission("can_manage_items")
 async def search_items(
@@ -283,6 +295,9 @@ async def search_items(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error searching items: {str(e)}")
 
+# ===========================
+# Get User Items
+# ===========================
 @router.get("/users/{user_id}/items", response_model=ItemListResponse)
 async def get_user_items(
     user_id: str,
@@ -327,6 +342,9 @@ async def get_user_items(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving user items: {str(e)}")
 
+# ===========================
+# Get Item Statistics
+# ===========================
 @router.get("/statistics/", response_model=dict)
 @require_permission("can_view_analytics")
 async def get_item_statistics(
@@ -345,6 +363,9 @@ async def get_item_statistics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving statistics: {str(e)}")
 
+# ===========================
+# Get Pending Items Count
+# ===========================
 @router.get("/pending-count", response_model=dict)
 @require_permission("can_manage_items")
 async def get_pending_items_count(
@@ -415,6 +436,9 @@ async def get_pending_items_count(
         # #endregion
         raise HTTPException(status_code=500, detail=f"Error retrieving pending items count: {str(e)}")
 
+# ===========================
+# Get Public Item by ID
+# ===========================
 @router.get("/public/{item_id}", response_model=ItemDetailResponse)
 @rate_limit_public()
 async def get_public_item(
@@ -447,6 +471,9 @@ async def get_public_item(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving public item: {str(e)}")
 
+# ===========================
+# Get Item by ID
+# ===========================
 @router.get("/{item_id}", response_model=ItemDetailResponse)
 async def get_item(
     item_id: str,
@@ -468,6 +495,9 @@ async def get_item(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving item: {str(e)}")
 
+# ===========================
+# Get Item Export Data
+# ===========================
 @router.get("/{item_id}/export-data", response_model=ItemExportResponse)
 async def get_item_export_data(
     item_id: str,
@@ -495,6 +525,9 @@ async def get_item_export_data(
 # Update Operations
 # ===========================
 
+# ===========================
+# Update Item (PUT)
+# ===========================
 @router.put("/{item_id}", response_model=ItemResponse)
 @require_permission("can_manage_items")
 async def update_item(
@@ -517,6 +550,9 @@ async def update_item(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating item: {str(e)}")
 
+# ===========================
+# Patch Item (PATCH)
+# ===========================
 @router.patch("/{item_id}", response_model=ItemResponse)
 @require_permission("can_manage_items")
 async def patch_item(
@@ -546,6 +582,9 @@ async def patch_item(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error patching item: {str(e)}")
 
+# ===========================
+# Toggle Item Approval
+# ===========================
 @router.patch("/{item_id}/toggle-approval", response_model=ItemResponse)
 @require_permission("can_manage_items")
 async def toggle_item_approval(
@@ -572,6 +611,9 @@ async def toggle_item_approval(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error toggling approval: {str(e)}")
 
+# ===========================
+# Toggle Item Hidden Status
+# ===========================
 @router.patch("/{item_id}/toggle-hidden/", response_model=ItemResponse)
 @require_permission("can_manage_items")
 async def toggle_item_hidden_status(
@@ -593,6 +635,9 @@ async def toggle_item_hidden_status(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error toggling hidden status: {str(e)}")
 
+# ===========================
+# Set Item Hidden Status
+# ===========================
 @router.patch("/{item_id}/set-hidden/", response_model=ItemResponse)
 @require_permission("can_manage_items")
 async def set_item_hidden_status(
@@ -624,6 +669,9 @@ async def set_item_hidden_status(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error setting hidden status: {str(e)}")
 
+# ===========================
+# Update Item Status
+# ===========================
 @router.patch("/{item_id}/status", response_model=ItemResponse)
 @require_permission("can_manage_items")
 async def update_item_status(
@@ -654,6 +702,9 @@ async def update_item_status(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating status: {str(e)}")
 
+# ===========================
+# Approve Item
+# ===========================
 @router.patch("/{item_id}/approve", response_model=ItemResponse)
 @require_permission("can_manage_items")
 async def approve_item(
@@ -683,6 +734,9 @@ async def approve_item(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error approving item: {str(e)}")
 
+# ===========================
+# Dispose Item
+# ===========================
 @router.post("/{item_id}/dispose", response_model=ItemResponse)
 @require_permission("can_manage_items")
 async def dispose_item(
@@ -713,6 +767,9 @@ async def dispose_item(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error disposing item: {str(e)}")
 
+# ===========================
+# Update Item Claims Count
+# ===========================
 @router.patch("/{item_id}/update-claims-count", response_model=ItemResponse)
 @require_permission("can_manage_claims")
 async def update_claims_count(
@@ -738,6 +795,9 @@ async def update_claims_count(
 # Delete Operations
 # ===========================
 
+# ===========================
+# Delete Item
+# ===========================
 @router.delete("/{item_id}", response_model=DeleteItemResponse)
 @require_permission("can_manage_items")
 async def delete_item(
@@ -773,6 +833,9 @@ async def delete_item(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting item: {str(e)}")
 
+# ===========================
+# Restore Item
+# ===========================
 @router.patch("/{item_id}/restore", response_model=ItemResponse)
 @require_permission("can_manage_items")
 async def restore_item(
@@ -803,6 +866,9 @@ async def restore_item(
 # Bulk Operations
 # ===========================
 
+# ===========================
+# Bulk Delete Items
+# ===========================
 @router.post("/bulk/delete", response_model=BulkOperationResponse)
 @require_permission("can_manage_items")
 async def bulk_delete_items(
@@ -829,6 +895,9 @@ async def bulk_delete_items(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in bulk delete: {str(e)}")
 
+# ===========================
+# Bulk Update Items
+# ===========================
 @router.put("/bulk/update", response_model=BulkOperationResponse)
 @require_permission("can_manage_items")
 async def bulk_update_items(
@@ -852,6 +921,9 @@ async def bulk_update_items(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in bulk update: {str(e)}")
 
+# ===========================
+# Bulk Approval Items
+# ===========================
 @router.patch("/bulk/approval", response_model=BulkOperationResponse)
 @require_permission("can_manage_items")
 async def bulk_approval_items(
@@ -875,6 +947,9 @@ async def bulk_approval_items(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in bulk approval: {str(e)}")
 
+# ===========================
+# Bulk Update Item Status
+# ===========================
 @router.patch("/bulk/status", response_model=BulkOperationResponse)
 @require_permission("can_manage_items")
 async def bulk_update_status(

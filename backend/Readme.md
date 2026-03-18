@@ -1,141 +1,202 @@
-Clean Architecture Design pattern :
+# University Lost & Found System — Backend
 
+Backend API for the University Lost & Found System with dual authentication (Active Directory + Local), RBAC, and comprehensive item management.
+
+---
+
+## Quick Start
+
+```bash
+cd backend
+cp env.example .env
+# Edit .env with your configuration (database, JWT secret, LDAP, etc.)
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run migrations
+alembic upgrade head
+
+# Setup permissions (required before first use)
+python setup_permissions.py
+
+# Start the server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Docker / Make:**
+```bash
+make build && make up           # Start with Docker
+make dev                       # Development mode with hot reload
+make logs                      # View logs
+```
+
+See [DOCKER.md](../DOCKER.md) in the project root for full Docker setup.
+
+When the backend runs in Docker, use the **host** (not the container) to open the API docs:
+- **Swagger UI:** http://localhost:8000/api/docs  
+- **ReDoc:** http://localhost:8000/api/redoc  
+- **OpenAPI JSON:** http://localhost:8000/api/openapi.json  
+
+Port 8000 is mapped from the container to the host, so these URLs work from your machine. If you use a different host (e.g. `http://127.0.0.1:8000` or a server IP), replace `localhost` accordingly.
+
+---
+
+## Project Structure (Clean Architecture)
+
+```
 app/
+├── main.py                    # Entry point (uvicorn runs this)
+├── config/                    # Configuration (auth, email, LDAP)
+│   ├── auth_config.py         # JWT, passwords, rate limits
+│   └── email_config.py        # SMTP, templates
 │
-├── main.py                 # Entry point (uvicorn runs this)
-├── core/                  # Core configurations (e.g., settings, JWT, logging)
-│   └── config.py
+├── models.py                  # SQLModel/SQLAlchemy models
 │
-├── models/                # SQLAlchemy or Pydantic models
-│   └── user.py
+├── schemas/                   # Request & response schemas (Pydantic DTOs)
+│   ├── user_schema.py
+│   ├── item_schema.py
+│   ├── auth_schemas.py
+│   └── ...
 │
-├── schemas/               # Request & response schemas (DTOs)
-│   └── user_schema.py
+├── services/                  # Business logic layer
+│   ├── auth_service.py        # Auth, AD integration
+│   ├── userServices.py
+│   ├── itemService.py
+│   ├── enhanced_ad_service.py # LDAP/AD sync
+│   └── ...
 │
-├── services/              # Business logic layer
-│   └── user_service.py
+├── routes/                    # FastAPI route definitions
+│   ├── comprehensive_auth_routes.py
+│   ├── userRoutes.py
+│   ├── itemRoutes.py
+│   └── ...
 │
-├── routes/                # Route definitions (FastAPI routers)
-│   └── user_route.py
+├── db/                        # Database session, engine, migrations
+│   ├── database.py
+│   └── migrations/            # Alembic migrations
 │
-├── db/                    # Database session, engine, base class
-│   └── session.py
+├── middleware/                # Auth, rate limiting, security headers
+│   ├── auth_middleware.py
+│   └── rate_limit_setup.py
 │
-└── utils/                 # Helpers (e.g., hashing, JWT)
-    └── security.py
+├── utils/                     # Helpers (security, logging, permissions)
+│   ├── security.py
+│   └── permission_decorator.py
+│
+└── templates/email/           # Email templates
+```
 
+---
 
------- ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+## Environment Configuration
 
-💡 What is APIRouter() in FastAPI?
-APIRouter is a class provided by FastAPI that lets you define and organize your routes (endpoints) separately from the main app. It helps you break your app into modular components—especially useful for larger projects.
+Copy `env.example` to `.env` and configure:
 
------- ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
- # Why use raise HTTPException(...) instead of return {...} in FastAPI?
-    # ✅ 1. raise tells FastAPI "This is an error"
-    # 🚫 But if you just do return {...}:
-    #FastAPI thinks it’s a successful (200 OK) response.
-    # It doesn’t know that something went wrong.
-    # This confuses the client or frontend.
------- ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+```bash
+cp env.example .env
+```
 
-📁 What is __pycache__?
-__pycache__ is a special folder automatically created by Python to store compiled bytecode of your .py files.
+Key variables:
 
-When Python runs your code, it compiles it to .pyc (Python bytecode) files for faster execution in future runs.
+| Category | Variables |
+|----------|-----------|
+| Database | `DATABASE_URL` |
+| Auth | `SECRET_KEY`, `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES` |
+| LDAP/AD | `AD_SERVER`, `AD_BIND_USER`, `AD_BIND_PASSWORD`, `AD_BASE_DN` |
+| Email | `EMAIL_ENABLED`, `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD` |
+| Frontend | `FRONTEND_BASE_URL` |
 
-These .pyc files are stored in the __pycache__ directory.
+See `env.example` for the full list and descriptions.
 
-✅ It’s completely normal and safe — but you usually don't need to include it in version control (e.g., Git).
+---
 
------- ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
-Database Migrations Using alembic : 
-#run the command to init the migrations % alembic init migrations   
-1) changes I made in auto generated files to setup the migration 👍 : 
-# first inide the the script.py.make:
-    - I have added this line %  import sqlmodel
-# inside env.py:
-    - I have added this line % from sqlmodel import SQLModel
-    - Also you need to import the Model you have created to be as database tables
-     e.g. from models import User
-    -Also I have changes this line form this:
-     % target_metadata = None
-     To this:
-     % target_metadata = SQLModel.metadata
+## Database Migrations (Alembic)
 
+Alembic is configured under `app/db/migrations/`. Target metadata uses SQLModel.
 
------- ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
-Command to make migration:
-   % alembic revision --autogenerate -m "commit message"
-   
-Command to apply the most recent migration:
-   %alembic upgrade head
+**Create a new migration:**
+```bash
+alembic revision --autogenerate -m "description of change"
+```
 
+**Apply migrations:**
+```bash
+alembic upgrade head
+```
 
------- ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
-Active Directory:
+**Initial setup (env.py):**
+- Import your models from `app.models` so Alembic can detect them
+- Set `target_metadata = Base.metadata` (from app.models)
 
+---
 
------- ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
-Permissions & Roles Setup (setup_permissions.sql):
+## Permissions & Roles Setup
 
-Run this SQL script to initialize permissions and roles:
+Run **before** first use to create permissions and roles (`super_admin`, `moderator`, `user`).
 
-  cd backend
-  psql -U your_username -d your_database_name -f setup_permissions.sql
+**Option 1 — Python (recommended):**
+```bash
+cd backend
+python setup_permissions.py
+```
 
-Or with connection string:
-  psql "postgresql://user:password@localhost:5432/dbname" -f setup_permissions.sql
+**Option 2 — SQL:**
+```bash
+cd backend
+psql -U your_username -d your_database_name -f setup_permissions.sql
+# Or with connection string:
+psql "postgresql://user:password@localhost:5432/dbname" -f setup_permissions.sql
+```
 
-Creates:
-  - 15 permissions (can_manage_items, can_manage_users, etc.)
-  - 3 roles: super_admin (all permissions), moderator (item management), user (no permissions)
+**Prerequisites:** Run migrations first (`alembic upgrade head`).
 
-Prerequisites: Run migrations first (alembic upgrade head)
+---
 
------- ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
-Fine-Grained Control (Actions per Role) using Roles + Permissions — also known as RBAC with Permissions.
+## Active Directory / LDAP
 
-🧠 What It Means
-With fine-grained control, instead of checking only the user’s role, you check whether the user has specific permissions to do certain actions — like:
- 
-These Are Examples: 
+The system supports dual authentication:
+- **Internal users** — authenticate via LDAP/Active Directory (SQU)
+- **External users** — local accounts with email/password
 
-can_view_users
+**LDAP configuration** (in `.env`):
+- `AD_SERVER` — LDAP host (e.g. `ldap.squ.edu.om`)
+- `AD_PORT` — 636 for LDAPS, 389 for LDAP
+- `AD_USE_SSL` — use SSL
+- `AD_BASE_DN`, `AD_USER_DN`, `AD_GROUP_DN` — directory structure
+- `AD_BIND_USER`, `AD_BIND_PASSWORD` — service account for binding
+- `AD_DEFAULT_INTERNAL_ROLE`, `AD_DEFAULT_EXTERNAL_ROLE` — default roles for new users
 
-can_edit_users
+**Features:**
+- User sync from AD (scheduled or manual)
+- Group membership mapping
+- Account status checks (expired, disabled)
+- Deactivation of expired/disabled accounts
 
-can_delete_posts
+---
 
-can_publish_content
+## RBAC (Roles & Permissions)
 
-This way, two roles can have different sets of actions even if they sound similar.
+Fine-grained access control using roles and permissions:
 
-roles table:
-id | name
----|-------
-1  | admin
-2  | editor
-3  | student
+- **Permissions** — actions like `can_view_users`, `can_manage_items`, `can_manage_missing_items`
+- **Roles** — `super_admin`, `moderator`, `user`
+- **role_permissions** — many-to-many mapping
 
-permissions table:
-id | name
----|--------------------
-1  | can_view_users
-2  | can_edit_posts
-3  | can_view_content
+Instead of checking only the role, the code checks whether the user has a specific permission for the action. Use the `@require_permission("permission_name")` decorator on protected routes.
 
-role_permissions table (many-to-many)
-role_id | permission_id
---------|---------------
-1       | 1
-1       | 2
-1       | 3
-2       | 2
-2       | 3
-3       | 3
------- ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------ ------
+---
 
+## FastAPI Notes
 
+**APIRouter** — Used to define routes in separate modules and mount them in `main.py`. Keeps the app modular.
 
+**HTTPException** — Use `raise HTTPException(...)` for errors instead of `return {...}`. FastAPI treats raised exceptions as error responses (4xx/5xx); plain `return` is interpreted as a 200 OK.
 
+---
+
+## Other Notes
+
+**`__pycache__`** — Python stores compiled bytecode (`.pyc`) here. Safe to ignore in version control (add to `.gitignore`).
+
+**API docs** — Swagger: http://localhost:8000/api/docs · ReDoc: http://localhost:8000/api/redoc · OpenAPI JSON: http://localhost:8000/api/openapi.json (same URLs when running in Docker; use the host and port that reach the backend).

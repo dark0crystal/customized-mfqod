@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import QASection from './QASection';
-import { WithPermissions } from '@/lib/server/withPermissions';
+import ProtectedPage from '@/components/protection/ProtectedPage';
 
 interface QAItem {
   question: string;
@@ -30,7 +30,7 @@ export default async function HelpPage() {
   };
 
   return (
-    <WithPermissions permission="can_manage_items">
+    <ProtectedPage requiredPermission="can_manage_items">
       <div className="space-y-6 px-2 sm:px-4 lg:px-6">
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
@@ -89,7 +89,7 @@ export default async function HelpPage() {
         </div>
       </div>
     </div>
-    </WithPermissions>
+    </ProtectedPage>
   );
 }
 

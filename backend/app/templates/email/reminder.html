@@ -10,7 +10,7 @@
     <h2>{{ reminder_title or "تذكير ودود" }}</h2>
     <p>مرحباً {{ user_name }}،</p>
 
-    <p>هذا تذكير ودود من {{ system_name }}.</p>
+    <p>هذا تذكير ودود من {{ system_name_ar }}.</p>
 
     {% if reminder_type == "unclaimed_items" %}
     <div class="warning-box">
@@ -36,7 +36,7 @@
         <strong>تفعيل الحساب مطلوب:</strong> حسابك لا يزال غير نشط.
     </div>
 
-    <p>للبدء في استخدام {{ system_name }}، يرجى تفعيل حسابك باستخدام الرابط الذي أرسلناه سابقاً.</p>
+    <p>للبدء في استخدام {{ system_name_ar }}، يرجى تفعيل حسابك باستخدام الرابط الذي أرسلناه سابقاً.</p>
 
     {% if activation_link %}
     <p style="text-align: center;">
@@ -101,7 +101,7 @@
     <p>إذا كان لديك أي أسئلة أو تحتاج إلى مساعدة، لا تتردد في الاتصال بفريق الدعم لدينا.</p>
 
     <p>شكراً لك!</p>
-    <p><strong>فريق {{ system_name }}</strong></p>
+    <p><strong>فريق {{ system_name_ar }}</strong></p>
 </div>
 
 <hr style="margin: 30px 0; border: 1px solid #dee2e6;">
@@ -111,7 +111,7 @@
     <h2>{{ reminder_title or "Friendly Reminder" }}</h2>
     <p>Hello {{ user_name }},</p>
 
-    <p>This is a friendly reminder from {{ system_name }}.</p>
+    <p>This is a friendly reminder from {{ system_name_en }}.</p>
 
     {% if reminder_type == "unclaimed_items" %}
     <div class="warning-box">
@@ -137,7 +137,7 @@
         <strong>Account Activation Required:</strong> Your account is still inactive.
     </div>
 
-    <p>To start using {{ system_name }}, please activate your account using the link we sent earlier.</p>
+    <p>To start using {{ system_name_en }}, please activate your account using the link we sent earlier.</p>
 
     {% if activation_link %}
     <p style="text-align: center;">
@@ -202,6 +202,6 @@
     <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
 
     <p>Thank you!</p>
-    <p><strong>The {{ system_name }} Team</strong></p>
+    <p><strong>The {{ system_name_en }} Team</strong></p>
 </div>
 {% endblock %}

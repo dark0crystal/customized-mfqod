@@ -50,6 +50,9 @@ class AnalyticsResponse(BaseModel):
     items_by_category: List[ItemsByCategory]
     return_stats: List[ReturnStats]
 
+# ===========================
+# Public Statistics (no auth)
+# ===========================
 @router.get("/analytics/public/stats", response_model=PublicStatistics, tags=["Analytics"])
 @rate_limit_public()
 async def get_public_statistics(
@@ -97,6 +100,9 @@ async def get_public_statistics(
             detail=f"Error generating public statistics: {str(e)}"
         )
 
+# ===========================
+# Analytics Summary (date range, branch, item type filters)
+# ===========================
 @router.get("/analytics/summary", response_model=AnalyticsResponse, tags=["Analytics"])
 @require_permission("can_view_analytics")
 async def get_analytics_summary(
@@ -309,6 +315,9 @@ async def get_analytics_summary(
         logger.error(f"Error generating analytics: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error generating analytics: {str(e)}")
 
+# ===========================
+# Export Analytics Data (JSON or CSV)
+# ===========================
 @router.get("/analytics/export-data", tags=["Analytics"])
 @require_permission("can_view_analytics")
 async def get_analytics_export_data(
@@ -369,6 +378,9 @@ async def get_analytics_export_data(
         logger.error(f"Error exporting analytics data: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error exporting analytics data: {str(e)}")
 
+# ===========================
+# Performance Metrics (7d, 30d, 90d, 1y)
+# ===========================
 @router.get("/analytics/performance-metrics", tags=["Analytics"])
 @require_permission("can_view_analytics")
 async def get_performance_metrics(

@@ -12,7 +12,7 @@
 
     {% if alert_type == "maintenance" %}
     <div class="warning-box">
-        <strong>صيانة مجدولة:</strong> سيخضع {{ system_name }} للصيانة.
+        <strong>صيانة مجدولة:</strong> سيخضع {{ system_name_ar }} للصيانة.
     </div>
 
     <p><strong>نافذة الصيانة:</strong> {{ maintenance_start }} - {{ maintenance_end }}</p>
@@ -58,10 +58,10 @@
     </p>
     {% endif %}
 
-    <p>نقدر تفهمك واستمرارك في استخدام {{ system_name }}.</p>
+    <p>نقدر تفهمك واستمرارك في استخدام {{ system_name_ar }}.</p>
 
     <p>مع أطيب التحيات،</p>
-    <p><strong>فريق {{ system_name }}</strong></p>
+    <p><strong>فريق {{ system_name_ar }}</strong></p>
 </div>
 
 <hr style="margin: 30px 0; border: 1px solid #dee2e6;">
@@ -73,7 +73,7 @@
 
     {% if alert_type == "maintenance" %}
     <div class="warning-box">
-        <strong>Scheduled Maintenance:</strong> {{ system_name }} will undergo maintenance.
+        <strong>Scheduled Maintenance:</strong> {{ system_name_en }} will undergo maintenance.
     </div>
 
     <p><strong>Maintenance Window:</strong> {{ maintenance_start }} - {{ maintenance_end }}</p>
@@ -119,9 +119,9 @@
     </p>
     {% endif %}
 
-    <p>We appreciate your understanding and continued use of {{ system_name }}.</p>
+    <p>We appreciate your understanding and continued use of {{ system_name_en }}.</p>
 
     <p>Best regards,</p>
-    <p><strong>The {{ system_name }} Team</strong></p>
+    <p><strong>The {{ system_name_en }} Team</strong></p>
 </div>
 {% endblock %}

@@ -18,6 +18,9 @@ router = APIRouter()
 def get_transfer_request_service(db: Session = Depends(get_session)) -> TransferRequestService:
     return TransferRequestService(db)
 
+# ===========================
+# Create Transfer Request
+# ===========================
 @router.post("/", response_model=TransferRequestResponse, status_code=201)
 async def create_transfer_request(
     request_data: TransferRequestCreate,
@@ -38,6 +41,9 @@ async def create_transfer_request(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating transfer request: {str(e)}")
 
+# ===========================
+# List Transfer Requests
+# ===========================
 @router.get("/", response_model=List[TransferRequestResponse])
 async def get_transfer_requests(
     request: Request,
@@ -58,6 +64,9 @@ async def get_transfer_requests(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving transfer requests: {str(e)}")
 
+# ===========================
+# Get Pending Transfer Requests Count
+# ===========================
 @router.get("/pending-count", response_model=dict)
 @require_permission("can_manage_transfer_requests")
 async def get_pending_transfer_requests_count(
@@ -80,6 +89,9 @@ async def get_pending_transfer_requests_count(
         logger.error(f"Error retrieving pending transfer requests count: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error retrieving pending transfer requests count: {str(e)}")
 
+# ===========================
+# Get Incoming Transfer Requests
+# ===========================
 @router.get("/incoming/", response_model=List[TransferRequestResponse])
 @require_permission("can_manage_transfer_requests")
 async def get_incoming_transfer_requests(
@@ -133,6 +145,9 @@ async def get_incoming_transfer_requests(
         logger.error(f"Error retrieving incoming transfer requests: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error retrieving incoming transfer requests: {str(e)}")
 
+# ===========================
+# Get Transfer Request by ID
+# ===========================
 @router.get("/{request_id}", response_model=TransferRequestResponse)
 async def get_transfer_request(
     request_id: str,
@@ -152,6 +167,9 @@ async def get_transfer_request(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving transfer request: {str(e)}")
 
+# ===========================
+# Approve Transfer Request
+# ===========================
 @router.post("/{request_id}/approve", response_model=TransferRequestResponse)
 @require_permission("can_manage_transfer_requests")
 async def approve_transfer_request(
@@ -179,6 +197,9 @@ async def approve_transfer_request(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error approving transfer request: {str(e)}")
 
+# ===========================
+# Reject Transfer Request
+# ===========================
 @router.post("/{request_id}/reject", response_model=TransferRequestResponse)
 @require_permission("can_manage_transfer_requests")
 async def reject_transfer_request(

@@ -16,7 +16,7 @@ SECURITY NOTICE:
 Enter this code in the registration form to complete your account setup.
 
 Best regards,
-The {{ system_name }} Team
+The {{ system_name_en }} Team
 
 
 

@@ -1,12 +1,22 @@
 # routes/permission_routes.py
+"""
+Permission API Routes
+
+Endpoints for managing permissions and role–permission assignments.
+- List and retrieve permissions (with or without role associations).
+- Create, update, and delete permissions (requires `can_manage_permissions`).
+- Assign or remove permissions to/from roles.
+- Check whether a user has a specific permission.
+
+Permissions follow the naming pattern: `can_<action>_<resource>` (e.g. `can_view_users`, `can_manage_roles`).
+"""
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlmodel import Session
 from app.services import permissionServices
-from app.models import Permission
 from app.db.database import get_session
 from app.schemas.permission_schema import (
-    PermissionRequestSchema, 
-    PermissionSchema, 
+    PermissionRequestSchema,
+    PermissionSchema,
     PermissionWithRolesSchema,
     AssignPermissionToRoleSchema,
     RolePermissionSchema
@@ -14,139 +24,130 @@ from app.schemas.permission_schema import (
 from typing import List
 from app.utils.permission_decorator import require_permission
 
-router = APIRouter()
+router = APIRouter(tags=["Permissions"])
 
-# ==================================
+# ===========================
 # List All Permissions
-# ==================================
+# ===========================
 @router.get(
     "/all",
     response_model=List[PermissionSchema],
     summary="List all permissions",
+    operation_id="list_permissions",
     description="""
-Get a list of all permissions from the system.
+Return all permissions in the system. No authentication required.
 
-### Returns:
-- A list of permissions, each containing:
-  - `id`: Unique identifier of the permission
-  - `name`: The name of the permission (e.g., can_view_users, can_edit_posts)
-  - `description`: Optional description of the permission
-  - `created_at`: Timestamp when the permission was created
-  - `updated_at`: Timestamp when the permission was last updated
-"""
+**Use cases:** Permission dropdowns, role-editing forms, admin dashboards.
+
+**Response:** List of permissions with `id`, `name`, `description`, `created_at`, `updated_at`.
+""",
+    responses={200: {"description": "List of all permissions."}},
 )
 def list_permissions(session: Session = Depends(get_session)):
-    """
-    Fetch all permissions from the Permission table.
-    
-    - **No authentication** required for this endpoint.
-    - Useful for forms or dashboards that require a list of permission options.
-    """
+    """Fetch all permissions from the Permission table."""
     return permissionServices.get_all_permissions(session)
 
-# ==================================
+# ===========================
 # Get Permissions with Roles
-# ==================================
+# ===========================
 @router.get(
     "/with-roles",
     response_model=List[PermissionWithRolesSchema],
-    summary="List all permissions with their assigned roles",
+    summary="List permissions with assigned roles",
+    operation_id="list_permissions_with_roles",
     description="""
-Get a list of all permissions with the roles that have been assigned to them.
+Return all permissions including the list of role names that have each permission. No authentication required.
 
-### Returns:
-- A list of permissions with their associated roles
-"""
+**Use cases:** Permission management UI, auditing which roles have which permissions.
+
+**Response:** Each item includes `id`, `name`, `description`, `roles` (list of role names), `created_at`, `updated_at`.
+""",
+    responses={200: {"description": "Permissions with their assigned roles."}},
 )
 def list_permissions_with_roles(session: Session = Depends(get_session)):
-    """
-    Fetch all permissions with their associated roles.
-    
-    - Shows which roles have been assigned to each permission
-    - Useful for permission management dashboards
-    """
+    """Fetch all permissions with their associated roles."""
     return permissionServices.get_permissions_with_roles(session)
 
-# ==================================
+# ===========================
 # Get Permission by ID
-# ==================================
+# ===========================
 @router.get(
     "/{permission_id}",
     response_model=PermissionSchema,
-    summary="Get a specific permission",
+    summary="Get permission by ID",
+    operation_id="get_permission",
     description="""
-Get details of a specific permission by its ID.
+Return a single permission by its ID. No authentication required.
 
-### Path parameter:
-- `permission_id`: ID of the permission to retrieve
+**Path:** `permission_id` — UUID of the permission.
 
-### Returns:
-- Permission details including id, name, description, and timestamps
-"""
+**Response:** Permission with `id`, `name`, `description`, `created_at`, `updated_at`.
+""",
+    responses={
+        200: {"description": "Permission found."},
+        404: {"description": "Permission not found."},
+    },
 )
 def get_permission(permission_id: str, session: Session = Depends(get_session)):
-    """
-    Get a specific permission by ID.
-    
-    - **Raises 404** if permission not found.
-    """
+    """Get a specific permission by ID. Raises 404 if not found."""
     permission = permissionServices.get_permission_by_id(session, permission_id)
     if not permission:
         raise HTTPException(status_code=404, detail="Permission not found.")
     return permission
 
-# ==================================
+# ===========================
 # Add New Permission
-# ==================================
+# ===========================
 @router.post(
     "/add-new-permission",
     response_model=PermissionSchema,
-    summary="Add a new permission",
+    summary="Create a new permission",
+    operation_id="add_new_permission",
     description="""
-Create a new permission in the system.
+Create a new permission. Requires `can_manage_permissions`.
 
-### Request Body:
-- `name`: The permission name (e.g., "can_view_users", "can_edit_posts")
-- `description`: Optional description of what this permission allows
+**Request body:** `name` (required), `description` (optional). Names should follow `can_<action>_<resource>` (e.g. `can_view_users`).
 
-### Returns:
-- The created permission with all its details
-"""
+**Response:** The created permission with `id`, `name`, `description`, `created_at`, `updated_at`.
+""",
+    responses={
+        200: {"description": "Permission created."},
+        403: {"description": "Forbidden — missing can_manage_permissions."},
+        409: {"description": "Conflict — permission name already exists."},
+    },
 )
 @require_permission("can_manage_permissions")
 def add_new_permission(
     request: Request,
-    permission: PermissionRequestSchema, 
+    permission: PermissionRequestSchema,
     session: Session = Depends(get_session)
 ):
-    """
-    Create a new permission.
-    
-    - **Raises 409** if permission name already exists.
-    - Permission names should follow the pattern: can_action_resource (e.g., can_view_users)
-    """
+    """Create a new permission. Raises 409 if name already exists."""
     return permissionServices.create_permission(session, permission)
 
-# ==================================
+# ===========================
 # Update Permission
-# ==================================
+# ===========================
 @router.put(
     "/{permission_id}",
     response_model=PermissionSchema,
     summary="Update a permission",
+    operation_id="update_permission",
     description="""
-Update an existing permission.
+Update an existing permission by ID. Requires `can_manage_permissions`.
 
-### Path parameter:
-- `permission_id`: ID of the permission to update
+**Path:** `permission_id` — UUID of the permission to update.
 
-### Request Body:
-- `name`: The new permission name
-- `description`: Updated description
+**Request body:** `name` (optional), `description` (optional). Provide only fields to change.
 
-### Returns:
-- The updated permission details
-"""
+**Response:** The updated permission.
+""",
+    responses={
+        200: {"description": "Permission updated."},
+        403: {"description": "Forbidden — missing can_manage_permissions."},
+        404: {"description": "Permission not found."},
+        409: {"description": "Conflict — new name already in use."},
+    },
 )
 @require_permission("can_manage_permissions")
 def update_permission(
@@ -155,59 +156,54 @@ def update_permission(
     permission: PermissionRequestSchema,
     session: Session = Depends(get_session)
 ):
-    """
-    Update an existing permission.
-    
-    - **Raises 404** if permission not found.
-    - **Raises 409** if new name conflicts with existing permission.
-    """
+    """Update an existing permission. Raises 404 if not found, 409 if name conflicts."""
     return permissionServices.update_permission(session, permission_id, permission)
 
-# ==================================
+# ===========================
 # Delete Permission
-# ==================================
+# ===========================
 @router.delete(
     "/{permission_id}",
     summary="Delete a permission",
+    operation_id="delete_permission",
     description="""
-Remove a permission from the system by its ID.
+Delete a permission by ID. Requires `can_manage_permissions`.
 
-### Path parameter:
-- `permission_id`: ID of the permission to delete
+**Path:** `permission_id` — UUID of the permission to delete.
 
-### Returns:
-- A confirmation message
-
-### Note:
-- This will also remove all role-permission associations for this permission
-"""
+**Side effect:** All role–permission associations for this permission are removed. Roles that had only this permission may end up with no permissions.
+""",
+    responses={
+        200: {"description": "Permission deleted."},
+        403: {"description": "Forbidden — missing can_manage_permissions."},
+        404: {"description": "Permission not found."},
+    },
 )
 @require_permission("can_manage_permissions")
 def delete_permission(request: Request, permission_id: str, session: Session = Depends(get_session)):
-    """
-    Remove a permission from the Permission table.
-    
-    - **Raises 404** if permission not found.
-    - Automatically removes all role-permission associations.
-    """
+    """Remove a permission and all its role associations. Raises 404 if not found."""
     return permissionServices.delete_permission(session, permission_id)
 
-# ==================================
+# ===========================
 # Assign Permission to Role
-# ==================================
+# ===========================
 @router.post(
     "/assign-to-role",
-    summary="Assign a permission to a role",
+    summary="Assign one permission to a role",
+    operation_id="assign_permission_to_role",
     description="""
-Assign a specific permission to a role.
+Assign a single permission to a role. Requires `can_manage_permissions`.
 
-### Request Body:
-- `role_id`: ID of the role to assign the permission to
-- `permission_id`: ID of the permission to assign
+**Request body:** `role_id` (UUID), `permission_id` (UUID).
 
-### Returns:
-- A confirmation message
-"""
+**Response:** Success message. Idempotent in effect (already-assigned returns 409).
+""",
+    responses={
+        200: {"description": "Permission assigned to role."},
+        403: {"description": "Forbidden — missing can_manage_permissions."},
+        404: {"description": "Role or permission not found."},
+        409: {"description": "Permission already assigned to this role."},
+    },
 )
 @require_permission("can_manage_permissions")
 def assign_permission_to_role(
@@ -215,34 +211,30 @@ def assign_permission_to_role(
     assignment: RolePermissionSchema,
     session: Session = Depends(get_session)
 ):
-    """
-    Assign a permission to a role.
-    
-    - **Raises 404** if role or permission not found.
-    - **Raises 409** if permission is already assigned to the role.
-    """
+    """Assign a permission to a role. Raises 404 if role/permission missing, 409 if already assigned."""
     return permissionServices.assign_permission_to_role(
         session, 
         assignment.role_id, 
         assignment.permission_id
     )
 
-# ==================================
+# ===========================
 # Remove Permission from Role
-# ==================================
+# ===========================
 @router.delete(
     "/remove-from-role",
     summary="Remove a permission from a role",
+    operation_id="remove_permission_from_role",
     description="""
-Remove a specific permission from a role.
+Remove a permission from a role. Requires `can_manage_permissions`.
 
-### Request Body:
-- `role_id`: ID of the role to remove the permission from
-- `permission_id`: ID of the permission to remove
-
-### Returns:
-- A confirmation message
-"""
+**Request body:** `role_id` (UUID), `permission_id` (UUID). The permission must currently be assigned to the role.
+""",
+    responses={
+        200: {"description": "Permission removed from role."},
+        403: {"description": "Forbidden — missing can_manage_permissions."},
+        404: {"description": "Role not found or permission not assigned to this role."},
+    },
 )
 @require_permission("can_manage_permissions")
 def remove_permission_from_role(
@@ -250,37 +242,32 @@ def remove_permission_from_role(
     assignment: RolePermissionSchema,
     session: Session = Depends(get_session)
 ):
-    """
-    Remove a permission from a role.
-    
-    - **Raises 404** if the permission is not assigned to the role.
-    """
+    """Remove a permission from a role. Raises 404 if not assigned."""
     return permissionServices.remove_permission_from_role(
         session, 
         assignment.role_id, 
         assignment.permission_id
     )
 
-# ==================================
+# ===========================
 # Assign Multiple Permissions to Role
-# ==================================
+# ===========================
 @router.post(
     "/assign-multiple-to-role",
-    summary="Assign multiple permissions to a role",
+    summary="Set all permissions for a role (replace existing)",
+    operation_id="assign_multiple_permissions_to_role",
     description="""
-Assign multiple permissions to a role. This will replace all existing permissions for the role.
+Set the full set of permissions for a role. Requires `can_manage_permissions`.
 
-### Request Body:
-- `role_id`: ID of the role
-- `permission_ids`: List of permission IDs to assign
+**Request body:** `role_id` (UUID), `permission_ids` (list of UUIDs). This **replaces** all current permissions for the role; it does not add to them. Use an empty list to clear all permissions.
 
-### Returns:
-- A confirmation message with the count of assigned permissions
-
-### Note:
-- This replaces ALL existing permissions for the role
-- Use this for bulk permission assignment
-"""
+**Response:** Confirmation with count of permissions now assigned.
+""",
+    responses={
+        200: {"description": "Role permissions updated."},
+        403: {"description": "Forbidden — missing can_manage_permissions."},
+        404: {"description": "Role not found or one or more permission IDs invalid."},
+    },
 )
 @require_permission("can_manage_permissions")
 def assign_multiple_permissions_to_role(
@@ -288,71 +275,58 @@ def assign_multiple_permissions_to_role(
     assignment: AssignPermissionToRoleSchema,
     session: Session = Depends(get_session)
 ):
-    """
-    Assign multiple permissions to a role.
-    
-    - **Raises 404** if role or any permission not found.
-    - Replaces existing permissions for the role.
-    """
+    """Replace all permissions for a role. Raises 404 if role or any permission not found."""
     return permissionServices.assign_multiple_permissions_to_role(
         session, 
         assignment.role_id, 
         assignment.permission_ids
     )
 
-# ==================================
+# ===========================
 # Get Role Permissions
-# ==================================
+# ===========================
 @router.get(
     "/role/{role_id}",
     response_model=List[PermissionSchema],
-    summary="Get all permissions for a specific role",
+    summary="List permissions for a role",
+    operation_id="get_role_permissions",
     description="""
-Get all permissions that have been assigned to a specific role.
+Return all permissions assigned to a role. No authentication required.
 
-### Path parameter:
-- `role_id`: ID of the role to get permissions for
+**Path:** `role_id` — UUID of the role.
 
-### Returns:
-- A list of permissions assigned to the role
-"""
+**Response:** List of permission objects. Empty list if the role has no permissions.
+""",
+    responses={
+        200: {"description": "List of permissions for the role (may be empty)."},
+        404: {"description": "Role not found."},
+    },
 )
 def get_role_permissions(role_id: str, session: Session = Depends(get_session)):
-    """
-    Get all permissions for a specific role.
-    
-    - **Raises 404** if role not found.
-    - Returns empty list if role has no permissions.
-    """
+    """Get all permissions for a role. Returns empty list if none; 404 if role not found."""
     return permissionServices.get_role_permissions(session, role_id)
 
-# ==================================
+# ===========================
 # Check User Permission
-# ==================================
+# ===========================
 @router.get(
     "/check-user-permission/{user_id}/{permission_name}",
-    summary="Check if a user has a specific permission",
+    summary="Check if user has a permission",
+    operation_id="check_user_permission",
     description="""
-Check if a user has a specific permission through their assigned role.
+Check whether a user has a given permission (via their role). No authentication required.
 
-### Path parameters:
-- `user_id`: ID of the user to check
-- `permission_name`: Name of the permission to check for
+**Path:** `user_id` (UUID), `permission_name` (e.g. `can_manage_users`). The permission is resolved by name, not ID.
 
-### Returns:
-- Boolean indicating whether the user has the permission
-"""
+**Response:** `user_id`, `permission_name`, and `has_permission` (boolean). `has_permission` is false if the user has no role or their role does not include this permission.
+""",
+    responses={200: {"description": "Check result: user_id, permission_name, has_permission."}},
 )
 def check_user_permission(
-    user_id: str, 
-    permission_name: str, 
+    user_id: str,
+    permission_name: str,
     session: Session = Depends(get_session)
 ):
-    """
-    Check if a user has a specific permission.
-    
-    - Returns True if user has the permission through their role
-    - Returns False if user doesn't have the permission or has no role
-    """
+    """Return whether the user has the given permission via their role."""
     has_permission = permissionServices.check_user_permission(session, user_id, permission_name)
     return {"user_id": user_id, "permission_name": permission_name, "has_permission": has_permission}

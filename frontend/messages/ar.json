@@ -4,8 +4,7 @@
     "about": "Go to the about page",
     "search": "أبحث عن مفقود",
     "report": "استمارة المفقودات",
-    "description": "مفقود يسهل عليك تحصل ممتلكاتك المفقودة",
-    "versionMessage": "إطلاق مفقود النسخة التجريبية v1.0.2 "
+    "description": "مفقود يسهل عليك تحصل ممتلكاتك المفقودة"
   },
   "stats": {
     "itemsCount": "عدد العناصر",
@@ -26,30 +25,6 @@
     "login": "تسجيل الدخول",
     "logout": "تسجيل الخروج",
     "signout": "تسجيل الخروج"
-  },
-  "storage": {
-    "org": {
-      "SQU": "جامعة السلطان قابوس",
-      "UTAS Muscat": "جامعة التقنية والعلوم التطبيقية مسقط",
-      "UTAS Ibra": "جامعة التقنية والعلوم التطبيقية إبراء",
-      "Bin Omair": "مكتبة بن عمير",
-      "UTAS Nizwa": "جامعة التقنية والعلوم التطبيقية نزوى"
-    },
-    "place": {
-      "SQU Library": "مكتبة جامعة السلطان قابوس",
-      "SQU Lost and Found Department": "قسم المفقودات بجامعة السلطان قابوس",
-      "UTAS Muscat Library": "مكتبة جامعة التقنية والعلوم التطبيقية مسقط",
-      "UTAS Muscat Lost and Found Department": "قسم المفقودات بجامعة التقنية والعلوم التطبيقية مسقط",
-      "UTAS Ibra Library": "مكتبة جامعة التقنية والعلوم التطبيقية إبراء",
-      "UTAS Ibra Lost and Found Department": "قسم المفقودات بجامعة التقنية والعلوم التطبيقية إبراء",
-      "Bin Omair Library": "مكتبة بن عمير",
-      "Bin Omair Lost and Found Department": "قسم المفقودات بمكتبة بن عمير",
-      "UTAS Nizwa Library": "مكتبة جامعة التقنية والعلوم التطبيقية نزوى",
-      "UTAS Nizwa Lost and Found Department": "قسم المفقودات بجامعة التقنية والعلوم التطبيقية نزوى"
-    },
-    "country": {
-      "Oman": "عُمان"
-    }
   },
   "card": {
     "location": "الموقع",

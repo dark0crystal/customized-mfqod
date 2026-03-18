@@ -140,7 +140,7 @@ export default function Footer() {
           <div className="text-center sm:text-right space-y-1">
             <p className="text-gray-500 text-sm sm:text-base">{t("copyright")}</p>
             <a
-              href="https://www.instagram.com/_5lo_9"
+              href="https://mrdas.mfqod.com/"
               target="_blank"
               rel="noopener noreferrer"
               className="mt-3 block hover:opacity-80 transition-opacity text-sm sm:text-base"

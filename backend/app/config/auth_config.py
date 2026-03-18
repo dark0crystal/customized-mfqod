@@ -1,68 +1,138 @@
 import os
 from datetime import timedelta
-from typing import Optional
+from typing import Optional, List
+
+
+def _env(key: str) -> Optional[str]:
+    """Get optional string from environment."""
+    return os.getenv(key)
+
+
+def _env_required(key: str) -> str:
+    """Get required string from environment; raises if missing."""
+    v = os.getenv(key)
+    if v is None or v.strip() == "":
+        raise RuntimeError(f"Required environment variable {key} is not set")
+    return v
+
+
+def _env_int(key: str) -> Optional[int]:
+    """Get optional int from environment."""
+    v = os.getenv(key)
+    if v is None or v.strip() == "":
+        return None
+    return int(v)
+
+
+def _env_required_int(key: str) -> int:
+    """Get required int from environment; raises if missing or invalid."""
+    v = os.getenv(key)
+    if v is None or v.strip() == "":
+        raise RuntimeError(f"Required environment variable {key} is not set")
+    return int(v)
+
+
+def _env_float(key: str) -> Optional[float]:
+    """Get optional float from environment."""
+    v = os.getenv(key)
+    if v is None or v.strip() == "":
+        return None
+    return float(v)
+
+
+def _env_required_float(key: str) -> float:
+    """Get required float from environment; raises if missing or invalid."""
+    v = os.getenv(key)
+    if v is None or v.strip() == "":
+        raise RuntimeError(f"Required environment variable {key} is not set")
+    return float(v)
+
+
+def _env_bool(key: str) -> Optional[bool]:
+    """Get optional bool from environment (true/1/yes => True, false/0/no => False)."""
+    v = os.getenv(key)
+    if v is None or v.strip() == "":
+        return None
+    return v.lower() in ("true", "1", "yes")
+
+
+def _env_required_bool(key: str) -> bool:
+    """Get required bool from environment; raises if missing."""
+    v = os.getenv(key)
+    if v is None or v.strip() == "":
+        raise RuntimeError(f"Required environment variable {key} is not set")
+    return v.lower() in ("true", "1", "yes")
+
+
+def _env_list(key: str, separator: str = ",") -> List[str]:
+    """Get list from environment as comma-separated string; returns empty list if unset."""
+    v = os.getenv(key)
+    if v is None or v.strip() == "":
+        return []
+    return [s.strip() for s in v.split(separator) if s.strip()]
+
+
+def _env_required_list(key: str, separator: str = ",") -> List[str]:
+    """Get required list from environment; raises if missing or empty."""
+    v = os.getenv(key)
+    if v is None or v.strip() == "":
+        raise RuntimeError(f"Required environment variable {key} is not set")
+    items = [s.strip() for s in v.split(separator) if s.strip()]
+    if not items:
+        raise RuntimeError(f"Required environment variable {key} must not be empty")
+    return items
+
 
 class AuthConfig:
     # JWT Configuration
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-production")
-    JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))  # 8 hours
-    REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))  # 7 days
-    
-    # Password Security - Simplified to only require 8+ characters
-    PASSWORD_MIN_LENGTH: int = 8
-    PASSWORD_REQUIRE_UPPERCASE: bool = False
-    PASSWORD_REQUIRE_LOWERCASE: bool = False
-    PASSWORD_REQUIRE_NUMBERS: bool = False
-    PASSWORD_REQUIRE_SPECIAL_CHARS: bool = False
-    BCRYPT_ROUNDS: int = 12
-    
+    SECRET_KEY: str = _env_required("SECRET_KEY")
+    JWT_ALGORITHM: str = _env_required("JWT_ALGORITHM")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = _env_required_int("ACCESS_TOKEN_EXPIRE_MINUTES")
+    REFRESH_TOKEN_EXPIRE_DAYS: int = _env_required_int("REFRESH_TOKEN_EXPIRE_DAYS")
+
+    # Password Security
+    PASSWORD_MIN_LENGTH: int = _env_required_int("PASSWORD_MIN_LENGTH")
+    PASSWORD_REQUIRE_UPPERCASE: bool = _env_required_bool("PASSWORD_REQUIRE_UPPERCASE")
+    PASSWORD_REQUIRE_LOWERCASE: bool = _env_required_bool("PASSWORD_REQUIRE_LOWERCASE")
+    PASSWORD_REQUIRE_NUMBERS: bool = _env_required_bool("PASSWORD_REQUIRE_NUMBERS")
+    PASSWORD_REQUIRE_SPECIAL_CHARS: bool = _env_required_bool("PASSWORD_REQUIRE_SPECIAL_CHARS")
+    BCRYPT_ROUNDS: int = _env_required_int("BCRYPT_ROUNDS")
+
     # Account Security
-    MAX_LOGIN_ATTEMPTS: int = int(os.getenv("MAX_LOGIN_ATTEMPTS", "5"))
-    LOCKOUT_DURATION_MINUTES: int = int(os.getenv("LOCKOUT_DURATION_MINUTES", "30"))
-    LOCKOUT_INCREMENT_FACTOR: float = 1.5  # Increase lockout time after repeated failures
-    
+    MAX_LOGIN_ATTEMPTS: int = _env_required_int("MAX_LOGIN_ATTEMPTS")
+    LOCKOUT_DURATION_MINUTES: int = _env_required_int("LOCKOUT_DURATION_MINUTES")
+    LOCKOUT_INCREMENT_FACTOR: float = _env_required_float("LOCKOUT_INCREMENT_FACTOR")
+
     # Rate Limiting
-    LOGIN_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("LOGIN_RATE_LIMIT_PER_MINUTE", "5"))
-    API_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("API_RATE_LIMIT_PER_MINUTE", "60"))
-    
-    # General API Rate Limiting Configuration
-    ENABLE_GLOBAL_RATE_LIMIT: bool = os.getenv("ENABLE_GLOBAL_RATE_LIMIT", "true").lower() == "true"
-    PUBLIC_API_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("PUBLIC_API_RATE_LIMIT_PER_MINUTE", "30"))
-    AUTHENTICATED_API_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("AUTHENTICATED_API_RATE_LIMIT_PER_MINUTE", "60"))
-    RATE_LIMIT_WINDOW_MINUTES: int = int(os.getenv("RATE_LIMIT_WINDOW_MINUTES", "1"))
-    
-    # Excluded paths from rate limiting (health checks, docs, etc.)
-    RATE_LIMIT_EXCLUDED_PATHS: list = [
-        "/api/docs",
-        "/api/redoc",
-        "/api/openapi.json",
-        "/api/health",
-        "/static",
-        "/favicon.ico"
-    ]
-    
+    LOGIN_RATE_LIMIT_PER_MINUTE: int = _env_required_int("LOGIN_RATE_LIMIT_PER_MINUTE")
+    API_RATE_LIMIT_PER_MINUTE: int = _env_required_int("API_RATE_LIMIT_PER_MINUTE")
+    ENABLE_GLOBAL_RATE_LIMIT: bool = _env_required_bool("ENABLE_GLOBAL_RATE_LIMIT")
+    PUBLIC_API_RATE_LIMIT_PER_MINUTE: int = _env_required_int("PUBLIC_API_RATE_LIMIT_PER_MINUTE")
+    AUTHENTICATED_API_RATE_LIMIT_PER_MINUTE: int = _env_required_int("AUTHENTICATED_API_RATE_LIMIT_PER_MINUTE")
+    RATE_LIMIT_WINDOW_MINUTES: int = _env_required_int("RATE_LIMIT_WINDOW_MINUTES")
+    RATE_LIMIT_EXCLUDED_PATHS: List[str] = _env_required_list("RATE_LIMIT_EXCLUDED_PATHS")
+
     # Session Management
-    SESSION_CLEANUP_INTERVAL_HOURS: int = 24
-    MAX_SESSIONS_PER_USER: int = 3
-    
+    SESSION_CLEANUP_INTERVAL_HOURS: int = _env_required_int("SESSION_CLEANUP_INTERVAL_HOURS")
+    MAX_SESSIONS_PER_USER: int = _env_required_int("MAX_SESSIONS_PER_USER")
+
     # External User Registration
-    ALLOW_EXTERNAL_REGISTRATION: bool = os.getenv("ALLOW_EXTERNAL_REGISTRATION", "true").lower() == "true"
-    REQUIRE_EMAIL_VERIFICATION: bool = os.getenv("REQUIRE_EMAIL_VERIFICATION", "true").lower() == "true"
+    ALLOW_EXTERNAL_REGISTRATION: bool = _env_required_bool("ALLOW_EXTERNAL_REGISTRATION")
+    REQUIRE_EMAIL_VERIFICATION: bool = _env_required_bool("REQUIRE_EMAIL_VERIFICATION")
 
     # Password Reset
-    FRONTEND_BASE_URL: str = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
-    PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
-    
+    FRONTEND_BASE_URL: str = _env_required("FRONTEND_BASE_URL")
+    PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = _env_required_int("PASSWORD_RESET_TOKEN_EXPIRE_HOURS")
+
     # Security Headers
-    ENABLE_CORS: bool = True
-    CORS_ORIGINS: list = ["http://localhost:3000", "http://127.0.0.1:3000"]
-    
+    ENABLE_CORS: bool = _env_required_bool("ENABLE_CORS")
+    CORS_ORIGINS: List[str] = _env_required_list("CORS_ORIGINS")
+
     # Logging
-    ENABLE_AUDIT_LOGGING: bool = True
-    LOG_FAILED_ATTEMPTS: bool = True
-    LOG_SUCCESSFUL_LOGINS: bool = True
-    
+    ENABLE_AUDIT_LOGGING: bool = _env_required_bool("ENABLE_AUDIT_LOGGING")
+    LOG_FAILED_ATTEMPTS: bool = _env_required_bool("LOG_FAILED_ATTEMPTS")
+    LOG_SUCCESSFUL_LOGINS: bool = _env_required_bool("LOG_SUCCESSFUL_LOGINS")
+
     @classmethod
     def get_lockout_duration(cls, attempt_count: int) -> timedelta:
         """Calculate lockout duration based on attempt count with exponential backoff"""
@@ -71,87 +141,67 @@ class AuthConfig:
         minutes = min(base_minutes * multiplier, 24 * 60)  # Max 24 hours
         return timedelta(minutes=minutes)
 
+
 class ADConfig:
     """
     Active Directory Configuration following RFC 2251 and RFC 2253 standards
-    This configuration supports standard LDAP authentication with SQU-specific defaults
+    This configuration supports standard LDAP authentication
     """
-    
-    # LDAP Server Configuration (RFC 2251 compliant) - SQU specific
-    SERVER: str = os.getenv("AD_SERVER", "ldap.squ.edu.om")
-    PORT: int = int(os.getenv("AD_PORT", "636"))  # 636 for LDAPS, 389 for LDAP
-    USE_SSL: bool = os.getenv("AD_USE_SSL", "true").lower() == "true"
-    USE_TLS: bool = os.getenv("AD_USE_TLS", "false").lower() == "true"
-    
-    # Base DN Configuration (RFC 2253 compliant) - SQU specific
-    BASE_DN: str = os.getenv("AD_BASE_DN", "DC=squ,DC=edu,DC=om")
-    USER_DN: str = os.getenv("AD_USER_DN", "OU=Users,DC=squ,DC=edu,DC=om")
-    GROUP_DN: str = os.getenv("AD_GROUP_DN", "OU=Groups,DC=squ,DC=edu,DC=om")
-    
-    # Service Account for LDAP Binding (RFC 2251 compliant) - SQU specific
-    BIND_USER: str = os.getenv("AD_BIND_USER", "CN=ServiceAccount,OU=Service Accounts,DC=squ,DC=edu,DC=om")
-    BIND_PASSWORD: str = os.getenv("AD_BIND_PASSWORD", "service-account-password")
-    
+
+    # LDAP Server Configuration (RFC 2251 compliant)
+    SERVER: str = _env_required("AD_SERVER")
+    PORT: int = _env_required_int("AD_PORT")
+    USE_SSL: bool = _env_required_bool("AD_USE_SSL")
+    USE_TLS: bool = _env_required_bool("AD_USE_TLS")
+
+    # Base DN Configuration (RFC 2253 compliant)
+    BASE_DN: str = _env_required("AD_BASE_DN")
+    USER_DN: str = _env_required("AD_USER_DN")
+    GROUP_DN: str = _env_required("AD_GROUP_DN")
+
+    # Service Account for LDAP Binding (RFC 2251 compliant)
+    BIND_USER: str = _env_required("AD_BIND_USER")
+    BIND_PASSWORD: str = _env_required("AD_BIND_PASSWORD")
+
     # JWT Configuration for Application Tokens
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "secret-jwt-key")
-    ALGORITHM: str = "HS256"
-    TOKEN_EXPIRY_HOURS: int = int(os.getenv("JWT_EXPIRY_HOURS", "8"))
-    
+    SECRET_KEY: str = _env_required("SECRET_KEY")
+    ALGORITHM: str = _env_required("JWT_ALGORITHM")
+    TOKEN_EXPIRY_HOURS: int = _env_required_int("JWT_EXPIRY_HOURS")
+
     # LDAP Search Configuration (RFC 2254 compliant filters)
-    USER_SEARCH_FILTER: str = os.getenv("AD_USER_SEARCH_FILTER", "(&(objectClass=person)(sAMAccountName={username}))")
-    GROUP_SEARCH_FILTER: str = os.getenv("AD_GROUP_SEARCH_FILTER", "(objectClass=group)")
-    
-    # Standard LDAP Attributes (RFC 2256 compliant)
-    USER_ATTRIBUTES: list = [
-        'sAMAccountName',      # Windows-specific but commonly used
-        'uid',                 # Standard LDAP attribute
-        'cn',                  # Common Name (RFC 2256)
-        'displayName',         # Display Name
-        'givenName',           # First Name (RFC 2256)
-        'sn',                  # Surname (RFC 2256)
-        'mail',                # Email Address (RFC 2256)
-        'userPrincipalName',   # UPN (Windows-specific)
-        'memberOf',            # Group membership
-        'accountExpires',      # Account expiration
-        'userAccountControl',  # Account control flags
-        'lastLogon',           # Last logon timestamp
-        'employeeID',          # Employee ID
-        'department',          # Department
-        'title',               # Job title
-        'telephoneNumber',     # Phone number
-        'objectClass'          # Object classes
-    ]
-    
+    USER_SEARCH_FILTER: str = _env_required("AD_USER_SEARCH_FILTER")
+    GROUP_SEARCH_FILTER: str = _env_required("AD_GROUP_SEARCH_FILTER")
+
+    # Standard LDAP Attributes (RFC 2256 compliant) - comma-separated in AD_USER_ATTRIBUTES
+    USER_ATTRIBUTES: List[str] = _env_required_list("AD_USER_ATTRIBUTES")
+
     # Connection Settings (RFC 2251 compliant)
-    CONNECTION_TIMEOUT: int = int(os.getenv("AD_CONNECTION_TIMEOUT", "30"))
-    SEARCH_TIMEOUT: int = int(os.getenv("AD_SEARCH_TIMEOUT", "60"))
-    MAX_CONNECTIONS: int = int(os.getenv("AD_MAX_CONNECTIONS", "10"))
-    
-    # SSL/TLS Configuration
-    SSL_CERT_FILE: str = os.getenv("AD_SSL_CERT_FILE", "")
-    SSL_KEY_FILE: str = os.getenv("AD_SSL_KEY_FILE", "")
-    SSL_CA_FILE: str = os.getenv("AD_SSL_CA_FILE", "")
-    VERIFY_SSL: bool = os.getenv("AD_VERIFY_SSL", "true").lower() == "true"
-    
+    CONNECTION_TIMEOUT: int = _env_required_int("AD_CONNECTION_TIMEOUT")
+    SEARCH_TIMEOUT: int = _env_required_int("AD_SEARCH_TIMEOUT")
+    MAX_CONNECTIONS: int = _env_required_int("AD_MAX_CONNECTIONS")
+
+    # SSL/TLS Configuration (optional; set in env if using client certs)
+    SSL_CERT_FILE: Optional[str] = _env("AD_SSL_CERT_FILE")
+    SSL_KEY_FILE: Optional[str] = _env("AD_SSL_KEY_FILE")
+    SSL_CA_FILE: Optional[str] = _env("AD_SSL_CA_FILE")
+    VERIFY_SSL: bool = _env_required_bool("AD_VERIFY_SSL")
+
     # Sync Configuration
-    SYNC_INTERVAL_HOURS: int = int(os.getenv("AD_SYNC_INTERVAL_HOURS", "24"))
-    SYNC_BATCH_SIZE: int = int(os.getenv("AD_SYNC_BATCH_SIZE", "100"))
-    ENABLE_AUTO_SYNC: bool = os.getenv("AD_ENABLE_AUTO_SYNC", "true").lower() == "true"
-    
+    SYNC_INTERVAL_HOURS: int = _env_required_int("AD_SYNC_INTERVAL_HOURS")
+    SYNC_BATCH_SIZE: int = _env_required_int("AD_SYNC_BATCH_SIZE")
+    ENABLE_AUTO_SYNC: bool = _env_required_bool("AD_ENABLE_AUTO_SYNC")
+
     # Account Status Verification
-    CHECK_ACCOUNT_STATUS: bool = os.getenv("AD_CHECK_ACCOUNT_STATUS", "true").lower() == "true"
-    DEACTIVATE_EXPIRED_ACCOUNTS: bool = os.getenv("AD_DEACTIVATE_EXPIRED_ACCOUNTS", "true").lower() == "true"
-    DEACTIVATE_DISABLED_ACCOUNTS: bool = os.getenv("AD_DEACTIVATE_DISABLED_ACCOUNTS", "true").lower() == "true"
-    
-    # Note: Role mapping removed - roles are managed directly in the database
-    # The application will assign roles based on database configuration, not AD groups
-    
+    CHECK_ACCOUNT_STATUS: bool = _env_required_bool("AD_CHECK_ACCOUNT_STATUS")
+    DEACTIVATE_EXPIRED_ACCOUNTS: bool = _env_required_bool("AD_DEACTIVATE_EXPIRED_ACCOUNTS")
+    DEACTIVATE_DISABLED_ACCOUNTS: bool = _env_required_bool("AD_DEACTIVATE_DISABLED_ACCOUNTS")
+
     # Default roles for new users
-    DEFAULT_INTERNAL_ROLE: str = os.getenv("AD_DEFAULT_INTERNAL_ROLE", "student")
-    DEFAULT_EXTERNAL_ROLE: str = os.getenv("AD_DEFAULT_EXTERNAL_ROLE", "external")
-    
-    # LDAP Protocol Version (RFC 2251)
-    PROTOCOL_VERSION: int = 3
-    
+    DEFAULT_INTERNAL_ROLE: str = _env_required("AD_DEFAULT_INTERNAL_ROLE")
+    DEFAULT_EXTERNAL_ROLE: str = _env_required("AD_DEFAULT_EXTERNAL_ROLE")
+
+    # LDAP Protocol Version (RFC 2251), typically 3
+    PROTOCOL_VERSION: int = _env_required_int("AD_PROTOCOL_VERSION")
+
     # Referral Handling (RFC 2251)
-    FOLLOW_REFERRALS: bool = os.getenv("AD_FOLLOW_REFERRALS", "false").lower() == "true"
+    FOLLOW_REFERRALS: bool = _env_required_bool("AD_FOLLOW_REFERRALS")

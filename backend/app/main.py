@@ -32,8 +32,9 @@ app = FastAPI(
     title="University Lost & Found System",
     description="Comprehensive lost and found system with dual authentication (AD + local)",
     version="2.0.0",
+    openapi_url="/api/openapi.json",
     docs_url="/api/docs",
-    redoc_url="/api/redoc"
+    redoc_url="/api/redoc",
 )
 
 # Initialize rate limiting 

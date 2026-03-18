@@ -13,11 +13,7 @@ import logging
 from app.db.database import get_session
 from app.services.notification_service import (
     notification_service, 
-    NotificationType,
-    send_welcome_email,
-    send_item_found_notification,
-    send_password_reset_email,
-    send_item_approval_notification
+    NotificationType
 )
 from app.middleware.auth_middleware import get_current_user_required
 from app.utils.permission_decorator import require_permission
@@ -55,12 +51,9 @@ class BulkNotificationRequest(BaseModel):
     batch_size: Optional[int] = 50
 
 
-class TestEmailRequest(BaseModel):
-    """Test email request model"""
-    to_email: EmailStr
-    test_type: str = "welcome"
-
-
+# ===========================
+# Send Basic Email
+# ===========================
 @router.post("/send-email")
 async def send_basic_email(
     email_request: EmailRequest,
@@ -100,7 +93,9 @@ async def send_basic_email(
         logger.error(f"Failed to queue email: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to queue email: {str(e)}")
 
-
+# ===========================
+# Send Templated Email
+# ===========================
 @router.post("/send-templated-email")
 async def send_templated_email_endpoint(
     email_request: TemplatedEmailRequest,
@@ -152,7 +147,9 @@ async def send_templated_email_endpoint(
         logger.error(f"Failed to queue templated email: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to queue templated email: {str(e)}")
 
-
+# ===========================
+# Send Bulk Notification
+# ===========================
 @router.post("/send-bulk-notification")
 @require_permission("can_configure_system")
 async def send_bulk_notification_endpoint(
@@ -206,87 +203,9 @@ async def send_bulk_notification_endpoint(
         logger.error(f"Failed to queue bulk notification: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to queue bulk notification: {str(e)}")
 
-
-@router.post("/test-email")
-async def send_test_email(
-    test_request: TestEmailRequest,
-    background_tasks: BackgroundTasks,
-    current_user=Depends(get_current_user_required)
-):
-    """
-    Send a test email for debugging
-    Requires authentication
-    """
-    try:
-        test_data = {
-            "user_name": current_user.get("full_name", "Test User"),
-            "test_message": "This is a test email from the notification service.",
-            "sent_by": current_user.get("email", "system")
-        }
-        
-        if test_request.test_type == "welcome":
-            test_data.update({
-                "activation_link": "https://example.com/activate/test-token"
-            })
-            background_tasks.add_task(
-                send_welcome_email,
-                user_email=test_request.to_email,
-                user_name=test_data["user_name"],
-                activation_link=test_data["activation_link"]
-            )
-        
-        elif test_request.test_type == "item_found":
-            test_data.update({
-                "item_title": "Test Lost Item",
-                "item_url": "https://example.com/items/test-item"
-            })
-            background_tasks.add_task(
-                send_item_found_notification,
-                user_email=test_request.to_email,
-                user_name=test_data["user_name"],
-                item_title=test_data["item_title"],
-                item_url=test_data["item_url"]
-            )
-        
-        elif test_request.test_type == "password_reset":
-            test_data.update({
-                "reset_link": "https://example.com/reset/test-token"
-            })
-            background_tasks.add_task(
-                send_password_reset_email,
-                user_email=test_request.to_email,
-                user_name=test_data["user_name"],
-                reset_link=test_data["reset_link"]
-            )
-        
-        else:
-            # Generic test email
-            background_tasks.add_task(
-                notification_service.send_templated_email,
-                to_email=test_request.to_email,
-                notification_type=NotificationType.SYSTEM_ALERT,
-                template_data={
-                    **test_data,
-                    "alert_title": "Test Email",
-                    "alert_message": "This is a test email from the notification service.",
-                    "alert_type": "test"
-                }
-            )
-        
-        logger.info(f"Test email ({test_request.test_type}) queued for: {test_request.to_email}")
-        
-        return {
-            "message": f"Test email ({test_request.test_type}) queued for sending",
-            "recipient": test_request.to_email,
-            "test_type": test_request.test_type,
-            "status": "queued"
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to queue test email: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to queue test email: {str(e)}")
-
-
+# ===========================
+# Get Notification Types
+# ===========================
 @router.get("/notification-types")
 async def get_notification_types():
     """
@@ -303,7 +222,9 @@ async def get_notification_types():
         ]
     }
 
-
+# ===========================
+# Get Email Config
+# ===========================
 @router.get("/email-config")
 @require_permission("can_configure_system")
 async def get_email_config(current_user=Depends(get_current_user_required)):
@@ -323,7 +244,9 @@ async def get_email_config(current_user=Depends(get_current_user_required)):
         "template_dir": email_settings.TEMPLATE_DIR
     }
 
-
+# ===========================
+# Validate Email Config
+# ===========================
 @router.post("/validate-email-config")
 @require_permission("can_configure_system")
 async def validate_email_config(current_user=Depends(get_current_user_required)):

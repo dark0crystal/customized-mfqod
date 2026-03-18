@@ -86,7 +86,7 @@ def has_dangerous_extension(filename: str) -> bool:
     for ext in parts[1:]:
         if f".{ext}" in DANGEROUS_EXTENSIONS:
             return True
-    print("not allooooowoo--------exten")
+   
     return False
 
 def validate_image_with_pillow(file_content: bytes) -> tuple[bool, str]:
@@ -162,6 +162,9 @@ def generate_unique_filename(original_filename: str, detected_format: Optional[s
     unique_id = str(uuid.uuid4())
     return f"{unique_id}{ext}"
 
+# ===========================
+# Serve Image by Filename
+# ===========================
 @router.get("/{filename}")
 async def serve_image(filename: str):
     """Serve images from uploads directory"""
@@ -172,6 +175,9 @@ async def serve_image(filename: str):
     
     return FileResponse(file_path)
 
+# ===========================
+# Get Item Images
+# ===========================
 @router.get("/items/{item_id}/images/")
 async def get_item_images(
     item_id: str,
@@ -194,6 +200,9 @@ async def get_item_images(
     images = image_service.get_images_by_item_id(item_id, user=user)
     return images
 
+# ===========================
+# Attach Image (by URL + entity)
+# ===========================
 @router.post("/images/attach/", response_model=dict)
 async def attach_image(
     image_data: UploadImageRequest,
@@ -211,6 +220,9 @@ async def attach_image(
         logging.error(f"Attach image failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
+# ===========================
+# Upload Image to Item
+# ===========================
 @router.post("/items/{item_id}/upload-image/")
 async def upload_image_to_item(
     item_id: str,
@@ -302,6 +314,9 @@ async def upload_image_to_item(
         logging.error(f"Upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
+# ===========================
+# Upload Multiple Images
+# ===========================
 @router.post("/upload-multiple-images/")
 async def upload_multiple_images(
     request: Request,
@@ -412,6 +427,9 @@ async def upload_multiple_images(
         logging.error(f"Upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
+# ===========================
+# Delete Image
+# ===========================
 @router.delete("/{image_id}")
 async def delete_image(
     image_id: str,
