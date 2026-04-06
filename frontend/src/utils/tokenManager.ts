@@ -191,8 +191,6 @@ class TokenManager {
     if (user) {
       cookieUtils.set("user", JSON.stringify(user), 7);
     }
-    
-    console.log('Tokens stored successfully');
   }
 
   getAccessToken(): string | null {

@@ -24,6 +24,7 @@ from app.schemas.item_schema import (
     MissingItemExportResponse
 )
 from app.services.notification_service import send_new_item_alert, send_item_approval_notification
+from app.config.email_config import email_settings
 from app.middleware.branch_auth_middleware import get_user_accessible_items, is_branch_manager
 from app.services import permissionServices
 
@@ -43,10 +44,12 @@ class ItemService:
         # Validate user exists
         if not self._user_exists(item_data.user_id):
             raise ValueError("User not found")
-        
-        # Validate item type exists if provided
-        if item_data.item_type_id and not self._item_type_exists(item_data.item_type_id):
-            raise ValueError("Item type not found")
+
+        item_type_id = (item_data.item_type_id or "").strip() or None
+        if not item_type_id:
+            raise ValueError("Item type is required.")
+        if not self._item_type_exists(item_type_id):
+            raise ValueError("Item type not found.")
         
         # Handle status field
         status_value = item_data.status.value if hasattr(item_data.status, 'value') else item_data.status
@@ -60,7 +63,7 @@ class ItemService:
             description=item_data.description,
             internal_description=item_data.internal_description,
             user_id=item_data.user_id,
-            item_type_id=item_data.item_type_id,
+            item_type_id=item_type_id,
             status=status_value,
             temporary_deletion=item_data.temporary_deletion,
             is_hidden=is_hidden_value,
@@ -1474,8 +1477,11 @@ class ItemService:
             
             if not moderator_emails:
                 return
-            
-            # Send notification
+
+            frontend_base = (email_settings.FRONTEND_BASE_URL or "").rstrip("/")
+            item_path = f"/dashboard/items/{item_with_details.id}"
+            item_url_full = f"{frontend_base}{item_path}" if frontend_base else item_path
+
             await send_new_item_alert(
                 moderator_emails=moderator_emails,
                 item_title=item_with_details.title,
@@ -1483,7 +1489,7 @@ class ItemService:
                 item_type=item_with_details.item_type.name_en or item_with_details.item_type.name_ar if item_with_details.item_type else "Unknown",
                 poster_name=f"{item_with_details.user.first_name} {item_with_details.user.last_name}",
                 poster_email=item_with_details.user.email,
-                item_url=f"/dashboard/items/{item_with_details.id}"
+                item_url=item_url_full,
             )
             
         except Exception as e:

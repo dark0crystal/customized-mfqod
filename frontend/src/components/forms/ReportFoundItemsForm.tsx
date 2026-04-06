@@ -1,7 +1,9 @@
 "use client";
 
 import { useForm } from "react-hook-form";
-import { useState, useEffect, useRef } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useState, useEffect, useRef, useMemo } from "react";
 import ReactConfetti from "react-confetti";
 import CompressorFileInput from "./CompressorFileInput";
 import { useTranslations, useLocale } from "next-intl";
@@ -12,18 +14,21 @@ import CustomDropdown from "@/components/ui/CustomDropdown";
 import HydrationSafeWrapper from "@/components/HydrationSafeWrapper";
 import { usePermissions } from "@/PermissionsContext";
 
-// Type definitions for form fields
-type ItemFormFields = {
-  title: string;
-  content: string;
-  internal_description?: string;
-  type: string;
-  place: string;
-  country: string;
-  orgnization: string;
-  item_type_id: string;
-  branch_id: string;
-};
+function buildReportFoundSchema(c: (key: string) => string) {
+  return z.object({
+    title: z.string().trim().min(1, { message: c("validationTitleRequired") }),
+    content: z.string().trim().min(1, { message: c("validationDescriptionRequired") }),
+    internal_description: z.string().optional(),
+    type: z.string().optional(),
+    place: z.string().optional(),
+    country: z.string().optional(),
+    orgnization: z.string().min(1, { message: c("validationOrganizationRequired") }),
+    item_type_id: z.string().min(1, { message: c("validationItemTypeRequired") }),
+    branch_id: z.string().min(1, { message: c("validationBranchRequired") }),
+  });
+}
+
+type ItemFormFields = z.infer<ReturnType<typeof buildReportFoundSchema>>;
 
 // Type definitions
 interface ItemType {
@@ -84,7 +89,25 @@ const getAuthHeaders = (): HeadersInit => {
   return headers;
 };
 
-// Removed unused function
+function formatApiErrorDetail(detail: unknown): string {
+  if (detail == null) return "";
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((entry) => {
+        if (entry && typeof entry === "object" && "msg" in entry) {
+          return String((entry as { msg: unknown }).msg);
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join(" ");
+  }
+  if (typeof detail === "object" && detail !== null && "message" in detail) {
+    return String((detail as { message: unknown }).message);
+  }
+  return "";
+}
 
 export default function ReportFoundItem() {
   const locale = useLocale();
@@ -120,7 +143,10 @@ export default function ReportFoundItem() {
   const { hasPermission } = usePermissions();
   const canManageItems = hasPermission('can_manage_items');
 
-  // useForm with empty orgnization by default, will set after fetch
+  const itemFormSchema = useMemo(() => buildReportFoundSchema(c), [c]);
+
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -129,7 +155,7 @@ export default function ReportFoundItem() {
     setValue,
     watch
   } = useForm<ItemFormFields>({
-    // resolver: zodResolver(itemFormSchema),
+    resolver: zodResolver(itemFormSchema),
     defaultValues: {
       country: "Oman",
       type: "",
@@ -337,11 +363,12 @@ export default function ReportFoundItem() {
 
   const onSubmit = async (data: ItemFormFields) => {
     if (authError) {
-      alert("Please log in first to submit an item.");
+      setSubmitError(c("loginRequiredAlert"));
       return;
     }
 
     try {
+      setSubmitError(null);
       setIsProcessing(true);
 
       const token = getTokenFromCookies();
@@ -359,11 +386,11 @@ export default function ReportFoundItem() {
       }
 
       // STEP 1: Create the item
-      const itemPayload: any = {
+      const itemPayload: Record<string, unknown> = {
         title: data.title,
         description: data.content,
         user_id: currentUser.id,
-        item_type_id: data.item_type_id,
+        item_type_id: data.item_type_id.trim(),
         approval: true,
         temporary_deletion: false,
         is_hidden: imageVisibility === 'hide'
@@ -381,14 +408,17 @@ export default function ReportFoundItem() {
       });
 
       if (!itemResponse.ok) {
-        let errorMessage = "Item creation failed";
+        let errorMessage = c("submitErrorGeneric");
         try {
           const errorData = await itemResponse.json();
-          errorMessage = errorData.detail || errorMessage;
+          const formatted = formatApiErrorDetail(errorData.detail ?? errorData.message);
+          if (formatted) errorMessage = formatted;
         } catch {
-          console.error('Could not parse error response');
+          console.error("Could not parse error response");
         }
-        throw new Error(errorMessage);
+        setSubmitError(errorMessage);
+        setIsProcessing(false);
+        return;
       }
 
       const itemResult = await itemResponse.json();
@@ -397,9 +427,7 @@ export default function ReportFoundItem() {
       // STEP 2: Upload images if any
       let uploadedImagePaths: string[] = [];
       if (compressedFiles.length > 0) {
-        console.log("Uploading images...");
         uploadedImagePaths = await uploadImages(itemId, compressedFiles);
-        console.log("Images uploaded:", uploadedImagePaths);
 
         // Clear upload progress after completion
         setUploadProgress(null);
@@ -419,17 +447,19 @@ export default function ReportFoundItem() {
       });
 
       if (!addressResponse.ok) {
-        let errorMessage = "Address creation failed";
+        let errorMessage = c("submitErrorGeneric");
         try {
           const errorData = await addressResponse.json();
-          errorMessage = errorData.detail || errorMessage;
+          const formatted = formatApiErrorDetail(errorData.detail ?? errorData.message);
+          if (formatted) errorMessage = formatted;
         } catch {
-          console.error('Could not parse error response');
+          console.error("Could not parse error response");
         }
-        throw new Error(errorMessage);
+        setSubmitError(errorMessage);
+        setIsProcessing(false);
+        return;
       }
 
-      console.log("Item, images, and address uploaded successfully");
       setConfetti(true);
       reset();
       setCompressedFiles([]);
@@ -445,8 +475,10 @@ export default function ReportFoundItem() {
 
     } catch (error: unknown) {
       console.error("Error submitting form:", error);
-      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
-      alert(errorMessage);
+      const fallback = c("submitErrorGeneric");
+      const errorMessage =
+        error instanceof Error && error.message.trim() ? error.message : fallback;
+      setSubmitError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -509,6 +541,24 @@ export default function ReportFoundItem() {
       </h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {submitError && (
+          <div
+            className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm"
+            role="alert"
+          >
+            <div className="flex justify-between gap-3 items-start">
+              <p className="flex-1">{submitError}</p>
+              <button
+                type="button"
+                onClick={() => setSubmitError(null)}
+                className="shrink-0 text-red-600 hover:text-red-900 font-semibold"
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
         {/* Title Input */}
         <div>
           <label htmlFor="title" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">

@@ -84,7 +84,6 @@ export default function MissingItemsPage() {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<string>("pending"); // Default to pending
-  const [approvalFilter, setApprovalFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
@@ -115,7 +114,7 @@ export default function MissingItemsPage() {
         try {
           const token = getTokenFromCookies();
           const res = await fetch(
-            `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/images/missing-items/${missingItem.id}/images`,
+            `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/images/missing-items/${missingItem.id}/images/`,
             {
               headers: token
                 ? {
@@ -206,7 +205,6 @@ export default function MissingItemsPage() {
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
         status: selectedStatus || undefined,
-        approval: approvalFilter || undefined,
       });
 
       closeAssignModal();
@@ -255,7 +253,6 @@ export default function MissingItemsPage() {
     dateFrom?: string;
     dateTo?: string;
     status?: string;
-    approval?: string;
   }) => {
     setLoading(true);
     setError(null);
@@ -281,8 +278,7 @@ export default function MissingItemsPage() {
       if (filters?.dateFrom) params.append("date_from", filters.dateFrom);
       if (filters?.dateTo) params.append("date_to", filters.dateTo);
       if (filters?.status) params.append("status", filters.status);
-      if (filters?.approval) params.append("approved_only", filters.approval === "approved" ? "true" : "false");
-      
+
       params.append("skip", "0");
       params.append("limit", "100");
 
@@ -409,11 +405,6 @@ export default function MissingItemsPage() {
     applyFilters({ status });
   };
 
-  const handleApprovalChange = (approval: string) => {
-    setApprovalFilter(approval);
-    applyFilters({ approval });
-  };
-
   const applyFilters = (newFilters?: {
     itemTypeId?: string;
     searchQuery?: string;
@@ -421,7 +412,6 @@ export default function MissingItemsPage() {
     dateFrom?: string;
     dateTo?: string;
     status?: string;
-    approval?: string;
   }) => {
     const filters = {
       itemTypeId: newFilters?.itemTypeId !== undefined ? newFilters.itemTypeId : currentItemTypeId,
@@ -430,7 +420,6 @@ export default function MissingItemsPage() {
       dateFrom: newFilters?.dateFrom !== undefined ? newFilters.dateFrom : dateFrom,
       dateTo: newFilters?.dateTo !== undefined ? newFilters.dateTo : dateTo,
       status: newFilters?.status !== undefined ? newFilters.status : selectedStatus,
-      approval: newFilters?.approval !== undefined ? newFilters.approval : approvalFilter,
     };
     
     fetchMissingItems(filters);
@@ -443,7 +432,6 @@ export default function MissingItemsPage() {
     setDateFrom("");
     setDateTo("");
     setSelectedStatus("pending"); // Reset to pending
-    setApprovalFilter("");
     fetchMissingItems({ status: "pending" });
   };
 
@@ -534,7 +522,7 @@ export default function MissingItemsPage() {
           </div>
 
           {/* Filters Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {/* Search Input */}
             <div className="lg:col-span-1">
               <label htmlFor="search-input" className="block text-sm font-medium text-gray-700 mb-2">
@@ -598,24 +586,6 @@ export default function MissingItemsPage() {
                     {branch.organization && ` - ${branch.organization.name}`}
                   </option>
                 ))}
-              </select>
-            </div>
-
-            {/* Approval Filter */}
-            <div>
-              <label htmlFor="approval-filter" className="block text-sm font-medium text-gray-700 mb-2">
-                {tFilters("approvalStatus")}
-              </label>
-              <select
-                id="approval-filter"
-                value={approvalFilter}
-                onChange={(e) => handleApprovalChange(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:border-[#3277AE] transition-colors duration-200"
-                style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
-              >
-                <option value="">{tFilters("all")}</option>
-                <option value="approved">{tFilters("approved")}</option>
-                <option value="pending">{tFilters("pending")}</option>
               </select>
             </div>
           </div>

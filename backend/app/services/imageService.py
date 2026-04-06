@@ -31,6 +31,16 @@ class ImageService:
             Image.imageable_type == imageable_type,
             Image.imageable_id == imageable_id
         ).all()
+
+    def get_images_by_missing_item_id(self, missing_item_id: str) -> list[Image]:
+        """
+        Missing-item images may be stored as imageable_type \"item\" (legacy upload path)
+        or \"missingitem\" / \"missing_item\". Match all for one missing-item UUID.
+        """
+        return self.db.query(Image).filter(
+            Image.imageable_id == missing_item_id,
+            Image.imageable_type.in_(("item", "missingitem", "missing_item")),
+        ).all()
     
     def can_user_view_hidden_images(self, user: Optional[User], item_id: Optional[str] = None) -> bool:
         """Check if user can view hidden images"""

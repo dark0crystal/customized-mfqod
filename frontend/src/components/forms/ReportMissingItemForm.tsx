@@ -1,8 +1,9 @@
 "use client";
 
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import ReactConfetti from "react-confetti";
 import CompressorFileInput from "./CompressorFileInput";
 import { useTranslations, useLocale } from "next-intl";
@@ -10,20 +11,37 @@ import { useRouter } from "next/navigation";
 import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
 import { tokenManager } from "@/utils/tokenManager";
 
-// Zod schema for form validation (used for type inference)
-// Note: Validation messages are handled in the component using translations
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const missingItemFormSchema = z.object({
-  title: z.string().min(1, "This field is required"),
-  content: z.string().min(1, "Please provide additional details"),
-  type: z.string().min(1, "This field is required"),
-  place: z.string().min(1, "Please select a place"),
-  country: z.string().min(1, "Please select a country"),
-  orgnization: z.string().min(1, "Please select an organization"),
-  item_type_id: z.string().min(1, "Please select an item type"),
-});
+function buildReportMissingSchema(c: (key: string) => string) {
+  return z.object({
+    title: z.string().trim().min(1, { message: c("validation.titleRequired") }),
+    content: z.string().trim().min(1, { message: c("validation.contentRequired") }),
+    country: z.string().min(1, { message: c("validation.countryRequired") }),
+    orgnization: z.string().min(1, { message: c("validation.organizationRequired") }),
+    item_type_id: z.string().min(1, { message: c("validation.itemTypeRequired") }),
+  });
+}
 
-type MissingItemFormFields = z.infer<typeof missingItemFormSchema>;
+type MissingItemFormFields = z.infer<ReturnType<typeof buildReportMissingSchema>>;
+
+function formatApiErrorDetail(detail: unknown): string {
+  if (detail == null) return "";
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((entry) => {
+        if (entry && typeof entry === "object" && "msg" in entry) {
+          return String((entry as { msg: unknown }).msg);
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join(" ");
+  }
+  if (typeof detail === "object" && detail !== null && "message" in detail) {
+    return String((detail as { message: unknown }).message);
+  }
+  return "";
+}
 
 // Type definitions
 interface ItemType {
@@ -96,9 +114,12 @@ export default function ReportMissingItem() {
   const [orgSelectDisabled, setOrgSelectDisabled] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [uploadErrors, setUploadErrors] = useState<UploadError[]>([]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const c = useTranslations("report-missing");
   const router = useRouter();
+
+  const reportMissingSchema = useMemo(() => buildReportMissingSchema(c), [c]);
 
   // useForm with empty orgnization by default, will set after fetch
   const { 
@@ -108,11 +129,11 @@ export default function ReportMissingItem() {
     reset, 
     setValue
   } = useForm<MissingItemFormFields>({
-    // resolver: zodResolver(missingItemFormSchema),
+    resolver: zodResolver(reportMissingSchema),
     defaultValues: {
       country: "Oman",
-      type: "",
-      place: "",
+      title: "",
+      content: "",
       orgnization: "",
       item_type_id: ""
     }
@@ -239,11 +260,12 @@ export default function ReportMissingItem() {
 
   const onSubmit = async (data: MissingItemFormFields) => {
     if (authError) {
-      alert(c("loginFirstToSubmit"));
+      setSubmitError(c("loginFirstToSubmit"));
       return;
     }
 
     try {
+      setSubmitError(null);
       setIsProcessing(true);
 
       const token = getTokenFromCookies();
@@ -265,7 +287,7 @@ export default function ReportMissingItem() {
         title: data.title,
         description: data.content,
         user_id: currentUser.id,
-        item_type_id: data.item_type_id,
+        item_type_id: data.item_type_id.trim(),
         status: "pending", // Default status for missing items
         approval: true,
         temporary_deletion: false
@@ -278,31 +300,28 @@ export default function ReportMissingItem() {
       });
 
       if (!missingItemResponse.ok) {
-        let errorMessage = c("missingItemCreationFailed");
+        let errorMessage = c("submitErrorGeneric");
         try {
           const errorData = await missingItemResponse.json();
-          errorMessage = errorData.detail || errorMessage;
+          const formatted = formatApiErrorDetail(errorData.detail ?? errorData.message);
+          if (formatted) errorMessage = formatted;
         } catch {
-          console.error('Could not parse error response');
+          console.error("Could not parse error response");
         }
-        throw new Error(errorMessage);
+        setSubmitError(errorMessage);
+        setIsProcessing(false);
+        return;
       }
 
       const missingItemResult = await missingItemResponse.json();
       const missingItemId = missingItemResult.id;
 
       // STEP 2: Upload images if any
-      let uploadedImagePaths: string[] = [];
       if (compressedFiles.length > 0) {
-        console.log("Uploading images...");
-        uploadedImagePaths = await uploadImages(missingItemId, compressedFiles);
-        console.log("Images uploaded:", uploadedImagePaths);
-        
-        // Clear upload progress after completion
+        await uploadImages(missingItemId, compressedFiles);
         setUploadProgress(null);
       }
 
-      console.log("Missing item and images uploaded successfully");
       setConfetti(true);
       reset();
       setCompressedFiles([]);
@@ -317,7 +336,10 @@ export default function ReportMissingItem() {
 
     } catch (error: unknown) {
       console.error("Error submitting form:", error);
-      alert(error instanceof Error ? error.message : c("unexpectedError"));
+      const fallback = c("submitErrorGeneric");
+      const errorMessage =
+        error instanceof Error && error.message.trim() ? error.message : fallback;
+      setSubmitError(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -384,6 +406,24 @@ export default function ReportMissingItem() {
       </h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {submitError && (
+          <div
+            className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm"
+            role="alert"
+          >
+            <div className="flex justify-between gap-3 items-start">
+              <p className="flex-1">{submitError}</p>
+              <button
+                type="button"
+                onClick={() => setSubmitError(null)}
+                className="shrink-0 text-red-600 hover:text-red-900 font-semibold"
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
         {/* Title Input */}
         <div>
           <label htmlFor="title" className="block text-sm md:text-base font-semibold text-gray-700 mb-2">

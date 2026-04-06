@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}تنبيه غرض جديد — مراجعة مطلوبة - New Item Posted - Moderator Review - {{ system_name }}{% endblock %}
+
+{% block header_title %}تنبيه غرض جديد — مراجعة مطلوبة - New Item Posted - Moderator Review{% endblock %}
+
+{% block content %}
+<!-- Arabic Section -->
+<div dir="rtl" lang="ar">
+    <div class="warning-box">
+        <h2 style="margin-top: 0;">تنبيه غرض جديد</h2>
+        <p><strong>تمت إضافة غرض جديد (موجود) إلى النظام ويتطلب مراجعتك.</strong></p>
+    </div>
+
+    <h2>تفاصيل الغرض</h2>
+    <div class="info-box">
+        <p><strong>العنوان:</strong> {{ item_title }}</p>
+        <p><strong>الوصف:</strong> {{ item_description }}</p>
+        <p><strong>نوع الغرض:</strong> {{ item_type }}</p>
+    </div>
+
+    <h2>معلومات المُبلّغ</h2>
+    <div class="info-box">
+        <p><strong>الاسم:</strong> {{ poster_name }}</p>
+        <p><strong>البريد الإلكتروني:</strong> {{ poster_email }}</p>
+    </div>
+
+    {% if item_url %}
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ item_url }}" class="button">عرض تفاصيل الغرض</a>
+    </div>
+    {% endif %}
+
+    <div class="success-box">
+        <h3 style="margin-top: 0;">الخطوات التالية</h3>
+        <ul>
+            <li>مراجعة تفاصيل الغرض</li>
+            <li>التحقق من المعلومات المقدمة</li>
+            <li>الموافقة على الإدراج أو رفضه حسب الإجراءات المعتمدة</li>
+            <li>التواصل مع المُبلّغ عند الحاجة لمعلومات إضافية</li>
+        </ul>
+    </div>
+
+    <p>تم إنشاء هذا الإشعار تلقائياً عند إضافة غرض جديد من خلال النظام.</p>
+</div>
+
+<hr style="margin: 30px 0; border: 1px solid #dee2e6;">
+
+<!-- English Section -->
+<div dir="ltr" lang="en">
+    <div class="warning-box">
+        <h2 style="margin-top: 0;">New Item Posted</h2>
+        <p><strong>A new item has been posted and requires your review.</strong></p>
+    </div>
+
+    <h2>Item Details</h2>
+    <div class="info-box">
+        <p><strong>Title:</strong> {{ item_title }}</p>
+        <p><strong>Description:</strong> {{ item_description }}</p>
+        <p><strong>Item Type:</strong> {{ item_type }}</p>
+    </div>
+
+    <h2>Poster Information</h2>
+    <div class="info-box">
+        <p><strong>Name:</strong> {{ poster_name }}</p>
+        <p><strong>Email:</strong> {{ poster_email }}</p>
+    </div>
+
+    {% if item_url %}
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ item_url }}" class="button">View Item Details</a>
+    </div>
+    {% endif %}
+
+    <div class="success-box">
+        <h3 style="margin-top: 0;">Next Steps</h3>
+        <ul>
+            <li>Review the item details</li>
+            <li>Verify the information provided</li>
+            <li>Approve or reject the listing per your procedures</li>
+            <li>Contact the poster if additional information is needed</li>
+        </ul>
+    </div>
+
+    <p>This notification was automatically generated when a new item was added through the system.</p>
+</div>
+{% endblock %}

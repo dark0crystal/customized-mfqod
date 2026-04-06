@@ -1,5 +1,4 @@
 import { getTranslations } from 'next-intl/server';
-import Image from 'next/image';
 import QASection from './QASection';
 
 interface QAItem {
@@ -51,17 +50,6 @@ export default async function GuidesPage() {
           <p className="text-gray-700 mb-4 whitespace-pre-line">
             {t('section1.description')}
           </p>
-          {t('section1.image') && (
-            <div className="relative w-full h-64 sm:h-96 rounded-lg overflow-hidden bg-gray-100 mb-6">
-              <Image
-                src={t('section1.image')}
-                alt={t('section1.imageAlt')}
-                fill
-                className="object-contain"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 70vw"
-              />
-            </div>
-          )}
           <QASection title={getQATitle('section1')} items={getQAItems('section1')} />
         </div>
 
@@ -73,17 +61,6 @@ export default async function GuidesPage() {
           <p className="text-gray-700 mb-4 whitespace-pre-line">
             {t('section2.description')}
           </p>
-          {t('section2.image') && (
-            <div className="relative w-full h-64 sm:h-96 rounded-lg overflow-hidden bg-gray-100 mb-6">
-              <Image
-                src={t('section2.image')}
-                alt={t('section2.imageAlt')}
-                fill
-                className="object-contain"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 70vw"
-              />
-            </div>
-          )}
           <QASection title={getQATitle('section2')} items={getQAItems('section2')} />
         </div>
 
@@ -95,17 +72,6 @@ export default async function GuidesPage() {
           <p className="text-gray-700 mb-4 whitespace-pre-line">
             {t('section3.description')}
           </p>
-          {t('section3.image') && (
-            <div className="relative w-full h-64 sm:h-96 rounded-lg overflow-hidden bg-gray-100 mb-6">
-              <Image
-                src={t('section3.image')}
-                alt={t('section3.imageAlt')}
-                fill
-                className="object-contain"
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 70vw"
-              />
-            </div>
-          )}
           <QASection title={getQATitle('section3')} items={getQAItems('section3')} />
         </div>
       </div>

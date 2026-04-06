@@ -1,5 +1,8 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import Optional, List
 from datetime import datetime, timezone
 from app.db.database import get_session
@@ -32,6 +35,8 @@ from app.utils.permission_decorator import (
 )
 from app.middleware.auth_middleware import get_current_user_required
 from app.models import User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -66,8 +71,18 @@ async def create_missing_item(
         return missing_item
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating missing item: {str(e)}")
+    except IntegrityError:
+        logger.exception("create_missing_item integrity error")
+        raise HTTPException(
+            status_code=400,
+            detail="Could not save the missing item. Please verify the item type and other required fields.",
+        )
+    except Exception:
+        logger.exception("Error creating missing item")
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to create the missing item. Please try again later.",
+        )
 
 # ===========================
 # Read Operations

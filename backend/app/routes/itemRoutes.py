@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends, Query, Request, Request
+import logging
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import Optional, List
 from datetime import datetime, timezone
 from app.db.database import get_session
@@ -25,6 +27,8 @@ from app.schemas.item_schema import (
 )
 
 # Import permission decorators
+logger = logging.getLogger(__name__)
+
 from app.utils.permission_decorator import (
     require_permission,
     require_any_permission,
@@ -73,8 +77,18 @@ async def create_item(
         return item
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating item: {str(e)}")
+    except IntegrityError:
+        logger.exception("create_item integrity error")
+        raise HTTPException(
+            status_code=400,
+            detail="Could not save the item. Please verify the item type and other required fields.",
+        )
+    except Exception:
+        logger.exception("Error creating item")
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to create the item. Please try again later.",
+        )
 
 # ===========================
 # Read Operations

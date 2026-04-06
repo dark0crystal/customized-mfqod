@@ -53,8 +53,7 @@ export default function Login() {
       await authLogin(data.identifier, data.password)
       
       setSuccess(t("loginSuccess"))
-      console.log("Login success")
-      
+
       // Redirect to returnUrl if provided, otherwise redirect to main page
       const returnUrl = searchParams.get('returnUrl')
       const destination = returnUrl ? decodeURIComponent(returnUrl) : '/'

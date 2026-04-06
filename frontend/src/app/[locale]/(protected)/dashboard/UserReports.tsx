@@ -151,21 +151,7 @@ export default function UserReports() {
 
         const missingItemsList = missingItemsData.missing_items || [];
         const foundItemsList = foundItemsData.items || [];
-        
-        // Debug logging to verify data structure
-        console.log('Missing items data:', {
-          total: missingItemsData.total,
-          missing_items_count: missingItemsList.length,
-          first_item: missingItemsList[0],
-          response_structure: Object.keys(missingItemsData)
-        });
-        console.log('Found items data:', {
-          total: foundItemsData.total,
-          items_count: foundItemsList.length,
-          first_item: foundItemsList[0],
-          response_structure: Object.keys(foundItemsData)
-        });
-        
+
         const reportsData: UserReportsData = {
           missingItems: missingItemsList,
           foundItems: foundItemsList,

@@ -52,16 +52,18 @@ class MissingItemService:
         if not self._user_exists(missing_item_data.user_id):
             raise ValueError("User not found")
         
-        # Validate item type exists if provided
-        if missing_item_data.item_type_id and not self._item_type_exists(missing_item_data.item_type_id):
-            raise ValueError("Item type not found")
+        item_type_id = (missing_item_data.item_type_id or "").strip() or None
+        if not item_type_id:
+            raise ValueError("Item type is required.")
+        if not self._item_type_exists(item_type_id):
+            raise ValueError("Item type not found.")
         
         new_missing_item = MissingItem(
             id=str(uuid.uuid4()),
             title=missing_item_data.title,
             description=missing_item_data.description,
             user_id=missing_item_data.user_id,
-            item_type_id=missing_item_data.item_type_id,
+            item_type_id=item_type_id,
             status=missing_item_data.status,
             approval=missing_item_data.approval,
             temporary_deletion=missing_item_data.temporary_deletion,

@@ -200,6 +200,47 @@ async def get_item_images(
     images = image_service.get_images_by_item_id(item_id, user=user)
     return images
 
+
+# ===========================
+# Get Missing Item Images
+# ===========================
+@router.get("/missing-items/{missing_item_id}/images/")
+async def get_missing_item_images(
+    missing_item_id: str,
+    request: Request,
+    db: Session = Depends(get_session),
+    image_service: ImageService = Depends(get_image_service),
+):
+    """List images for a missing item (legacy types: item, missingitem, missing_item)."""
+    from app.models import MissingItem
+    from app.services import permissionServices
+
+    user: Optional[User] = None
+    try:
+        user_id = extract_user_from_token(request)
+        if user_id:
+            user = db.query(User).filter(User.id == user_id).first()
+    except Exception:
+        pass
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    missing_item = db.query(MissingItem).filter(MissingItem.id == missing_item_id).first()
+    if not missing_item:
+        raise HTTPException(status_code=404, detail="Missing item not found")
+
+    can_view = (
+        missing_item.user_id == user.id
+        or permissionServices.check_user_permission(db, user.id, "can_manage_missing_items")
+        or permissionServices.has_full_access(db, user.id)
+    )
+    if not can_view:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return image_service.get_images_by_missing_item_id(missing_item_id)
+
+
 # ===========================
 # Attach Image (by URL + entity)
 # ===========================

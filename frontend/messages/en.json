@@ -12,6 +12,18 @@
     "returnedCount": "Returned So Far",
     "loadingError": "Loading Error"
   },
+  "howMfqodWorks": {
+    "sectionTitle": "How does Mfqod work?",
+    "step1Title": "Found something? Hand it in at the nearest branch",
+    "step1Description": "After dropping off the item at the branch, staff will register it with its photo and full details, then publish it on the platform. The item then becomes searchable, allowing the owner to find it through the Mafqood website.",
+    "step2Title": "Lost something? Search and submit a claim.",
+    "step2Description": "If you've lost an item, easily search by branch and item type, then submit a claim when you find a potential match. Branch staff will review the claims and return the item to its owner.",
+    "step3Title": "Match confirmed? Reclaim your item.",
+    "step3Description": "Once your claim is approved, visit the branch during opening hours, or reach out to the branch manager using the contact details listed for each branch.",
+    "step4Title": "The ending we all hope for.",
+    "step4Description": "The item is back with its owner, because every step was clear from the start. No chaos, no repetition, and no unnecessary calls.",
+    "pageMetaDescription": "Learn how Mfqod works: register found items, search and claim, coordinate pickup at the branch, and get your belongings back."
+  },
   "navbar": {
     "brand": "",
     "search": "Search",
@@ -46,6 +58,7 @@
     "search": "Search Lost Items",
     "report": "Report Found Item",
     "guides": "User Guides",
+    "howMfqodWorks": "How Mfqod works",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
     "privacyAndTerms": "Privacy and Terms",
@@ -53,7 +66,7 @@
     "Register": "Sign In",
     "developer": "Made With ❤️",
     "developedBy": "Developed by Al-Mardas Saif AlBusaidi",
-    "copyright": "Copyright © 2025 Deanship of students affairs",
+    "copyright": "Copyright © 2026 Deanship of students affairs",
     "description": "Mfqod makes it easy for you to find your lost property"
   },
   "legal": {
@@ -113,8 +126,6 @@
     "section1": {
       "title": "Searching for Items",
       "description": "The search page allows you to browse all found items that are waiting to be claimed. You can filter items by type and branch location to help you find what you're looking for.",
-      "image": "/guides/searching-items.jpg",
-      "imageAlt": "Searching for Items Guide",
       "qa": {
         "title": "Frequently Asked Questions",
         "items": [
@@ -140,8 +151,6 @@
     "section2": {
       "title": "Submitting a Claim",
       "description": "If you find an item in the search results that matches your lost property, you can submit a claim. Provide detailed information to help verify that the item belongs to you.",
-      "image": "/guides/submitting-claim.jpg",
-      "imageAlt": "Submitting a Claim Guide",
       "qa": {
         "title": "Frequently Asked Questions",
         "items": [
@@ -167,8 +176,6 @@
     "section3": {
       "title": "Reporting Missing Items",
       "description": "If you've lost an item, you can report it as missing. This helps others identify your item if it's found and reported in the system.",
-      "image": "/guides/reporting-missing.jpg",
-      "imageAlt": "Reporting Missing Items Guide",
       "qa": {
         "title": "Frequently Asked Questions",
         "items": [
@@ -231,7 +238,14 @@
     "note": "Thank you for helping return lost items to their owners.",
     "internalDescription": "Special Description for Site Administrators (Optional)",
     "placeholderInternalDescription": "Enter detailed internal information (visible only to administrators)",
-    "internalDescriptionDisclaimer": "This field is only visible to users with item management permissions"
+    "internalDescriptionDisclaimer": "This field is only visible to users with item management permissions",
+    "validationTitleRequired": "Please enter a short title for the item.",
+    "validationDescriptionRequired": "Please describe what you found.",
+    "validationItemTypeRequired": "Please select an item type.",
+    "validationBranchRequired": "Please select a branch.",
+    "validationOrganizationRequired": "Please select a university or organization.",
+    "submitErrorGeneric": "Something went wrong. Please try again.",
+    "loginRequiredAlert": "Please log in first to submit an item."
   },
   "report-missing": {
     "title": "Report Something You Lost",
@@ -271,6 +285,7 @@
     "missingItemCreationFailed": "Missing item creation failed",
     "addressCreationFailed": "Address creation failed",
     "unexpectedError": "An unexpected error occurred",
+    "submitErrorGeneric": "Something went wrong. Please try again.",
     "unnamed": "Unnamed",
     "unnamedOrganization": "Unnamed University",
     "unnamedBranch": "Unnamed Branch",

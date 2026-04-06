@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}تم المطالبة بالعنصر - Item Claimed - {{ system_name }}{% endblock %}
+{% block title %}تم المطالبة بالغرض - Item Claimed - {{ system_name }}{% endblock %}
 
-{% block header_title %}تم المطالبة بالعنصر - Item Claimed{% endblock %}
+{% block header_title %}تم المطالبة بالغرض - Item Claimed{% endblock %}
 
 {% block content %}
 <!-- Arabic Section -->
 <div dir="rtl" lang="ar">
-    <h2>تم المطالبة بالعنصر بنجاح</h2>
+    <h2>تم المطالبة بالغرض بنجاح</h2>
     <p>مرحباً {{ user_name }}،</p>
 
-    <p>يسعدنا إعلامك بأنه تم المطالبة بعنصر بنجاح من خلال نظامنا.</p>
+    <p>يسعدنا إعلامك بأنه تم المطالبة بالغرض بنجاح من خلال نظامنا.</p>
 
     <div class="success-box">
-        <strong>العنصر المطالب به:</strong> {{ item_title }}
+        <strong>الغرض المطالب به:</strong> {{ item_title }}
         {% if claimant_name %}
         <br><strong>المطالب به من قبل:</strong> {{ claimant_name }}
         {% endif %}

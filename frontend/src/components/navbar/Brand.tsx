@@ -37,9 +37,9 @@ export default function Brand() {
         <Image
           src={squLogo}
           alt="Sultan Qaboos University Logo"
-          width={176}
-          height={80}
-          className="object-contain w-[120px] h-[80px] md:w-[176px] md:h-[80px]"
+          width={204}
+          height={93}
+          className="object-contain w-[138px] h-[80px] sm:w-[152px] sm:h-[88px] md:w-[204px] md:h-[93px]"
         />
       </div>
     </Link>

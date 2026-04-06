@@ -17,6 +17,7 @@ export default function Footer() {
     { href: "/dashboard/report-missing-item", label: `${t("report")}`, requiresAuth: true },
     { href: "/search", label: `${t("search")}`, requiresAuth: false },
     { href: "/guides", label: `${t("guides")}`, requiresAuth: false },
+    { href: "/how-mfqod-works", label: `${t("howMfqodWorks")}`, requiresAuth: false },
   ];
 
   const privacyLinks = [

@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 
-{% block title %}تنبيه عنصر مفقود جديد - New Missing Item Alert - {{ system_name }}{% endblock %}
+{% block title %}تنبيه غرض مفقود جديد - New Missing Item Alert - {{ system_name }}{% endblock %}
 
-{% block header_title %}تنبيه عنصر مفقود جديد - New Missing Item Alert{% endblock %}
+{% block header_title %}تنبيه غرض مفقود جديد - New Missing Item Alert{% endblock %}
 
 {% block content %}
 <!-- Arabic Section -->
 <div dir="rtl" lang="ar">
     <div class="warning-box">
-        <h2 style="margin-top: 0;">تنبيه عنصر مفقود جديد</h2>
-        <p><strong>تم الإبلاغ عن عنصر مفقود جديد ويتطلب مراجعتك.</strong></p>
+        <h2 style="margin-top: 0;">تنبيه غرض مفقود جديد</h2>
+        <p><strong>تم الإبلاغ عن غرض مفقود جديد ويتطلب مراجعتك.</strong></p>
     </div>
 
-    <h2>تفاصيل العنصر المفقود</h2>
+    <h2>تفاصيل الغرض المفقود</h2>
     <div class="info-box">
-        <p><strong>عنوان العنصر:</strong> {{ missing_item_title }}</p>
+        <p><strong>عنوان الغرض:</strong> {{ missing_item_title }}</p>
         <p><strong>الوصف:</strong> {{ missing_item_description }}</p>
-        <p><strong>نوع العنصر:</strong> {{ item_type }}</p>
+        <p><strong>نوع الغرض:</strong> {{ item_type }}</p>
     </div>
 
     <h2>معلومات المبلغ</h2>
@@ -39,21 +39,21 @@
 
     {% if missing_item_url %}
     <div style="text-align: center; margin: 30px 0;">
-        <a href="{{ missing_item_url }}" class="button">عرض تفاصيل العنصر المفقود</a>
+        <a href="{{ missing_item_url }}" class="button">عرض تفاصيل الغرض المفقود</a>
     </div>
     {% endif %}
 
     <div class="success-box">
         <h3 style="margin-top: 0;">الخطوات التالية</h3>
         <ul>
-            <li>مراجعة تفاصيل العنصر المفقود</li>
+            <li>مراجعة تفاصيل الغرض المفقود</li>
             <li>التحقق من المعلومات المقدمة</li>
-            <li>الموافقة على إدراج العنصر المفقود أو رفضه</li>
+            <li>الموافقة على إدراج الغرض المفقود أو رفضه</li>
             <li>الاتصال بالمبلغ إذا كانت هناك حاجة لمعلومات إضافية</li>
         </ul>
     </div>
 
-    <p>تم إنشاء هذا الإشعار تلقائياً عند الإبلاغ عن عنصر مفقود جديد من خلال النظام.</p>
+    <p>تم إنشاء هذا الإشعار تلقائياً عند الإبلاغ عن غرض مفقود جديد من خلال النظام.</p>
 </div>
 
 <hr style="margin: 30px 0; border: 1px solid #dee2e6;">
