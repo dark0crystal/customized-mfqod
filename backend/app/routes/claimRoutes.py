@@ -405,9 +405,12 @@ async def get_item_claims(
 ):
     """Get all claims for a specific item with user and item details"""
     try:
-        # Check if user has permission to view claims for this item
-        # (item owner or admin can see all claims, others can only see approved claims)
+        # Item owner, super admin (full access), or branch managers for this item
+        # can see all claims (incl. pending). Everyone else only sees approved claims.
         from app.services.itemService import ItemService
+        from app.middleware.branch_auth_middleware import can_user_manage_item
+        from app.services import permissionServices
+
         item_service = ItemService(db)
         item = item_service.get_item_by_id(item_id)
         
@@ -416,9 +419,14 @@ async def get_item_claims(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Item not found"
             )
-        
-        # If user is not the item owner, they can only see approved claims
-        if item.user_id != current_user.id and approved_only is None:
+
+        can_see_all_claims = (
+            item.user_id == current_user.id
+            or permissionServices.has_full_access(db, current_user.id)
+            or can_user_manage_item(current_user.id, item_id, db)
+        )
+
+        if not can_see_all_claims and approved_only is None:
             approved_only = True
         
         claims = claim_service.get_item_claims_with_details(item_id, approved_only=approved_only)
