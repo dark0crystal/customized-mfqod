@@ -48,10 +48,10 @@ export default function DashboardShell({ children, initialDirection }: Dashboard
         />
       </div>
 
-      {/* Main content */}
-      <div className="flex flex-col flex-1 overflow-y-auto">
+      {/* Main content: header stays at top; only <main> scrolls (avoids content sliding under mobile top bar). */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div
-          className={`lg:hidden sticky top-0 z-30 flex items-center justify-between bg-white border-b border-gray-200 px-4 py-3 shadow-sm ${topbarDirectionClass}`}
+          className={`z-30 flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 pb-3 shadow-sm lg:hidden pt-[calc(0.75rem+env(safe-area-inset-top,0px))] ${topbarDirectionClass}`}
         >
           <button
             onClick={toggleMobile}
@@ -69,7 +69,9 @@ export default function DashboardShell({ children, initialDirection }: Dashboard
           <div className="w-6" />
         </div>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-6">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4 pb-[max(5rem,calc(1rem+env(safe-area-inset-bottom,0px)))] sm:p-6 sm:pb-[max(5rem,calc(1.5rem+env(safe-area-inset-bottom,0px)))] lg:p-6 lg:pb-6">
+          {children}
+        </main>
       </div>
 
       {/* Mobile sidebar & backdrop */}
