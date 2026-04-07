@@ -1,3 +1,6 @@
+.env
+**/.env
+
 # Uploaded images and user content (stored in storage/, mounted at runtime)
 storage/
 
