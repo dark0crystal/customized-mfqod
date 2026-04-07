@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getPendingMissingItemsCount } from '@/services/itemsService';
+import { DASHBOARD_BADGE_POLL_INTERVAL_MS } from '@/constants/dashboardPolling';
 
 /**
  * Hook to fetch and manage pending missing items count
@@ -14,12 +15,14 @@ export function usePendingMissingItemsCount() {
   const requestIdRef = useRef<number>(0);
   const isMountedRef = useRef<boolean>(true);
 
-  const fetchCount = useCallback(async () => {
+  const fetchCount = useCallback(async (silent = false) => {
     // Increment request ID to track the current request
     const currentRequestId = ++requestIdRef.current;
     
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
       const pendingCount = await getPendingMissingItemsCount();
       
@@ -33,13 +36,14 @@ export function usePendingMissingItemsCount() {
       // Only update state if this is still the current request and component is mounted
       if (currentRequestId === requestIdRef.current && isMountedRef.current) {
         setError(errorMessage);
-        console.error('Error fetching pending missing items count:', err);
         setCount(0);
       }
     } finally {
       // Only update loading if this is still the current request
       if (currentRequestId === requestIdRef.current && isMountedRef.current) {
-        setLoading(false);
+        if (!silent) {
+          setLoading(false);
+        }
       }
     }
   }, []);
@@ -47,12 +51,12 @@ export function usePendingMissingItemsCount() {
   useEffect(() => {
     isMountedRef.current = true;
     
-    fetchCount();
-    
-    // Refresh count periodically (every 60 seconds)
+    void fetchCount(false);
+
     const interval = setInterval(() => {
-      fetchCount();
-    }, 60000);
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void fetchCount(true);
+    }, DASHBOARD_BADGE_POLL_INTERVAL_MS);
 
     return () => {
       isMountedRef.current = false;
@@ -60,11 +64,13 @@ export function usePendingMissingItemsCount() {
     };
   }, [fetchCount]);
 
+  const refresh = useCallback(() => fetchCount(false), [fetchCount]);
+
   return {
     count,
     loading,
     error,
-    refresh: fetchCount,
+    refresh,
   };
 }
 

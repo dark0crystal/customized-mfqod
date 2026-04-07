@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getPendingItemsCount } from '@/services/itemsService';
 import { usePermissions } from '@/PermissionsContext';
+import { DASHBOARD_BADGE_POLL_INTERVAL_MS } from '@/constants/dashboardPolling';
 
 /**
  * Hook to fetch and manage pending items count
@@ -16,7 +17,7 @@ export function usePendingItemsCount() {
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
   const hasManageItemsPermission = hasPermission('can_manage_items');
 
-  const fetchCount = useCallback(async () => {
+  const fetchCount = useCallback(async (silent = false) => {
     // Don't fetch if user doesn't have permission
     if (!hasManageItemsPermission) {
       if (isMountedRef.current) {
@@ -31,7 +32,9 @@ export function usePendingItemsCount() {
     const currentRequestId = ++requestIdRef.current;
     
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
       const pendingCount = await getPendingItemsCount();
 
@@ -48,7 +51,9 @@ export function usePendingItemsCount() {
     } finally {
       // Only update loading if this is still the current request
       if (currentRequestId === requestIdRef.current && isMountedRef.current) {
-        setLoading(false);
+        if (!silent) {
+          setLoading(false);
+        }
       }
     }
   }, [hasManageItemsPermission]);
@@ -58,14 +63,14 @@ export function usePendingItemsCount() {
     
     // Wait for permissions to load before fetching
     if (!permissionsLoading) {
-      fetchCount();
+      void fetchCount(false);
       
       // Only set up interval if user has permission
       if (hasManageItemsPermission) {
-        // Refresh count periodically (every 60 seconds)
         const interval = setInterval(() => {
-          fetchCount();
-        }, 60000);
+          if (typeof document !== 'undefined' && document.hidden) return;
+          void fetchCount(true);
+        }, DASHBOARD_BADGE_POLL_INTERVAL_MS);
 
         return () => {
           isMountedRef.current = false;
@@ -82,11 +87,13 @@ export function usePendingItemsCount() {
     };
   }, [fetchCount, permissionsLoading, hasManageItemsPermission]);
 
+  const refresh = useCallback(() => fetchCount(false), [fetchCount]);
+
   return {
     count,
     loading,
     error,
-    refresh: fetchCount,
+    refresh,
   };
 }
 

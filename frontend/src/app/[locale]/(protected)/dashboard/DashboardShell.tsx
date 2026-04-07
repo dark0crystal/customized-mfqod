@@ -69,7 +69,7 @@ export default function DashboardShell({ children, initialDirection }: Dashboard
           <div className="w-6" />
         </div>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4 pb-[max(5rem,calc(1rem+env(safe-area-inset-bottom,0px)))] sm:p-6 sm:pb-[max(5rem,calc(1.5rem+env(safe-area-inset-bottom,0px)))] lg:p-6 lg:pb-6">
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-4 pb-[max(calc(5rem+8px),calc(1rem+8px+env(safe-area-inset-bottom,0px)))] sm:p-6 sm:pb-[max(calc(5rem+8px),calc(1.5rem+8px+env(safe-area-inset-bottom,0px)))] lg:p-6 lg:pb-[calc(1.5rem+8px)]">
           {children}
         </main>
       </div>
