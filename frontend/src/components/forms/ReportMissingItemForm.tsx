@@ -100,11 +100,13 @@ export default function ReportMissingItem() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
 
-  // Helper function to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
-    if (locale === 'ar' && nameAr) return nameAr;
-    if (locale === 'en' && nameEn) return nameEn;
-    return nameAr || nameEn || '';
+    const ar = (nameAr ?? '').trim();
+    const en = (nameEn ?? '').trim();
+    const loc = (locale || 'en').toLowerCase();
+    if (loc.startsWith('ar') && ar) return ar;
+    if (loc.startsWith('en') && en) return en;
+    return ar || en || '';
   };
   const [compressedFiles, setCompressedFiles] = useState<File[]>([]);
   const [confetti, setConfetti] = useState(false);

@@ -45,7 +45,8 @@ interface Branch {
   organization_id: string;
   organization?: {
     id: string;
-    name: string;
+    /** Legacy; API uses name_ar / name_en */
+    name?: string;
     name_ar?: string;
     name_en?: string;
   };
@@ -97,11 +98,13 @@ export default function MissingItemsPage() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
-  // Helper function to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
-    if (locale === 'ar' && nameAr) return nameAr;
-    if (locale === 'en' && nameEn) return nameEn;
-    return nameAr || nameEn || '';
+    const ar = (nameAr ?? '').trim();
+    const en = (nameEn ?? '').trim();
+    const loc = (locale || 'en').toLowerCase();
+    if (loc.startsWith('ar') && ar) return ar;
+    if (loc.startsWith('en') && en) return en;
+    return ar || en || '';
   };
 
   const API_BASE = `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/item-types/`;
@@ -580,12 +583,23 @@ export default function MissingItemsPage() {
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               >
                 <option value="">{tFilters("allBranches")}</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || t("unnamedBranch")}
-                    {branch.organization && ` - ${branch.organization.name}`}
-                  </option>
-                ))}
+                {branches.map((branch) => {
+                  const branchPart =
+                    getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || t("unnamedBranch");
+                  const org = branch.organization;
+                  const orgPart = org
+                    ? getLocalizedName(
+                        org.name_ar ?? org.name,
+                        org.name_en ?? org.name
+                      )
+                    : "";
+                  const label = [branchPart, orgPart].filter((p) => p.length > 0).join(" - ");
+                  return (
+                    <option key={branch.id} value={branch.id}>
+                      {label}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
@@ -667,11 +681,20 @@ export default function MissingItemsPage() {
                   onChange={(e) => setSelectedAssignBranchId(e.target.value)}
                 >
                   <option value="">{tDetail("selectBranch")}</option>
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || t("unnamedBranch")}
-                    </option>
-                  ))}
+                  {branches.map((branch) => {
+                    const branchPart =
+                      getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || t("unnamedBranch");
+                    const org = branch.organization;
+                    const orgPart = org
+                      ? getLocalizedName(org.name_ar ?? org.name, org.name_en ?? org.name)
+                      : "";
+                    const label = [branchPart, orgPart].filter((p) => p.length > 0).join(" - ");
+                    return (
+                      <option key={branch.id} value={branch.id}>
+                        {label}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

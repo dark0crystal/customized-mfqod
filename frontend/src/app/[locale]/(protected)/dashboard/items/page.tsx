@@ -41,7 +41,7 @@ interface Branch {
   organization_id: string;
   organization?: {
     id: string;
-    name: string;
+    name?: string;
     name_ar?: string;
     name_en?: string;
   };
@@ -83,11 +83,13 @@ export default function ItemsPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('pending'); // Default to pending
   const [isTourOpen, setIsTourOpen] = useState(false);
 
-  // Helper function to get localized name
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
-    if (locale === 'ar' && nameAr) return nameAr;
-    if (locale === 'en' && nameEn) return nameEn;
-    return nameAr || nameEn || '';
+    const ar = (nameAr ?? '').trim();
+    const en = (nameEn ?? '').trim();
+    const loc = (locale || 'en').toLowerCase();
+    if (loc.startsWith('ar') && ar) return ar;
+    if (loc.startsWith('en') && en) return en;
+    return ar || en || '';
   };
 
   // Get today's date in YYYY-MM-DD format for max date validation
@@ -567,12 +569,20 @@ export default function ItemsPage() {
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               >
                 <option value="">{t("filters.allBranches")}</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch'}
-                    {branch.organization && ` - ${branch.organization.name}`}
-                  </option>
-                ))}
+                {branches.map((branch) => {
+                  const branchPart =
+                    getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch';
+                  const org = branch.organization;
+                  const orgPart = org
+                    ? getLocalizedName(org.name_ar ?? org.name, org.name_en ?? org.name)
+                    : '';
+                  const label = [branchPart, orgPart].filter((p) => p.length > 0).join(' - ');
+                  return (
+                    <option key={branch.id} value={branch.id}>
+                      {label}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 

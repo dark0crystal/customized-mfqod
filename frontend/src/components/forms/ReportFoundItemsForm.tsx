@@ -61,34 +61,6 @@ interface Organization {
   description_en?: string;
 }
 
-// Helper function to get token from cookies
-const getTokenFromCookies = (): string | null => {
-  if (typeof document !== 'undefined') {
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split('=');
-      if (name === 'token') {
-        return decodeURIComponent(value);
-      }
-    }
-  }
-  return null;
-};
-
-// Helper function to create authenticated headers
-const getAuthHeaders = (): HeadersInit => {
-  const token = getTokenFromCookies();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  return headers;
-};
-
 function formatApiErrorDetail(detail: unknown): string {
   if (detail == null) return "";
   if (typeof detail === "string") return detail;
@@ -122,11 +94,14 @@ export default function ReportFoundItem() {
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
 
-  // Helper function to get localized name
+  // Prefer current script; fall back to the other language (matches report-missing behavior).
   const getLocalizedName = (nameAr?: string, nameEn?: string): string => {
-    if (locale === 'ar' && nameAr) return nameAr;
-    if (locale === 'en' && nameEn) return nameEn;
-    return nameAr || nameEn || '';
+    const ar = (nameAr ?? '').trim();
+    const en = (nameEn ?? '').trim();
+    const loc = (locale || 'en').toLowerCase();
+    if (loc.startsWith('ar') && ar) return ar;
+    if (loc.startsWith('en') && en) return en;
+    return ar || en || '';
   };
   const [compressedFiles, setCompressedFiles] = useState<File[]>([]);
   const [confetti, setConfetti] = useState(false);
@@ -202,7 +177,7 @@ export default function ReportFoundItem() {
 
   // Check if user is authenticated
   useEffect(() => {
-    const token = getTokenFromCookies();
+    const token = tokenManager.getAccessToken();
     if (!token) {
       setAuthError("Authentication required. Please log in first.");
     } else {
@@ -218,13 +193,13 @@ export default function ReportFoundItem() {
         setIsLoading(true);
 
         // Fetch user's managed branches only (not all branches)
-        const branchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
-          method: 'GET',
-          headers: getAuthHeaders(),
-        });
+        const branchesResponse = await tokenManager.makeAuthenticatedRequest(
+          `${API_BASE_URL}/api/branches/my-managed-branches/`,
+          { method: 'GET' }
+        );
 
         if (branchesResponse.ok) {
-          const branchesData = await branchesResponse.json();
+          const branchesData: Branch[] = await branchesResponse.json();
           // branchesData contains only branches managed by the current user
           // Filter by organization if one is already selected
           let filteredBranches = branchesData;
@@ -235,23 +210,40 @@ export default function ReportFoundItem() {
           }
           setBranches(filteredBranches);
 
-          // Extract unique organizations from managed branches
-          const orgMap = new Map();
-          branchesData.forEach((branch: Branch) => {
-            if (branch.organization_id && branch.organization) {
-              if (!orgMap.has(branch.organization_id)) {
-                orgMap.set(branch.organization_id, {
-                  id: branch.organization_id,
-                  name_ar: branch.organization.name_ar,
-                  name_en: branch.organization.name_en,
-                  description_ar: branch.organization.description_ar,
-                  description_en: branch.organization.description_en,
-                });
-              }
-            }
-          });
+          const allowedOrgIds = new Set(
+            branchesData.map((b) => b.organization_id).filter(Boolean) as string[]
+          );
 
-          const uniqueOrganizations = Array.from(orgMap.values());
+          // Same source as report-missing-item: full org list, restricted to orgs user has branches in
+          let uniqueOrganizations: Organization[] = [];
+          const orgsResponse = await tokenManager.makeAuthenticatedRequest(
+            `${API_BASE_URL}/api/organizations/`,
+            { method: 'GET' }
+          );
+          if (orgsResponse.ok) {
+            const allOrgs: Organization[] = await orgsResponse.json();
+            uniqueOrganizations = allOrgs.filter((o) => allowedOrgIds.has(o.id));
+          }
+
+          // Fallback if API list empty but nested organization exists on branch payloads
+          if (uniqueOrganizations.length === 0 && allowedOrgIds.size > 0) {
+            const orgMap = new Map<string, Organization>();
+            branchesData.forEach((branch: Branch) => {
+              if (branch.organization_id && branch.organization) {
+                if (!orgMap.has(branch.organization_id)) {
+                  orgMap.set(branch.organization_id, {
+                    id: branch.organization_id,
+                    name_ar: branch.organization.name_ar,
+                    name_en: branch.organization.name_en,
+                    description_ar: branch.organization.description_ar,
+                    description_en: branch.organization.description_en,
+                  });
+                }
+              }
+            });
+            uniqueOrganizations = Array.from(orgMap.values());
+          }
+
           setOrganizations(uniqueOrganizations);
 
           // Set default organization to first if available and not already set
@@ -279,10 +271,10 @@ export default function ReportFoundItem() {
         }
 
         // Fetch item types with authentication
-        const itemTypesResponse = await fetch(`${API_BASE_URL}/api/item-types/`, {
-          method: 'GET',
-          headers: getAuthHeaders(),
-        });
+        const itemTypesResponse = await tokenManager.makeAuthenticatedRequest(
+          `${API_BASE_URL}/api/item-types/`,
+          { method: 'GET' }
+        );
 
         if (itemTypesResponse.ok) {
           const itemTypesData = await itemTypesResponse.json();
@@ -316,10 +308,10 @@ export default function ReportFoundItem() {
     const fetchManagedBranches = async () => {
       try {
         // Fetch only branches managed by the current user (not all branches)
-        const branchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
-          method: 'GET',
-          headers: getAuthHeaders(),
-        });
+        const branchesResponse = await tokenManager.makeAuthenticatedRequest(
+          `${API_BASE_URL}/api/branches/my-managed-branches/`,
+          { method: 'GET' }
+        );
 
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
@@ -371,7 +363,7 @@ export default function ReportFoundItem() {
       setSubmitError(null);
       setIsProcessing(true);
 
-      const token = getTokenFromCookies();
+      const token = tokenManager.getAccessToken();
       if (!token) {
         setAuthError("Authentication required. Please log in again.");
         return;
@@ -401,9 +393,9 @@ export default function ReportFoundItem() {
         itemPayload.internal_description = data.internal_description;
       }
 
-      const itemResponse = await fetch(`${API_BASE_URL}/api/items`, {
+      const itemResponse = await tokenManager.makeAuthenticatedRequest(`${API_BASE_URL}/api/items`, {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(itemPayload),
       });
 
@@ -440,9 +432,9 @@ export default function ReportFoundItem() {
         is_current: true
       };
 
-      const addressResponse = await fetch(`${API_BASE_URL}/api/addresses`, {
+      const addressResponse = await tokenManager.makeAuthenticatedRequest(`${API_BASE_URL}/api/addresses`, {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(addressPayload),
       });
 
