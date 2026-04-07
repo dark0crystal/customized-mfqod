@@ -224,9 +224,11 @@ export default function ReportFoundItem() {
 
             let orgIdForBranches: string | undefined;
             if (allOrgs.length === 1) {
-              orgIdForBranches = allOrgs[0].id;
-              setValue("orgnization", orgIdForBranches);
-              hasSetDefaultOrg.current = true;
+              orgIdForBranches = allOrgs[0]?.id;
+              if (orgIdForBranches) {
+                setValue("orgnization", orgIdForBranches);
+                hasSetDefaultOrg.current = true;
+              }
             }
 
             if (orgIdForBranches) {
@@ -237,8 +239,9 @@ export default function ReportFoundItem() {
               if (brRes.ok) {
                 const branchesData: Branch[] = await brRes.json();
                 setBranches(branchesData);
-                if (branchesData.length === 1) {
-                  setValue("branch_id", branchesData[0].id);
+                const only = branchesData.length === 1 ? branchesData[0] : null;
+                if (only?.id) {
+                  setValue("branch_id", only.id);
                 }
               } else {
                 setBranches([]);
@@ -298,14 +301,18 @@ export default function ReportFoundItem() {
             setOrganizations(uniqueOrganizations);
 
             if (uniqueOrganizations.length > 0 && !hasSetDefaultOrg.current) {
-              setValue("orgnization", uniqueOrganizations[0].id);
-              hasSetDefaultOrg.current = true;
+              const firstOrgId = uniqueOrganizations[0]?.id;
+              if (firstOrgId) {
+                setValue("orgnization", firstOrgId);
+                hasSetDefaultOrg.current = true;
+              }
             }
 
             setOrgSelectDisabled(uniqueOrganizations.length === 1);
 
-            if (filteredBranches.length === 1) {
-              setValue("branch_id", filteredBranches[0].id);
+            const singleManaged = filteredBranches.length === 1 ? filteredBranches[0] : null;
+            if (singleManaged?.id) {
+              setValue("branch_id", singleManaged.id);
             }
           } else if (branchesResponse.status === 401) {
             setAuthError("Authentication failed. Please log in again.");
@@ -369,8 +376,9 @@ export default function ReportFoundItem() {
           }
           const branchesData: Branch[] = await brRes.json();
           setBranches(branchesData);
-          if (branchesData.length === 1) {
-            setValue("branch_id", branchesData[0].id);
+          const singleBr = branchesData.length === 1 ? branchesData[0] : null;
+          if (singleBr?.id) {
+            setValue("branch_id", singleBr.id);
           } else {
             setValue("branch_id", "");
           }
@@ -392,11 +400,16 @@ export default function ReportFoundItem() {
           }
           setBranches(filteredBranches);
 
-          if (filteredBranches.length === 1 && watchedOrganization) {
-            setValue("branch_id", filteredBranches[0].id);
+          const one = filteredBranches.length === 1 ? filteredBranches[0] : null;
+          if (one?.id && watchedOrganization) {
+            setValue("branch_id", one.id);
           } else if (!watchedOrganization && filteredBranches.length > 0 && !hasSetDefaultOrg.current) {
-            setValue("orgnization", filteredBranches[0].organization_id);
-            hasSetDefaultOrg.current = true;
+            const oid = filteredBranches[0]?.organization_id;
+            if (oid) {
+              setValue("orgnization", oid);
+              hasSetDefaultOrg.current = true;
+            }
+            setValue("branch_id", "");
           } else {
             setValue("branch_id", "");
           }

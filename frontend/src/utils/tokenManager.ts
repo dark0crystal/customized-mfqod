@@ -43,7 +43,6 @@ class TokenManager {
   private retryCount = 0;
   private maxRetries = 3;
   private lastWarningMinutes: number | null = null;
-  private requestQueue: Map<string, Promise<Response>> = new Map();
   private translations: Record<string, unknown> | null = null;
   private currentLocale: string = 'en';
 
@@ -640,40 +639,19 @@ class TokenManager {
       }
     }
 
-    // Create request key for deduplication
-    const requestKey = `${options.method || 'GET'}:${url}`;
-    
-    // Check if there's already a pending request for this URL
-    if (this.requestQueue.has(requestKey)) {
-      return this.requestQueue.get(requestKey)!;
-    }
-
-    // Add auth header
+    // Add auth header (each call gets its own fetch/Response so callers can safely call .json()).
     const headers = {
       ...options.headers,
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
     };
 
-    // Create request promise
-    const requestPromise = this.executeRequest(url, options, headers, requestKey);
-    this.requestQueue.set(requestKey, requestPromise);
-
-    try {
-      const response = await requestPromise;
-      return response;
-    } finally {
-      // Clean up request queue after a delay to allow concurrent requests to share the promise
-      setTimeout(() => {
-        this.requestQueue.delete(requestKey);
-      }, 100);
-    }
+    return this.executeRequest(url, options, headers);
   }
 
   private async executeRequest(
     url: string,
     options: RequestInit,
-    headers: HeadersInit,
-    requestKey: string
+    headers: HeadersInit
   ): Promise<Response> {
     try {
       // Add timeout to prevent hanging requests
@@ -711,9 +689,6 @@ class TokenManager {
           });
           clearTimeout(retryTimeoutId);
         } catch (refreshError: unknown) {
-          // Clear request from queue on auth failure
-          this.requestQueue.delete(requestKey);
-          
           // Handle auth errors (expired refresh token, invalid token, etc.)
           const authError = refreshError as Error & { isAuthError?: boolean; status?: number; isNetworkError?: boolean };
           if (authError.isAuthError || authError.status === 401) {
@@ -742,9 +717,6 @@ class TokenManager {
 
       return response;
     } catch (error: unknown) {
-      // Clear request from queue on error
-      this.requestQueue.delete(requestKey);
-      
       // Handle timeout errors
       if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
         const timeoutError = new Error('Request timed out') as Error & { isNetworkError: boolean };
