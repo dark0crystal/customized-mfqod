@@ -580,12 +580,17 @@ export default function MissingItemsPage() {
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               >
                 <option value="">{tFilters("allBranches")}</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || t("unnamedBranch")}
-                    {branch.organization && ` - ${branch.organization.name}`}
-                  </option>
-                ))}
+                {branches.map((branch) => {
+                  const orgSuffix = branch.organization
+                    ? getLocalizedName(branch.organization.name_ar, branch.organization.name_en)
+                    : '';
+                  return (
+                    <option key={branch.id} value={branch.id}>
+                      {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || t("unnamedBranch")}
+                      {orgSuffix ? ` - ${orgSuffix}` : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>

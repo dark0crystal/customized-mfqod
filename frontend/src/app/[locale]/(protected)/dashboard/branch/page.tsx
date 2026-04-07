@@ -282,7 +282,7 @@ const BranchFormModal = ({ isOpen, onClose, branch, onSave, locale }: {
     if (locale === 'en' && organization.name_en) {
       return organization.name_en;
     }
-    return organization.name || organization.name_en || organization.name_ar || '';
+    return organization.name_ar || organization.name_en || '';
   };
 
   // Removed unused function getSelectedOrganizationName
@@ -502,7 +502,7 @@ const BranchCard = ({ branch, onEdit, onDelete, organizations, locale }: {
     if (locale === 'en' && organization.name_en) {
       return organization.name_en;
     }
-    return organization.name || organization.name_en || organization.name_ar;
+    return organization.name_ar || organization.name_en || '';
   };
 
   return (
@@ -640,7 +640,7 @@ export default function Branch() {
     if (locale === 'en' && organization.name_en) {
       return organization.name_en;
     }
-    return organization.name || organization.name_en || organization.name_ar || '';
+    return organization.name_ar || organization.name_en || '';
   };
 
   const filteredBranches = branches.filter((branch: Branch) => {

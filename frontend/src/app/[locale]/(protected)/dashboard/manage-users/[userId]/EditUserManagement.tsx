@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePermissions } from "@/PermissionsContext";
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { tokenManager } from '@/utils/tokenManager';
 
 // Schema used for type inference
 const _schema = z.object({
@@ -17,7 +18,8 @@ type FormFields = z.infer<typeof _schema>;
 
 interface Organization {
   id: string;
-  name: string;
+  name_ar?: string;
+  name_en?: string;
   description?: string;
 }
 
@@ -29,21 +31,10 @@ interface Branch {
   organization?: Organization;
 }
 
-// Helper function to get auth headers
-const getAuthHeaders = () => {
-  const token = document.cookie
-    .split('; ')
-    .find(row => row.startsWith('token='))
-    ?.split('=')[1];
-  return {
-    'Authorization': `Bearer ${token || ''}`,
-    'Content-Type': 'application/json'
-  };
-};
-
 export default function EditUserManagement({ userId }: { userId: string }) {
   const t = useTranslations('userDetails');
   const tCommon = useTranslations('common');
+  const API_BASE = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting }, reset } = useForm<FormFields>();
   const locale = useLocale();
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
@@ -66,8 +57,8 @@ export default function EditUserManagement({ userId }: { userId: string }) {
   useEffect(() => {
     async function fetchOrganizations() {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/organizations/`, {
-          headers: getAuthHeaders()
+        const response = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/organizations/`, {
+          method: 'GET',
         });
         if (!response.ok) throw new Error("Failed to fetch organizations");
         const data = await response.json();
@@ -84,14 +75,14 @@ export default function EditUserManagement({ userId }: { userId: string }) {
     }
     fetchOrganizations();
 
-  }, [setValue]);
+  }, [setValue, API_BASE]);
 
   // Fetch user's currently managed branches
   useEffect(() => {
     async function fetchUserManagedBranches() {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/users/${userId}/managed-branches/`, {
-          headers: getAuthHeaders()
+        const response = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/branches/users/${userId}/managed-branches/`, {
+          method: 'GET',
         });
         if (!response.ok) throw new Error("Failed to fetch user managed branches");
         const data = await response.json();
@@ -101,7 +92,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       }
     }
     fetchUserManagedBranches();
-  }, [userId]);
+  }, [userId, API_BASE]);
 
   // Fetch branches when organization changes
   useEffect(() => {
@@ -112,7 +103,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       }
 
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/public/?organization_id=${selectedOrganization}`, {
+        const response = await fetch(`${API_BASE}/api/branches/public/?organization_id=${selectedOrganization}`, {
           headers: {
             "Content-Type": "application/json",
           }
@@ -126,7 +117,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       }
     }
     fetchBranches();
-  }, [selectedOrganization]);
+  }, [selectedOrganization, API_BASE]);
 
   const handleOrganizationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedOrg = e.target.value;
@@ -141,9 +132,9 @@ export default function EditUserManagement({ userId }: { userId: string }) {
 
     try {
       // Assign user as branch manager
-      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/${data.branch}/managers/${userId}`, {
+      const response = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/branches/${data.branch}/managers/${userId}`, {
         method: "POST",
-        headers: getAuthHeaders(),
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (!response.ok) {
@@ -162,8 +153,8 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       setSuccessMessage(t('userSuccessfullyAssigned'));
 
       // Refresh user managed branches
-      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}/managed-branches/`, {
-        headers: getAuthHeaders()
+      const refreshResponse = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/branches/users/${userId}/managed-branches/`, {
+        method: 'GET',
       });
       if (refreshResponse.ok) {
         const refreshedData = await refreshResponse.json();
@@ -189,9 +180,9 @@ export default function EditUserManagement({ userId }: { userId: string }) {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/${branchId}/managers/${userId}`, {
+      const response = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/branches/${branchId}/managers/${userId}`, {
         method: "DELETE",
-        headers: getAuthHeaders(),
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (!response.ok) {
@@ -202,8 +193,8 @@ export default function EditUserManagement({ userId }: { userId: string }) {
       setSuccessMessage(t('userSuccessfullyRemoved'));
 
       // Refresh user managed branches
-      const refreshResponse = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/users/${userId}/managed-branches/`, {
-        headers: getAuthHeaders()
+      const refreshResponse = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/branches/users/${userId}/managed-branches/`, {
+        method: 'GET',
       });
       if (refreshResponse.ok) {
         const refreshedData = await refreshResponse.json();
@@ -301,7 +292,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
                     <div>
                       <span className="font-medium text-gray-900">{getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || t('unnamedBranch')}</span>
                       <span className="text-gray-500 ml-2">
-                        ({branch.organization?.name || t('unknownOrganization')})
+                        ({getLocalizedName(branch.organization?.name_ar, branch.organization?.name_en) || t('unknownOrganization')})
                       </span>
                     </div>
                   </div>
@@ -334,7 +325,7 @@ export default function EditUserManagement({ userId }: { userId: string }) {
               >
                 <option value="" disabled>{t('selectOrganization')}</option>
                 {organizations.map((org) => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
+                  <option key={org.id} value={org.id}>{getLocalizedName(org.name_ar, org.name_en) || org.id}</option>
                 ))}
               </select>
               {errors.org && <p className="mt-2 text-sm text-red-600 font-medium">{errors.org.message}</p>}
@@ -415,9 +406,9 @@ export default function EditUserManagement({ userId }: { userId: string }) {
                 onClick={async () => {
                   if (confirm("Are you sure you want to deactivate this user? They will not be able to log in.")) {
                     try {
-                      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}`, {
+                      const response = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/users/${userId}`, {
                         method: "DELETE",
-                        headers: getAuthHeaders(),
+                        headers: { 'Content-Type': 'application/json' },
                       });
                       if (!response.ok) throw new Error("Failed to deactivate user");
                       setSuccessMessage("User deactivated successfully");
@@ -445,9 +436,9 @@ export default function EditUserManagement({ userId }: { userId: string }) {
                 onClick={async () => {
                   if (confirm("⚠️ WARNING: This will permanently delete the user account. Their data will be anonymized. This action CANNOT be undone. Are you absolutely sure?")) {
                     try {
-                      const response = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}/permanent`, {
+                      const response = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/users/${userId}/permanent`, {
                         method: "DELETE",
-                        headers: getAuthHeaders(),
+                        headers: { 'Content-Type': 'application/json' },
                       });
                       if (!response.ok) throw new Error("Failed to permanently delete user");
                       setSuccessMessage("User permanently deleted");
