@@ -61,6 +61,34 @@ interface Organization {
   description_en?: string;
 }
 
+// Helper function to get token from cookies
+const getTokenFromCookies = (): string | null => {
+  if (typeof document !== 'undefined') {
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'token') {
+        return decodeURIComponent(value);
+      }
+    }
+  }
+  return null;
+};
+
+// Helper function to create authenticated headers
+const getAuthHeaders = (): HeadersInit => {
+  const token = getTokenFromCookies();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  return headers;
+};
+
 function formatApiErrorDetail(detail: unknown): string {
   if (detail == null) return "";
   if (typeof detail === "string") return detail;
@@ -174,7 +202,7 @@ export default function ReportFoundItem() {
 
   // Check if user is authenticated
   useEffect(() => {
-    const token = tokenManager.getAccessToken();
+    const token = getTokenFromCookies();
     if (!token) {
       setAuthError("Authentication required. Please log in first.");
     } else {
@@ -190,10 +218,10 @@ export default function ReportFoundItem() {
         setIsLoading(true);
 
         // Fetch user's managed branches only (not all branches)
-        const branchesResponse = await tokenManager.makeAuthenticatedRequest(
-          `${API_BASE_URL}/api/branches/my-managed-branches/`,
-          { method: 'GET' }
-        );
+        const branchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        });
 
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
@@ -251,10 +279,10 @@ export default function ReportFoundItem() {
         }
 
         // Fetch item types with authentication
-        const itemTypesResponse = await tokenManager.makeAuthenticatedRequest(
-          `${API_BASE_URL}/api/item-types/`,
-          { method: 'GET' }
-        );
+        const itemTypesResponse = await fetch(`${API_BASE_URL}/api/item-types/`, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        });
 
         if (itemTypesResponse.ok) {
           const itemTypesData = await itemTypesResponse.json();
@@ -288,10 +316,10 @@ export default function ReportFoundItem() {
     const fetchManagedBranches = async () => {
       try {
         // Fetch only branches managed by the current user (not all branches)
-        const branchesResponse = await tokenManager.makeAuthenticatedRequest(
-          `${API_BASE_URL}/api/branches/my-managed-branches/`,
-          { method: 'GET' }
-        );
+        const branchesResponse = await fetch(`${API_BASE_URL}/api/branches/my-managed-branches/`, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        });
 
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
@@ -343,7 +371,7 @@ export default function ReportFoundItem() {
       setSubmitError(null);
       setIsProcessing(true);
 
-      const token = tokenManager.getAccessToken();
+      const token = getTokenFromCookies();
       if (!token) {
         setAuthError("Authentication required. Please log in again.");
         return;
@@ -373,9 +401,9 @@ export default function ReportFoundItem() {
         itemPayload.internal_description = data.internal_description;
       }
 
-      const itemResponse = await tokenManager.makeAuthenticatedRequest(`${API_BASE_URL}/api/items`, {
+      const itemResponse = await fetch(`${API_BASE_URL}/api/items`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(itemPayload),
       });
 
@@ -412,9 +440,9 @@ export default function ReportFoundItem() {
         is_current: true
       };
 
-      const addressResponse = await tokenManager.makeAuthenticatedRequest(`${API_BASE_URL}/api/addresses`, {
+      const addressResponse = await fetch(`${API_BASE_URL}/api/addresses`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(addressPayload),
       });
 

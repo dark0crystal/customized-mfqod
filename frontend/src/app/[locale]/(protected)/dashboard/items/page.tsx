@@ -567,17 +567,12 @@ export default function ItemsPage() {
                 style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties}
               >
                 <option value="">{t("filters.allBranches")}</option>
-                {branches.map((branch) => {
-                  const orgSuffix = branch.organization
-                    ? getLocalizedName(branch.organization.name_ar, branch.organization.name_en)
-                    : '';
-                  return (
-                    <option key={branch.id} value={branch.id}>
-                      {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch'}
-                      {orgSuffix ? ` - ${orgSuffix}` : ''}
-                    </option>
-                  );
-                })}
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {getLocalizedName(branch.branch_name_ar, branch.branch_name_en) || 'Unnamed Branch'}
+                    {branch.organization && ` - ${branch.organization.name}`}
+                  </option>
+                ))}
               </select>
             </div>
 

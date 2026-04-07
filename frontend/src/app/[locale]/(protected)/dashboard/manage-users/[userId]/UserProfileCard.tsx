@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { tokenManager } from '@/utils/tokenManager';
 
 interface User {
   id: string;
@@ -37,6 +36,18 @@ function getInitials(name?: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  const token = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('token='))
+    ?.split('=')[1];
+  return {
+    'Authorization': `Bearer ${token || ''}`,
+    'Content-Type': 'application/json'
+  };
+};
+
 interface UserProfileCardProps {
   userId: string;
 }
@@ -56,10 +67,9 @@ export default function UserProfileCard({ userId }: UserProfileCardProps) {
         setLoading(true);
         setError(null);
 
-        const res = await tokenManager.makeAuthenticatedRequest(
-          `${API_BASE_URL}/api/users/${userId}`,
-          { method: 'GET' }
-        );
+        const res = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+          headers: getAuthHeaders(),
+        });
 
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));

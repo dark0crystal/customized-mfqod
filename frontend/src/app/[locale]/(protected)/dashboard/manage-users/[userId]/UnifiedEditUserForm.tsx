@@ -29,8 +29,7 @@ type Role = {
 
 type Organization = {
     id: string;
-    name_ar?: string;
-    name_en?: string;
+    name: string;
 };
 
 type Branch = {
@@ -41,11 +40,17 @@ type Branch = {
     organization?: Organization;
 };
 
+// --- Helper Functions ---
+
+const getAuthHeaders = (): HeadersInit => {
+    const token = tokenManager.getAccessToken();
+    return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+};
+
 export default function UnifiedEditUserForm({ userId }: { userId: string }) {
     const t = useTranslations('manageUsers'); // Using manageUsers namespace for general labels
     const locale = useLocale();
     const { hasPermission } = usePermissions();
-    const API_BASE = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
 
     // --- State ---
     const [isLoading, setIsLoading] = useState(true);
@@ -89,9 +94,10 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
         async function fetchAllData() {
             try {
                 setIsLoading(true);
+                const headers = getAuthHeaders();
 
                 // 1. Fetch User Details
-                const userRes = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/users/${userId}`, { method: 'GET' });
+                const userRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}`, { headers });
                 if (!userRes.ok) throw new Error("Failed to fetch user");
                 const userData = await userRes.json();
 
@@ -106,7 +112,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                 setInitialStatus(userData.active);
 
                 // 2. Fetch Roles
-                const rolesRes = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/roles/all`, { method: 'GET' });
+                const rolesRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/roles/all`, { headers });
                 if (rolesRes.ok) {
                     const rolesData = await rolesRes.json();
                     // Filter roles: Only users with can_manage_roles permission can assign all roles
@@ -122,7 +128,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                 }
 
                 // 3. Fetch Organizations
-                const orgsRes = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/organizations/`, { method: 'GET' });
+                const orgsRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/organizations/`, { headers });
                 if (orgsRes.ok) {
                     const orgsData = await orgsRes.json();
                     setOrganizations(orgsData);
@@ -130,7 +136,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                 }
 
                 // 4. Fetch User Managed Branches
-                const managedRes = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/branches/users/${userId}/managed-branches/`, { method: 'GET' });
+                const managedRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/users/${userId}/managed-branches/`, { headers });
                 if (managedRes.ok) {
                     setUserManagedBranches(await managedRes.json());
                 }
@@ -145,7 +151,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
         if (userId && hasPermission('can_manage_users')) {
             fetchAllData();
         }
-    }, [userId, setValue, hasPermission, API_BASE]);
+    }, [userId, setValue, hasPermission]);
 
     // Fetch branches when Org changes
     useEffect(() => {
@@ -155,7 +161,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                 return;
             }
             try {
-                const res = await fetch(`${API_BASE}/api/branches/public/?organization_id=${selectedOrgId}`, {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/public/?organization_id=${selectedOrgId}`, {
                     headers: { 'Content-Type': 'application/json' }
                 });
                 if (res.ok) setBranches(await res.json());
@@ -164,7 +170,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             }
         }
         fetchBranches();
-    }, [selectedOrgId, API_BASE]);
+    }, [selectedOrgId]);
 
 
     // --- Handlers ---
@@ -176,16 +182,16 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
         setIsSaving(true);
 
         try {
-            const jsonHeaders = { 'Content-Type': 'application/json' } as const;
+            const headers = getAuthHeaders();
             const updates = [];
 
             // 1. Update Profile Info
             // Convert empty phone_number to null to avoid validation errors
             const phoneNumber = data.phone_number?.trim();
             updates.push(
-                tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/users/${userId}`, {
+                fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}`, {
                     method: "PUT",
-                    headers: jsonHeaders,
+                    headers,
                     body: JSON.stringify({
                         first_name: data.first_name,
                         last_name: data.last_name,
@@ -198,9 +204,9 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             // 2. Update Role (if changed)
             if (data.role !== initialRole) {
                 updates.push(
-                    tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/users/${userId}/role`, {
+                    fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}/role`, {
                         method: "PUT",
-                        headers: jsonHeaders,
+                        headers,
                         body: JSON.stringify({ role_name: data.role })
                     })
                 );
@@ -210,9 +216,9 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             if (data.isActive !== initialStatus) {
                 const action = data.isActive ? 'activate' : 'deactivate';
                 updates.push(
-                    tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/users/${userId}/${action}`, {
+                    fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}/${action}`, {
                         method: "PUT",
-                        headers: jsonHeaders
+                        headers
                     })
                 );
             }
@@ -244,9 +250,9 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
         setErrorMessage(null);
         setSuccessMessage(null);
         try {
-            const res = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/branches/${selectedBranchId}/managers/${userId}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/${selectedBranchId}/managers/${userId}`, {
                 method: "POST",
-                headers: { 'Content-Type': 'application/json' }
+                headers: getAuthHeaders()
             });
             
             if (!res.ok) {
@@ -263,7 +269,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
             }
 
             // Refresh managed branches
-            const managedRes = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/branches/users/${userId}/managed-branches/`, { method: 'GET' });
+            const managedRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/users/${userId}/managed-branches/`, { headers: getAuthHeaders() });
             if (managedRes.ok) setUserManagedBranches(await managedRes.json());
 
             setSelectedBranchId("");
@@ -277,14 +283,14 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
     const handleRemoveBranch = async (branchId: string) => {
         if (!confirm(t('removeBranchAssignment'))) return;
         try {
-            const res = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/branches/${branchId}/managers/${userId}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/${branchId}/managers/${userId}`, {
                 method: "DELETE",
-                headers: { 'Content-Type': 'application/json' }
+                headers: getAuthHeaders()
             });
             if (!res.ok) throw new Error("Failed to remove branch assignment");
 
             // Refresh managed branches
-            const managedRes = await tokenManager.makeAuthenticatedRequest(`${API_BASE}/api/branches/users/${userId}/managed-branches/`, { method: 'GET' });
+            const managedRes = await fetch(`${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/branches/users/${userId}/managed-branches/`, { headers: getAuthHeaders() });
             if (managedRes.ok) setUserManagedBranches(await managedRes.json());
 
             setSuccessMessage(t('branchAssignmentRemoved'));
@@ -302,12 +308,12 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
 
         try {
             const url = permanent
-                ? `${API_BASE}/api/users/${userId}/permanent`
-                : `${API_BASE}/api/users/${userId}`;
+                ? `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}/permanent`
+                : `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/users/${userId}`;
 
-            const res = await tokenManager.makeAuthenticatedRequest(url, {
+            const res = await fetch(url, {
                 method: "DELETE",
-                headers: { 'Content-Type': 'application/json' }
+                headers: getAuthHeaders()
             });
 
             if (!res.ok) throw new Error("Failed to delete user");
@@ -403,11 +409,6 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                             <div key={branch.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-md border border-gray-200">
                                 <div>
                                     <span className="font-medium text-gray-900">{getLocalizedName(branch.branch_name_ar, branch.branch_name_en)}</span>
-                                    {branch.organization && (
-                                        <span className="text-sm text-gray-600 ms-2">
-                                            — {getLocalizedName(branch.organization.name_ar, branch.organization.name_en)}
-                                        </span>
-                                    )}
                                 </div>
                                 <button type="button" onClick={() => handleRemoveBranch(branch.id)} className="text-red-600 hover:text-red-800 text-sm font-medium">{t('remove')}</button>
                             </div>
@@ -423,11 +424,7 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                                 onChange={(e) => setSelectedOrgId(e.target.value)}
                                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border bg-white"
                             >
-                                {organizations.map(org => (
-                                    <option key={org.id} value={org.id}>
-                                        {getLocalizedName(org.name_ar, org.name_en)}
-                                    </option>
-                                ))}
+                                {organizations.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
                             </select>
                         </div>
                         <div>
