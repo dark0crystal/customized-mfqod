@@ -576,7 +576,9 @@ export default function ItemsPage() {
                   const orgPart = org
                     ? getLocalizedName(org.name_ar ?? org.name, org.name_en ?? org.name)
                     : '';
-                  const label = [branchPart, orgPart].filter((p) => p.length > 0).join(' - ');
+                  const label = [branchPart, orgPart]
+                    .filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
+                    .join(' - ');
                   return (
                     <option key={branch.id} value={branch.id}>
                       {label}

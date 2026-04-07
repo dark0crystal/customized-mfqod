@@ -171,7 +171,7 @@ export default function MissingItemDetailPage({ params }: { params: Promise<{ id
 
         const [detailRes, branchRes, foundRes, pendingRes] = await Promise.all([
           fetch(`${API_BASE_URL}/api/missing-items/${resolvedParams.id}`, { headers, credentials: "include" }),
-          fetch(`${API_BASE_URL}/api/branches`, { headers, credentials: "include" }),
+          fetch(`${API_BASE_URL}/api/branches/`, { headers, credentials: "include" }),
           fetch(`${API_BASE_URL}/api/items?status=pending&limit=100`, { headers, credentials: "include" }),
           fetch(`${API_BASE_URL}/api/items?status=pending&limit=100`, { headers, credentials: "include" }),
         ]);

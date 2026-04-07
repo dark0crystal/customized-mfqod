@@ -29,7 +29,9 @@ type Role = {
 
 type Organization = {
     id: string;
-    name: string;
+    name?: string;
+    name_ar?: string;
+    name_en?: string;
 };
 
 type Branch = {
@@ -424,7 +426,11 @@ export default function UnifiedEditUserForm({ userId }: { userId: string }) {
                                 onChange={(e) => setSelectedOrgId(e.target.value)}
                                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border bg-white"
                             >
-                                {organizations.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
+                                {organizations.map(org => (
+                                    <option key={org.id} value={org.id}>
+                                        {getLocalizedName(org.name_ar, org.name_en) || org.name || org.id}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <div>

@@ -115,8 +115,13 @@ export default function ReportFoundItem() {
 
   const c = useTranslations("report-found");
   const router = useRouter();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasFullAccess, isLoading: permissionsLoading, permissions } = usePermissions();
   const canManageItems = hasPermission('can_manage_items');
+  /** Super-admin / branch admins: use full branch list; others only see branches they manage */
+  const useExpandedBranchAccess = useMemo(() => {
+    if (permissionsLoading) return false;
+    return hasFullAccess() || hasPermission("can_manage_branches");
+  }, [permissionsLoading, permissions]);
 
   const itemFormSchema = useMemo(() => buildReportFoundSchema(c), [c]);
 
@@ -185,95 +190,135 @@ export default function ReportFoundItem() {
     }
   }, []);
 
-  // Fetch data on component mount - get user's managed branches and derive organizations
-  // Note: Only fetches branches that the current user manages, not all branches
+  // Fetch organizations + branches (full list for admins, managed-only for others)
   useEffect(() => {
+    if (authError) {
+      setIsLoading(false);
+      return;
+    }
+    if (permissionsLoading) {
+      return;
+    }
+
     const fetchData = async () => {
       try {
         setIsLoading(true);
 
-        // Fetch user's managed branches only (not all branches)
-        const branchesResponse = await tokenManager.makeAuthenticatedRequest(
-          `${API_BASE_URL}/api/branches/my-managed-branches/`,
-          { method: 'GET' }
-        );
-
-        if (branchesResponse.ok) {
-          const branchesData: Branch[] = await branchesResponse.json();
-          // branchesData contains only branches managed by the current user
-          // Filter by organization if one is already selected
-          let filteredBranches = branchesData;
-          if (watchedOrganization) {
-            filteredBranches = branchesData.filter(
-              (branch: Branch) => branch.organization_id === watchedOrganization
-            );
-          }
-          setBranches(filteredBranches);
-
-          const allowedOrgIds = new Set(
-            branchesData.map((b) => b.organization_id).filter(Boolean) as string[]
-          );
-
-          // Same source as report-missing-item: full org list, restricted to orgs user has branches in
-          let uniqueOrganizations: Organization[] = [];
+        if (useExpandedBranchAccess) {
           const orgsResponse = await tokenManager.makeAuthenticatedRequest(
             `${API_BASE_URL}/api/organizations/`,
-            { method: 'GET' }
+            { method: "GET" }
           );
-          if (orgsResponse.ok) {
+          if (!orgsResponse.ok) {
+            if (orgsResponse.status === 401) {
+              setAuthError("Authentication failed. Please log in again.");
+              return;
+            }
+            console.error("Failed to fetch organizations");
+            setOrganizations([]);
+            setBranches([]);
+          } else {
             const allOrgs: Organization[] = await orgsResponse.json();
-            uniqueOrganizations = allOrgs.filter((o) => allowedOrgIds.has(o.id));
-          }
+            setOrganizations(allOrgs);
+            setOrgSelectDisabled(allOrgs.length === 1);
 
-          // Fallback if API list empty but nested organization exists on branch payloads
-          if (uniqueOrganizations.length === 0 && allowedOrgIds.size > 0) {
-            const orgMap = new Map<string, Organization>();
-            branchesData.forEach((branch: Branch) => {
-              if (branch.organization_id && branch.organization) {
-                if (!orgMap.has(branch.organization_id)) {
-                  orgMap.set(branch.organization_id, {
-                    id: branch.organization_id,
-                    name_ar: branch.organization.name_ar,
-                    name_en: branch.organization.name_en,
-                    description_ar: branch.organization.description_ar,
-                    description_en: branch.organization.description_en,
-                  });
+            let orgIdForBranches: string | undefined;
+            if (allOrgs.length === 1) {
+              orgIdForBranches = allOrgs[0].id;
+              setValue("orgnization", orgIdForBranches);
+              hasSetDefaultOrg.current = true;
+            }
+
+            if (orgIdForBranches) {
+              const brRes = await tokenManager.makeAuthenticatedRequest(
+                `${API_BASE_URL}/api/branches/?skip=0&limit=1000&organization_id=${encodeURIComponent(orgIdForBranches)}`,
+                { method: "GET" }
+              );
+              if (brRes.ok) {
+                const branchesData: Branch[] = await brRes.json();
+                setBranches(branchesData);
+                if (branchesData.length === 1) {
+                  setValue("branch_id", branchesData[0].id);
                 }
+              } else {
+                setBranches([]);
               }
-            });
-            uniqueOrganizations = Array.from(orgMap.values());
+            } else {
+              setBranches([]);
+            }
           }
-
-          setOrganizations(uniqueOrganizations);
-
-          // Set default organization to first if available and not already set
-          if (
-            uniqueOrganizations.length > 0 &&
-            !hasSetDefaultOrg.current
-          ) {
-            setValue("orgnization", uniqueOrganizations[0].id);
-            hasSetDefaultOrg.current = true;
-          }
-
-          // If only one organization, disable the select
-          setOrgSelectDisabled(uniqueOrganizations.length === 1);
-
-          // If only one branch available, select it
-          if (filteredBranches.length === 1) {
-            setValue("branch_id", filteredBranches[0].id);
-          }
-        } else if (branchesResponse.status === 401) {
-          setAuthError("Authentication failed. Please log in again.");
-          return;
         } else {
-          console.error('Failed to fetch managed branches');
-          setBranches([]);
+          const branchesResponse = await tokenManager.makeAuthenticatedRequest(
+            `${API_BASE_URL}/api/branches/my-managed-branches/`,
+            { method: "GET" }
+          );
+
+          if (branchesResponse.ok) {
+            const branchesData: Branch[] = await branchesResponse.json();
+            let filteredBranches = branchesData;
+            if (watchedOrganization) {
+              filteredBranches = branchesData.filter(
+                (branch: Branch) => branch.organization_id === watchedOrganization
+              );
+            }
+            setBranches(filteredBranches);
+
+            const allowedOrgIds = new Set(
+              branchesData.map((b) => b.organization_id).filter(Boolean) as string[]
+            );
+
+            let uniqueOrganizations: Organization[] = [];
+            const orgsResponse = await tokenManager.makeAuthenticatedRequest(
+              `${API_BASE_URL}/api/organizations/`,
+              { method: "GET" }
+            );
+            if (orgsResponse.ok) {
+              const allOrgs: Organization[] = await orgsResponse.json();
+              uniqueOrganizations = allOrgs.filter((o) => allowedOrgIds.has(o.id));
+            }
+
+            if (uniqueOrganizations.length === 0 && allowedOrgIds.size > 0) {
+              const orgMap = new Map<string, Organization>();
+              branchesData.forEach((branch: Branch) => {
+                if (branch.organization_id && branch.organization) {
+                  if (!orgMap.has(branch.organization_id)) {
+                    orgMap.set(branch.organization_id, {
+                      id: branch.organization_id,
+                      name_ar: branch.organization.name_ar,
+                      name_en: branch.organization.name_en,
+                      description_ar: branch.organization.description_ar,
+                      description_en: branch.organization.description_en,
+                    });
+                  }
+                }
+              });
+              uniqueOrganizations = Array.from(orgMap.values());
+            }
+
+            setOrganizations(uniqueOrganizations);
+
+            if (uniqueOrganizations.length > 0 && !hasSetDefaultOrg.current) {
+              setValue("orgnization", uniqueOrganizations[0].id);
+              hasSetDefaultOrg.current = true;
+            }
+
+            setOrgSelectDisabled(uniqueOrganizations.length === 1);
+
+            if (filteredBranches.length === 1) {
+              setValue("branch_id", filteredBranches[0].id);
+            }
+          } else if (branchesResponse.status === 401) {
+            setAuthError("Authentication failed. Please log in again.");
+            return;
+          } else {
+            console.error("Failed to fetch managed branches");
+            setBranches([]);
+          }
         }
 
-        // Fetch item types with authentication
         const itemTypesResponse = await tokenManager.makeAuthenticatedRequest(
           `${API_BASE_URL}/api/item-types/`,
-          { method: 'GET' }
+          { method: "GET" }
         );
 
         if (itemTypesResponse.ok) {
@@ -283,54 +328,73 @@ export default function ReportFoundItem() {
           setAuthError("Authentication failed. Please log in again.");
           return;
         } else {
-          console.error('Failed to fetch item types');
+          console.error("Failed to fetch item types");
         }
-
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching data:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    // Only fetch data if user is authenticated
-    if (!authError) {
-      fetchData();
-    } else {
-      setIsLoading(false);
-    }
-  }, [authError, API_BASE_URL, setValue]);
+    fetchData();
+  }, [authError, API_BASE_URL, setValue, permissionsLoading, useExpandedBranchAccess]);
 
 
-  // Fetch user's managed branches when organization changes
-  // Note: This ensures branches are always filtered to only show managed branches for the selected organization
+  // When organization changes: reload branches (full list for admins, managed-only for others)
   useEffect(() => {
-    const fetchManagedBranches = async () => {
+    if (authError || permissionsLoading) {
+      return;
+    }
+
+    const syncBranchesForOrganization = async () => {
       try {
-        // Fetch only branches managed by the current user (not all branches)
+        if (useExpandedBranchAccess) {
+          if (!watchedOrganization) {
+            setBranches([]);
+            setValue("branch_id", "");
+            return;
+          }
+          const brRes = await tokenManager.makeAuthenticatedRequest(
+            `${API_BASE_URL}/api/branches/?skip=0&limit=1000&organization_id=${encodeURIComponent(watchedOrganization)}`,
+            { method: "GET" }
+          );
+          if (!brRes.ok) {
+            if (brRes.status === 401) {
+              setAuthError("Authentication failed. Please log in again.");
+            } else {
+              setBranches([]);
+            }
+            return;
+          }
+          const branchesData: Branch[] = await brRes.json();
+          setBranches(branchesData);
+          if (branchesData.length === 1) {
+            setValue("branch_id", branchesData[0].id);
+          } else {
+            setValue("branch_id", "");
+          }
+          return;
+        }
+
         const branchesResponse = await tokenManager.makeAuthenticatedRequest(
           `${API_BASE_URL}/api/branches/my-managed-branches/`,
-          { method: 'GET' }
+          { method: "GET" }
         );
 
         if (branchesResponse.ok) {
           const branchesData = await branchesResponse.json();
-          // branchesData contains only branches managed by the current user
-          // Filter branches by selected organization if one is selected
           let filteredBranches = branchesData;
           if (watchedOrganization) {
             filteredBranches = branchesData.filter(
               (branch: Branch) => branch.organization_id === watchedOrganization
             );
           }
-          // Set branches state - this will only contain managed branches (filtered by org if selected)
           setBranches(filteredBranches);
 
-          // If only one branch available and matches organization, select it
           if (filteredBranches.length === 1 && watchedOrganization) {
             setValue("branch_id", filteredBranches[0].id);
           } else if (!watchedOrganization && filteredBranches.length > 0 && !hasSetDefaultOrg.current) {
-            // Set first organization if not set
             setValue("orgnization", filteredBranches[0].organization_id);
             hasSetDefaultOrg.current = true;
           } else {
@@ -339,19 +403,24 @@ export default function ReportFoundItem() {
         } else if (branchesResponse.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
         } else {
-          console.error('Failed to fetch managed branches');
+          console.error("Failed to fetch managed branches");
           setBranches([]);
         }
       } catch (error) {
-        console.error('Error fetching managed branches:', error);
+        console.error("Error syncing branches for organization:", error);
         setBranches([]);
       }
     };
 
-    if (!authError) {
-      fetchManagedBranches();
-    }
-  }, [watchedOrganization, API_BASE_URL, authError, setValue]);
+    syncBranchesForOrganization();
+  }, [
+    watchedOrganization,
+    API_BASE_URL,
+    authError,
+    setValue,
+    permissionsLoading,
+    useExpandedBranchAccess,
+  ]);
 
   const onSubmit = async (data: ItemFormFields) => {
     if (authError) {
