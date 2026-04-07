@@ -57,6 +57,11 @@ class MissingItemService:
             raise ValueError("Item type is required.")
         if not self._item_type_exists(item_type_id):
             raise ValueError("Item type not found.")
+
+        org_id = (missing_item_data.organization_id or "").strip() or None
+        if org_id:
+            if self.db.query(Organization).filter(Organization.id == org_id).first() is None:
+                raise ValueError("Organization not found.")
         
         new_missing_item = MissingItem(
             id=str(uuid.uuid4()),
@@ -64,6 +69,7 @@ class MissingItemService:
             description=missing_item_data.description,
             user_id=missing_item_data.user_id,
             item_type_id=item_type_id,
+            organization_id=org_id,
             status=missing_item_data.status,
             approval=missing_item_data.approval,
             temporary_deletion=missing_item_data.temporary_deletion,
@@ -95,6 +101,7 @@ class MissingItemService:
         query = self.db.query(MissingItem).options(
             joinedload(MissingItem.item_type),
             joinedload(MissingItem.user),
+            joinedload(MissingItem.organization),
             joinedload(MissingItem.assigned_found_items).joinedload(MissingItemFoundItem.item),
             joinedload(MissingItem.assigned_found_items).joinedload(MissingItemFoundItem.branch),
         ).filter(MissingItem.id == missing_item_id)
@@ -292,6 +299,15 @@ class MissingItemService:
         
         # Update fields
         update_dict = update_data.dict(exclude_unset=True)
+        if "organization_id" in update_dict:
+            raw = update_dict["organization_id"]
+            if raw is None or (isinstance(raw, str) and not str(raw).strip()):
+                update_dict["organization_id"] = None
+            else:
+                oid = str(raw).strip()
+                if self.db.query(Organization).filter(Organization.id == oid).first() is None:
+                    raise ValueError("Organization not found.")
+                update_dict["organization_id"] = oid
         for field, value in update_dict.items():
             setattr(missing_item, field, value)
         
@@ -551,11 +567,11 @@ class MissingItemService:
             raise ValueError("Missing item not found")
         
         if permanent:
-            # Delete associated images
+            # Delete associated images (upload path may use type "item" with missing-item UUID)
             self.db.query(Image).filter(
-                Image.imageable_type == "missingitem",
-                Image.imageable_id == missing_item_id
-            ).delete()
+                Image.imageable_id == missing_item_id,
+                Image.imageable_type.in_(("item", "missingitem", "missing_item")),
+            ).delete(synchronize_session=False)
             # Delete the missing item
             self.db.delete(missing_item)
         else:
@@ -816,15 +832,23 @@ class MissingItemService:
     
     def _missing_item_to_response(self, missing_item: MissingItem) -> MissingItemResponse:
         """Convert MissingItem model to MissingItemResponse"""
-        # Location is no longer stored for missing items
         location = None
+        org = getattr(missing_item, "organization", None)
+        if org is None and missing_item.organization_id:
+            org = self.db.query(Organization).filter(Organization.id == missing_item.organization_id).first()
+        if org:
+            display_name = (org.name_ar or org.name_en or "").strip() or None
+            location = LocationResponse(
+                organization_name=display_name,
+                branch_name=None,
+                full_location=None,
+            )
         
-        # Get images directly from database using polymorphic relationship
+        # Images: report flow uploads via /api/images/items/{id}/ with imageable_type "item"
         images = []
-        from app.models import Image
         missing_item_images = self.db.query(Image).filter(
-            Image.imageable_type == "missingitem",
-            Image.imageable_id == missing_item.id
+            Image.imageable_id == missing_item.id,
+            Image.imageable_type.in_(("item", "missingitem", "missing_item")),
         ).all()
         
         if missing_item_images:
@@ -847,6 +871,7 @@ class MissingItemService:
             temporary_deletion=missing_item.temporary_deletion,
             approval=missing_item.approval,
             item_type_id=missing_item.item_type_id,
+            organization_id=missing_item.organization_id,
             user_id=missing_item.user_id,
             created_at=missing_item.created_at,
             updated_at=missing_item.updated_at,

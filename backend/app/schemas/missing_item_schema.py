@@ -24,6 +24,7 @@ class CreateMissingItemRequest(BaseModel):
     description: str = Field(..., min_length=1, description="Missing item description/content")
     user_id: str = Field(..., description="ID of the user reporting the missing item")
     item_type_id: Optional[str] = Field(None, description="ID of the item type")
+    organization_id: Optional[str] = Field(None, description="ID of the university/organization")
     status: str = Field(default=MissingItemStatus.pending.value, description="Status of the missing item")
     approval: bool = Field(default=True, description="Whether the missing item is approved")
     temporary_deletion: bool = Field(default=False, description="Whether the missing item is marked for deletion")
@@ -45,6 +46,7 @@ class UpdateMissingItemRequest(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255, description="Missing item title")
     description: Optional[str] = Field(None, min_length=1, description="Missing item description/content")
     item_type_id: Optional[str] = Field(None, description="ID of the item type")
+    organization_id: Optional[str] = Field(None, description="ID of the university/organization")
     status: Optional[str] = Field(None, description="Status of the missing item")
     approval: Optional[bool] = Field(None, description="Whether the missing item is approved")
     temporary_deletion: Optional[bool] = Field(None, description="Whether the missing item is marked for deletion")
@@ -162,6 +164,7 @@ class MissingItemResponse(BaseModel):
     temporary_deletion: bool
     approval: bool
     item_type_id: Optional[str]
+    organization_id: Optional[str] = None
     user_id: Optional[str]
     created_at: datetime
     updated_at: datetime

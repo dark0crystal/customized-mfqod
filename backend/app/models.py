@@ -386,6 +386,8 @@ class MissingItem(Base):
     temporary_deletion: Mapped[bool] = mapped_column(Boolean, default=False)
     item_type_id: Mapped[Optional[str]] = mapped_column(ForeignKey("itemtype.id"), nullable=True)
     item_type: Mapped[Optional["ItemType"]] = relationship("ItemType", back_populates="missing_items")
+    organization_id: Mapped[Optional[str]] = mapped_column(ForeignKey("organization.id"), nullable=True)
+    organization: Mapped[Optional["Organization"]] = relationship("Organization")
     user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("user.id"), nullable=True)
     user: Mapped[Optional["User"]] = relationship("User", back_populates="missing_items")
     assigned_found_items: Mapped[List["MissingItemFoundItem"]] = relationship(

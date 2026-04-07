@@ -257,6 +257,11 @@
     "place": "Select the placement location",
     "country": "Country",
     "selectUniversity": "Select the university name",
+    "selectOrganization": "Select a university or organization",
+    "itemDetailsSection": "Item details",
+    "locationInformationSection": "Location information",
+    "loadingOrganizations": "Loading organizations…",
+    "organizationNotInList": "The saved organization is not in the current list. It may have been removed—please select again.",
     "selectPlace": "Select the placement location",
     "backToMissingItems": "Back to Missing Items",
     "editMissingItem": "Edit Missing Item",
@@ -278,6 +283,7 @@
     "submit": "Submit",
     "processing": "Processing...",
     "loading": "Loading...",
+    "cancel": "Cancel",
     "goToLogin": "Go to Login",
     "authenticationRequired": "Authentication required. Please log in first.",
     "authenticationFailed": "Authentication failed. Please log in again.",
@@ -304,7 +310,8 @@
       "organizationRequired": "Please select a university",
       "itemTypeRequired": "Please select an item type",
       "branchRequired": "Please select a branch"
-    }
+    },
+    "cannotEditApproved": "Approved missing items cannot be edited without permission."
   },
   "search": {
     "filter": "filter",

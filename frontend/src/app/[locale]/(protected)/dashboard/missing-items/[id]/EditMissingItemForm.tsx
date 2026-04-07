@@ -60,6 +60,12 @@ interface MissingItem {
   created_at: string;
   updated_at: string;
   item_type_id?: string;
+  organization_id?: string | null;
+  location?: {
+    organization_name?: string | null;
+    branch_name?: string | null;
+    full_location?: string | null;
+  };
   item_type?: ItemType;
   images?: Array<{
     id: string;
@@ -113,7 +119,8 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
   const [missingItem, setMissingItem] = useState<MissingItem | null>(null);
   const [confetti, setConfetti] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [orgSelectDisabled, setOrgSelectDisabled] = useState(false);
 
@@ -167,52 +174,67 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
   useEffect(() => {
     const fetchMissingItem = async () => {
       try {
+        setDetailLoading(true);
         const response = await fetch(`${API_BASE_URL}/api/missing-items/${missingItemId}`, {
           headers: getAuthHeaders(),
         });
 
         if (response.ok) {
           const data = await response.json();
-          console.log('Missing item data:', data);
-          setMissingItem(data);
 
-          // Set form values
-          setValue('title', data.title);
-          setValue('content', data.description);
-          setValue('item_type_id', data.item_type_id || '');
+          let images: NonNullable<MissingItem["images"]> = Array.isArray(data.images) ? data.images : [];
+          if (!images.length) {
+            const imgRes = await fetch(`${API_BASE_URL}/api/images/missing-items/${missingItemId}/images/`, {
+              headers: getAuthHeaders(),
+            });
+            if (imgRes.ok) {
+              const imgs: Array<{ id: string; url: string; description?: string }> = await imgRes.json();
+              if (Array.isArray(imgs) && imgs.length) {
+                images = imgs.map((img) => ({
+                  id: img.id,
+                  url: img.url,
+                  description: img.description,
+                }));
+              }
+            }
+          }
 
-          // Organization selection is no longer based on addresses
+          const merged: MissingItem = { ...data, images };
+          setMissingItem(merged);
+
+          setValue("title", data.title);
+          setValue("content", data.description);
+          setValue("item_type_id", data.item_type_id || "");
+          setValue("orgnization", data.organization_id || "");
         } else if (response.status === 401) {
           setAuthError("Authentication failed. Please log in again.");
         } else {
-          console.error('Failed to fetch missing item');
+          console.error("Failed to fetch missing item");
         }
       } catch (error) {
-        console.error('Error fetching missing item:', error);
+        console.error("Error fetching missing item:", error);
+      } finally {
+        setDetailLoading(false);
       }
     };
 
     fetchMissingItem();
   }, [missingItemId, API_BASE_URL, setValue]);
 
-  // Organization selection is no longer based on addresses
-  // Users can manually select organization if needed
-
   // Fetch organizations and item types
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setIsLoading(true);
+        setMetaLoading(true);
 
         // Fetch organizations
         const organizationsResponse = await fetch(`${API_BASE_URL}/api/organizations/`, {
-          method: 'GET',
+          method: "GET",
           headers: getAuthHeaders(),
         });
 
         if (organizationsResponse.ok) {
           const organizationsData = await organizationsResponse.json();
-          console.log('Organizations loaded:', organizationsData);
           setOrganizations(organizationsData);
           setOrgSelectDisabled(organizationsData.length === 1);
         } else if (organizationsResponse.status === 401) {
@@ -222,7 +244,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
 
         // Fetch item types
         const itemTypesResponse = await fetch(`${API_BASE_URL}/api/item-types/`, {
-          method: 'GET',
+          method: "GET",
           headers: getAuthHeaders(),
         });
 
@@ -233,18 +255,17 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           setAuthError("Authentication failed. Please log in again.");
           return;
         }
-
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching data:", error);
       } finally {
-        setIsLoading(false);
+        setMetaLoading(false);
       }
     };
 
     if (!authError) {
       fetchData();
     } else {
-      setIsLoading(false);
+      setMetaLoading(false);
     }
   }, [authError, API_BASE_URL]);
 
@@ -268,6 +289,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
         title: data.title,
         description: data.content,
         item_type_id: data.item_type_id,
+        organization_id: data.orgnization?.trim() ? data.orgnization.trim() : null,
         status: missingItem?.status || "pending",
         approval: true,
         temporary_deletion: false
@@ -316,8 +338,8 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
     }
   }, [confetti]);
 
-  // Loading state
-  if (isLoading) return <LoadingSpinner />;
+  // Loading state (wait for both detail + org/types to avoid flash of "not found")
+  if (metaLoading || detailLoading) return <LoadingSpinner />;
 
   // Authentication error state
   if (authError) {
@@ -338,7 +360,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
               e.currentTarget.style.backgroundColor = '#3277AE';
             }}
           >
-            Go to Login
+            {c("goToLogin")}
           </button>
         </div>
       </div>
@@ -421,7 +443,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
         {/* Section 1: Item Details */}
         <section>
           <h3 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">
-            Item Details
+            {c("itemDetailsSection")}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Title */}
@@ -433,7 +455,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
                 type="text"
                 id="title"
                 {...register("title")}
-                placeholder="e.g., Key, Wallet, etc."
+                placeholder={c("placeholderTitle")}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#3277AE] focus:ring-[#3277AE] sm:text-sm p-2.5 border"
               />
               {errors.title && <p className="mt-1 text-sm text-red-500">{errors.title.message}</p>}
@@ -447,7 +469,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
               <textarea
                 id="content"
                 {...register("content")}
-                placeholder="Provide additional details about the missing item"
+                placeholder={c("placeholderDetails")}
                 rows={4}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-[#3277AE] focus:ring-[#3277AE] sm:text-sm p-2.5 border"
               />
@@ -467,7 +489,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
                 <option value="">{c("selectItemType")}</option>
                 {itemTypes.map((itemType) => (
                   <option key={itemType.id} value={itemType.id}>
-                    {getLocalizedName(itemType.name_ar, itemType.name_en) || 'Unnamed'}
+                    {getLocalizedName(itemType.name_ar, itemType.name_en) || c("unnamed")}
                   </option>
                 ))}
               </select>
@@ -479,7 +501,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
         {/* Section 2: Location Information */}
         <section>
           <h3 className="text-lg font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100">
-            Location Information
+            {c("locationInformationSection")}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Country */}
@@ -513,18 +535,20 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
                   <option value="">{c("selectOrganization")}</option>
                 )}
                 {organizations.length === 0 ? (
-                  <option value="" disabled>Loading organizations...</option>
+                  <option value="" disabled>
+                    {c("loadingOrganizations")}
+                  </option>
                 ) : (
                   organizations.map((org) => (
                     <option key={org.id} value={org.id}>
-                      {getLocalizedName(org.name_ar, org.name_en) || 'Unnamed Organization'}
+                      {getLocalizedName(org.name_ar, org.name_en) || c("unnamedOrganization")}
                     </option>
                   ))
                 )}
               </select>
               {errors.orgnization && <p className="mt-1 text-sm text-red-500">{errors.orgnization.message}</p>}
-              {watchedOrg && !organizations.find(org => org.id === watchedOrg) && (
-                <p className="mt-1 text-sm text-yellow-600">Selected organization not found in list</p>
+              {watchedOrg && !organizations.find((org) => org.id === watchedOrg) && (
+                <p className="mt-1 text-sm text-yellow-600">{c("organizationNotInList")}</p>
               )}
             </div>
           </div>
@@ -576,7 +600,7 @@ export default function EditMissingItemForm({ missingItemId }: EditMissingItemFo
           </Link>
           <button
             type="submit"
-            disabled={isSubmitting || isProcessing || isLoading || !!authError || !isDirty}
+            disabled={isSubmitting || isProcessing || metaLoading || detailLoading || !!authError || !isDirty}
             className="px-6 py-2.5 bg-[#3277AE] text-white rounded-lg font-medium hover:bg-[#2a6594] focus:ring-4 focus:ring-blue-100 transition-all disabled:opacity-70 flex items-center"
           >
             {isSubmitting || isProcessing ? (

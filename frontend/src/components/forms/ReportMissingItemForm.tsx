@@ -290,6 +290,7 @@ export default function ReportMissingItem() {
         description: data.content,
         user_id: currentUser.id,
         item_type_id: data.item_type_id.trim(),
+        organization_id: data.orgnization.trim(),
         status: "pending", // Default status for missing items
         approval: true,
         temporary_deletion: false
