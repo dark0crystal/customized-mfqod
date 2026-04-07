@@ -8,6 +8,18 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { tokenManager } from '@/utils/tokenManager';
 
+// Helper function to create authenticated headers
+const getAuthHeaders = (): HeadersInit => {
+  const token = tokenManager.getAccessToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 type User = {
   id: string;
   email: string;
@@ -50,10 +62,9 @@ export default function ManageUsers() {
 
   const fetchUsers = async (email: string) => {
     try {
-      const response = await tokenManager.makeAuthenticatedRequest(
-        `${API_BASE}/api/users/search?email=${encodeURIComponent(email)}&page=1&limit=10`,
-        { method: 'GET' }
-      );
+      const response = await fetch(`${API_BASE}/api/users/search?email=${encodeURIComponent(email)}&page=1&limit=10`, {
+        headers: getAuthHeaders(),
+      });
       if (!response.ok) {
         throw new Error("Failed to fetch users");
       }

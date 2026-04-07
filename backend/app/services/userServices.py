@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
-# Must match auth_service / AuthConfig (env: JWT_ALGORITHM). Legacy ALGORITHM still supported.
-ALGORITHM = os.getenv("JWT_ALGORITHM") or os.getenv("ALGORITHM") or "HS256"
+ALGORITHM = os.getenv("ALGORITHM")
 TOKEN_EXPIRATION_MINUTES = 30  # Original token expiration
 ACCESS_TOKEN_EXPIRATION_MINUTES = 30  # Short-lived access token
 REFRESH_TOKEN_EXPIRATION_DAYS = 7     # Long-lived refresh token
