@@ -70,7 +70,7 @@ class UserResponse(BaseModel):
     middle_name: Optional[str] = None
     last_name: str
     name: str
-    phone_number: str
+    phone_number: Optional[str] = None
     role: Optional[str] = None
     role_id: Optional[str] = None
     status: Optional[str] = None

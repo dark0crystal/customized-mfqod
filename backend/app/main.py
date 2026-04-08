@@ -21,6 +21,7 @@ from app.services.sync_scheduler import start_scheduler, stop_scheduler
 from app.utils.logging_config import setup_logging
 import os
 import sys
+import re
 
 import logging
 
@@ -49,7 +50,7 @@ if config.ENABLE_GLOBAL_RATE_LIMIT:
 # Get allowed origins from environment variable or use defaults
 cors_origins_env = os.getenv("CORS_ORIGINS", "")
 if cors_origins_env:
-    origins = [origin.strip() for origin in cors_origins_env.split(",")]
+    origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
 else:
     origins = [
         "http://localhost:3000",  # Your Next.js frontend
@@ -62,6 +63,41 @@ else:
         # "https://yourdomain.com"
     ]
 
+# Optional regex (e.g. LAN dev: set CORS_ALLOW_LAN=true or CORS_ORIGIN_REGEX=...)
+cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", "").strip() or None
+if not cors_origin_regex and os.getenv("CORS_ALLOW_LAN", "").lower() in ("1", "true", "yes"):
+    # RFC1918 private networks + localhost; any port (http/https)
+    cors_origin_regex = (
+        r"^https?://("
+        r"localhost|127\.0\.0\.1|"
+        r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
+        r"192\.168\.\d{1,3}\.\d{1,3}|"
+        r"172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}"
+        r")(:\d+)?$"
+    )
+
+_cors_regex = re.compile(cors_origin_regex) if cors_origin_regex else None
+
+
+def cors_origin_allowed(origin: Optional[str]) -> bool:
+    if not origin:
+        return False
+    if origin in origins:
+        return True
+    if _cors_regex and _cors_regex.fullmatch(origin):
+        return True
+    return False
+
+
+def attach_cors_headers(response: JSONResponse, origin: Optional[str]) -> JSONResponse:
+    if origin and cors_origin_allowed(origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
+
+
 # Add security headers middleware (applied first due to reverse order)
 app.middleware("http")(add_security_headers)
 
@@ -69,7 +105,8 @@ app.middleware("http")(add_security_headers)
 # This ensures CORS headers are added before security headers can interfere
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Your Next.js frontend URLs
+    allow_origins=origins,
+    allow_origin_regex=cors_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],  # Added PATCH method
     allow_headers=["*"],
@@ -82,46 +119,33 @@ app.add_middleware(
 async def http_exception_handler(request: FastAPIRequest, exc: HTTPException):
     """Handle HTTP exceptions and ensure CORS headers are included"""
     origin = request.headers.get("origin")
-    
-    # Check if origin is in allowed origins
-    if origin in origins:
-        response = JSONResponse(
-            status_code=exc.status_code,
-            content={"detail": exc.detail}
-        )
-    
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        return response
-    
-    # If origin not in allowed list, return standard response (CORS middleware will handle it)
-    return JSONResponse(
+    response = JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail}
     )
+    return attach_cors_headers(response, origin)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: FastAPIRequest, exc: RequestValidationError):
     """Handle validation errors and ensure CORS headers are included"""
     origin = request.headers.get("origin")
-    
-    if origin in origins:
-        response = JSONResponse(
-            status_code=422,
-            content={"detail": exc.errors(), "body": exc.body}
-        )
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        return response
-    
-    return JSONResponse(
+    response = JSONResponse(
         status_code=422,
         content={"detail": exc.errors(), "body": exc.body}
     )
+    return attach_cors_headers(response, origin)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: FastAPIRequest, exc: Exception):
+    """Ensure 500 responses still expose CORS headers (middleware may not run when the response is an error path)."""
+    logger.exception("Unhandled server error: %s", exc)
+    origin = request.headers.get("origin")
+    response = JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+    return attach_cors_headers(response, origin)
 
 # Create the directory if it doesn't exist
 UPLOAD_DIR = "../storage/uploads/images"

@@ -3,7 +3,7 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Query, Path, Header, Response, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlmodel import Session
+from sqlalchemy.orm import Session
 from app.schemas.user_schema import (
     UserUpdate, UserResponse, 
     UserSearchResponse, UserSearchParams, UserStatusUpdate, 
