@@ -126,13 +126,14 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           {/* DSA Logo */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 w-full sm:w-auto flex justify-center sm:justify-start">
             <Image
               src="/dsalogo.png"
               alt="Deanship of Student's Affairs Logo"
-              width={320}
-              height={160}
-              className="h-36 w-auto sm:h-40 sm:w-auto lg:h-44 lg:w-auto"
+              width={300}
+              height={150}
+              sizes="(max-width: 640px) 100vw, 300px"
+              className="h-20 w-auto max-w-[min(100%,260px)] sm:h-24 sm:max-w-[300px] lg:h-28 lg:max-w-[340px] object-contain object-right"
               priority
             />
           </div>
