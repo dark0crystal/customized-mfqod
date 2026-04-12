@@ -140,10 +140,10 @@ export default function NewCardsSection() {
   }, []);
 
   return (
-    <div className="w-full py-16 px-4 sm:px-6 lg:px-8">
+    <div className="w-full pt-8 pb-16 px-4 sm:px-6 md:py-16 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Bottom Stats Section */}
-        <div className="mt-16 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-8 sm:p-12">
+        <div className="mt-6 md:mt-16 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-8 sm:p-12">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
             <div className="space-y-2">
               <div className="text-3xl sm:text-4xl font-bold" style={{ color: '#3277AE' }}>
