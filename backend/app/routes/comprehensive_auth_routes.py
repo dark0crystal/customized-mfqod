@@ -714,10 +714,12 @@ async def diagnose_ad(
             "port": ad_service.config.PORT,
             "use_ssl": ad_service.config.USE_SSL,
             "user_dn": ad_service.config.USER_DN,
+            "direct_user_bind": ad_service.config.DIRECT_USER_BIND,
+            "service_bind_configured": ad_service.service_bind_configured(),
             "bind_user": ad_service.config.BIND_USER,
-            "search_filter": ad_service.config.USER_SEARCH_FILTER
+            "search_filter": ad_service.config.USER_SEARCH_FILTER,
         },
-        "tests": {}
+        "tests": {},
     }
     
     # Test 1: Connection
@@ -735,33 +737,39 @@ async def diagnose_ad(
         diagnostics["tests"]["connection"]["details"]["error"] = str(e)
         diagnostics["tests"]["connection"]["details"]["message"] = "Failed to establish connection"
     
-    # Test 2: Service Account Bind
+    # Test 2: Service Account Bind (skipped when using direct user bind only)
     diagnostics["tests"]["service_bind"] = {
         "status": "pending",
-        "details": {}
+        "details": {},
     }
     conn = None
-    try:
-        conn = ad_service._get_ldap_connection()
-        conn.simple_bind_s(ad_service.config.BIND_USER, ad_service.config.BIND_PASSWORD)
-        diagnostics["tests"]["service_bind"]["status"] = "success"
-        diagnostics["tests"]["service_bind"]["details"]["message"] = "Service account bind successful"
-    except ldap.INVALID_CREDENTIALS:
-        diagnostics["tests"]["service_bind"]["status"] = "failed"
-        diagnostics["tests"]["service_bind"]["details"]["error"] = "Invalid service account credentials"
-    except Exception as e:
-        diagnostics["tests"]["service_bind"]["status"] = "failed"
-        diagnostics["tests"]["service_bind"]["details"]["error"] = str(e)
-    finally:
-        if conn:
-            try:
-                conn.unbind_s()
-            except:
-                pass
-    
+    if not ad_service.service_bind_configured():
+        diagnostics["tests"]["service_bind"]["status"] = "skipped"
+        diagnostics["tests"]["service_bind"]["details"]["message"] = (
+            "AD_BIND_USER / AD_BIND_PASSWORD not set (direct bind mode or incomplete config)"
+        )
+    else:
+        try:
+            conn = ad_service._get_ldap_connection()
+            conn.simple_bind_s(ad_service.config.BIND_USER, ad_service.config.BIND_PASSWORD)
+            diagnostics["tests"]["service_bind"]["status"] = "success"
+            diagnostics["tests"]["service_bind"]["details"]["message"] = "Service account bind successful"
+        except ldap.INVALID_CREDENTIALS:
+            diagnostics["tests"]["service_bind"]["status"] = "failed"
+            diagnostics["tests"]["service_bind"]["details"]["error"] = "Invalid service account credentials"
+        except Exception as e:
+            diagnostics["tests"]["service_bind"]["status"] = "failed"
+            diagnostics["tests"]["service_bind"]["details"]["error"] = str(e)
+        finally:
+            if conn:
+                try:
+                    conn.unbind_s()
+                except Exception:
+                    pass
+
     # Test 3: User Search (if username provided)
     username = request.username
-    if username:
+    if username and ad_service.service_bind_configured():
         diagnostics["tests"]["user_search"] = {
             "status": "pending",
             "username": username,
@@ -834,9 +842,17 @@ async def diagnose_ad(
             if conn:
                 try:
                     conn.unbind_s()
-                except:
+                except Exception:
                     pass
-    
+    elif username:
+        diagnostics["tests"]["user_search"] = {
+            "status": "skipped",
+            "username": username,
+            "details": {
+                "message": "User LDAP search requires AD_BIND_USER / AD_BIND_PASSWORD",
+            },
+        }
+
     # Test 4: Health Check
     try:
         health = await ad_service.health_check()

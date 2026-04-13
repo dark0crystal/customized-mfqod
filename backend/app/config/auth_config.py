@@ -83,6 +83,22 @@ def _env_required_list(key: str, separator: str = ",") -> List[str]:
     return items
 
 
+def _env_optional_str(key: str) -> Optional[str]:
+    """Optional non-empty string from environment."""
+    v = os.getenv(key)
+    if v is None or v.strip() == "":
+        return None
+    return v
+
+
+def _env_bool_default(key: str, default: bool) -> bool:
+    """Boolean from environment; uses default when unset or empty."""
+    v = os.getenv(key)
+    if v is None or v.strip() == "":
+        return default
+    return v.lower() in ("true", "1", "yes")
+
+
 class AuthConfig:
     # JWT Configuration
     SECRET_KEY: str = _env_required("SECRET_KEY")
@@ -159,9 +175,16 @@ class ADConfig:
     USER_DN: str = _env_required("AD_USER_DN")
     GROUP_DN: str = _env_required("AD_GROUP_DN")
 
-    # Service Account for LDAP Binding (RFC 2251 compliant)
-    BIND_USER: str = _env_required("AD_BIND_USER")
-    BIND_PASSWORD: str = _env_required("AD_BIND_PASSWORD")
+    # Service account for LDAP search/sync (optional when AD_DIRECT_USER_BIND=true)
+    BIND_USER: Optional[str] = _env_optional_str("AD_BIND_USER")
+    BIND_PASSWORD: Optional[str] = _env_optional_str("AD_BIND_PASSWORD")
+
+    # Direct bind: authenticate with only the end-user identity + password (no service account)
+    DIRECT_USER_BIND: bool = _env_bool_default("AD_DIRECT_USER_BIND", False)
+    # Python format string with exactly {username}, e.g. "{username}@squ.edu.om" or "SQU\\{username}"
+    USER_BIND_IDENTITY_TEMPLATE: Optional[str] = _env_optional_str("AD_USER_BIND_IDENTITY_TEMPLATE")
+    # When the bind identity is not a UPN/email, set this so local user records get a unique email
+    DEFAULT_EMAIL_DOMAIN: Optional[str] = _env_optional_str("AD_DEFAULT_EMAIL_DOMAIN")
 
     # JWT Configuration for Application Tokens
     SECRET_KEY: str = _env_required("SECRET_KEY")

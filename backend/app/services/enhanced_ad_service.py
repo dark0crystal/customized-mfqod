@@ -47,7 +47,93 @@ class EnhancedADService:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Active Directory service unavailable"
             )
-    
+
+    def service_bind_configured(self) -> bool:
+        return bool(self.config.BIND_USER and self.config.BIND_PASSWORD)
+
+    def _build_user_bind_identity(self, username: str) -> str:
+        tmpl = self.config.USER_BIND_IDENTITY_TEMPLATE
+        if not tmpl:
+            raise ValueError(
+                "AD_USER_BIND_IDENTITY_TEMPLATE is required when AD_DIRECT_USER_BIND=true "
+                "(e.g. {username}@squ.edu.om)"
+            )
+        u = (username or "").strip()
+        if not u or "\x00" in u:
+            raise ValueError("Invalid username")
+        try:
+            return tmpl.format(username=u)
+        except KeyError as e:
+            raise ValueError(
+                "AD_USER_BIND_IDENTITY_TEMPLATE may only use the {username} placeholder"
+            ) from e
+
+    def _minimal_ad_user_dict(self, username: str, bind_identity: str) -> Dict[str, Any]:
+        email: Optional[str] = None
+        if "@" in bind_identity:
+            email = bind_identity
+        elif self.config.DEFAULT_EMAIL_DOMAIN:
+            email = f"{username}@{self.config.DEFAULT_EMAIL_DOMAIN}"
+        if not email:
+            raise ValueError(
+                "Cannot derive user email: use a UPN-style template (e.g. {username}@squ.edu.om) "
+                "or set AD_DEFAULT_EMAIL_DOMAIN"
+            )
+        return {
+            "username": username,
+            "email": email,
+            "display_name": None,
+            "first_name": username,
+            "last_name": "-",
+            "phone_number": None,
+            "employee_id": None,
+            "department": None,
+            "groups": [],
+            "user_type": UserType.INTERNAL.value,
+            "last_logon": None,
+            "account_control": None,
+            "dn": bind_identity,
+        }
+
+    def _authenticate_via_direct_bind(
+        self, username: str, password: str
+    ) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
+        if password is None or password == "":
+            return False, None, "Password required"
+        try:
+            bind_identity = self._build_user_bind_identity(username)
+        except ValueError as e:
+            return False, None, str(e)
+
+        conn = None
+        try:
+            conn = self._get_ldap_connection()
+            conn.simple_bind_s(bind_identity, password)
+            user_data = self._minimal_ad_user_dict(username, bind_identity)
+            logger.info("User %s authenticated via direct LDAP bind", username)
+            return True, user_data, None
+        except ldap.INVALID_CREDENTIALS:
+            logger.warning("Direct LDAP bind failed for user %s (invalid credentials)", username)
+            return False, None, "Invalid credentials"
+        except ldap.SERVER_DOWN:
+            err = "LDAP server is down or unreachable"
+            logger.error(err)
+            return False, None, err
+        except LDAPError as e:
+            err = f"LDAP error: {str(e)}"
+            logger.error("Direct bind LDAP error for %s: %s", username, err)
+            return False, None, err
+        except Exception as e:
+            err = f"Unexpected error: {str(e)}"
+            logger.error("Direct bind error for %s: %s", username, err)
+            return False, None, err
+        finally:
+            if conn:
+                try:
+                    conn.unbind_s()
+                except Exception:
+                    pass
+
     def authenticate_user(self, username: str, password: str) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
         """
         Authenticate user against Active Directory with enhanced verification
@@ -57,6 +143,9 @@ class EnhancedADService:
         conn = None
         error_detail = None
         try:
+            if self.config.DIRECT_USER_BIND:
+                return self._authenticate_via_direct_bind(username, password)
+
             # Step 1: Create connection
             try:
                 conn = self._get_ldap_connection()
@@ -65,7 +154,14 @@ class EnhancedADService:
                 error_detail = f"Connection failed: {str(e)}"
                 logger.error(f"Failed to create LDAP connection: {error_detail}")
                 return False, None, error_detail
-            
+
+            if not self.service_bind_configured():
+                error_detail = (
+                    "AD_BIND_USER and AD_BIND_PASSWORD must be set when AD_DIRECT_USER_BIND=false"
+                )
+                logger.error(error_detail)
+                return False, None, error_detail
+
             # Step 2: Bind with service account
             try:
                 conn.simple_bind_s(self.config.BIND_USER, self.config.BIND_PASSWORD)
@@ -166,8 +262,8 @@ class EnhancedADService:
             logger.error(f"LDAP server down: {error_detail}")
             return False, None, error_detail
         except ldap.INVALID_CREDENTIALS:
-            error_detail = "Service account credentials invalid"
-            logger.error(f"LDAP invalid credentials: {error_detail}")
+            error_detail = "LDAP bind rejected (check service account or user credentials)"
+            logger.error("LDAP invalid credentials: %s", error_detail)
             return False, None, error_detail
         except LDAPError as e:
             error_detail = f"LDAP error: {str(e)}"
@@ -295,11 +391,23 @@ class EnhancedADService:
             # Run AD lookup in thread pool to avoid blocking async event loop
             loop = asyncio.get_event_loop()
             user_data = await loop.run_in_executor(
-                self.executor, 
-                self._get_ad_user_data, 
-                username
+                self.executor,
+                self._get_ad_user_data,
+                username,
             )
-            
+
+            if not user_data and self.config.DIRECT_USER_BIND:
+                try:
+                    bind_identity = self._build_user_bind_identity(username)
+                    user_data = self._minimal_ad_user_dict(username, bind_identity)
+                except Exception as e:
+                    logger.error(
+                        "Could not build minimal AD profile for %s (direct bind): %s",
+                        username,
+                        str(e),
+                    )
+                    return None
+
             if not user_data:
                 return None
             
@@ -365,6 +473,9 @@ class EnhancedADService:
         """Get user data from AD (blocking operation)"""
         conn = None
         try:
+            if not self.service_bind_configured():
+                logger.warning("AD user lookup skipped: service bind credentials not configured")
+                return None
             conn = self._get_ldap_connection()
             conn.simple_bind_s(self.config.BIND_USER, self.config.BIND_PASSWORD)
             
@@ -491,6 +602,9 @@ class EnhancedADService:
         """Get all active users from AD (blocking operation)"""
         conn = None
         try:
+            if not self.service_bind_configured():
+                logger.warning("AD bulk sync skipped: service bind credentials not configured")
+                return []
             conn = self._get_ldap_connection()
             conn.simple_bind_s(self.config.BIND_USER, self.config.BIND_PASSWORD)
             
@@ -612,37 +726,62 @@ class EnhancedADService:
         try:
             start_time = datetime.now(timezone.utc)
             conn = self._get_ldap_connection()
-            
-            # Test connection and binding
+
+            if not self.service_bind_configured():
+                try:
+                    conn.simple_bind_s("", "")
+                except ldap.SERVER_DOWN as e:
+                    return {
+                        "status": "unhealthy",
+                        "error": str(e),
+                        "server": self.config.SERVER,
+                        "port": self.config.PORT,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                except ldap.LDAPError:
+                    pass
+                end_time = datetime.now(timezone.utc)
+                return {
+                    "status": "limited",
+                    "message": (
+                        "No service bind configured; directory search and bulk sync are unavailable. "
+                        "Direct user bind (AD_DIRECT_USER_BIND) may still work."
+                    ),
+                    "response_time_seconds": (end_time - start_time).total_seconds(),
+                    "server": self.config.SERVER,
+                    "port": self.config.PORT,
+                    "ssl": self.config.USE_SSL,
+                    "timestamp": end_time.isoformat(),
+                }
+
             conn.simple_bind_s(self.config.BIND_USER, self.config.BIND_PASSWORD)
-            
-            # Test search capability
-            result = conn.search_s(
+
+            conn.search_s(
                 self.config.USER_DN,
                 ldap.SCOPE_BASE,
                 "(objectClass=*)",
-                ["dn"]
+                ["dn"],
             )
-            
+
             end_time = datetime.now(timezone.utc)
             response_time = (end_time - start_time).total_seconds()
-            
+
             return {
-                'status': 'healthy',
-                'response_time_seconds': response_time,
-                'server': self.config.SERVER,
-                'port': self.config.PORT,
-                'ssl': self.config.USE_SSL,
-                'timestamp': end_time.isoformat()
+                "status": "healthy",
+                "response_time_seconds": response_time,
+                "server": self.config.SERVER,
+                "port": self.config.PORT,
+                "ssl": self.config.USE_SSL,
+                "timestamp": end_time.isoformat(),
             }
-            
+
         except Exception as e:
             return {
-                'status': 'unhealthy',
-                'error': str(e),
-                'server': self.config.SERVER,
-                'port': self.config.PORT,
-                'timestamp': datetime.now(timezone.utc).isoformat()
+                "status": "unhealthy",
+                "error": str(e),
+                "server": self.config.SERVER,
+                "port": self.config.PORT,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         finally:
             if conn:
