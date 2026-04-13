@@ -249,7 +249,7 @@ export default function Search() {
             <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-[#3277AE]/20 shadow-sm">
               <div className="p-4 space-y-4">
                 {/* Item Type Filter */}
-                <div className="relative z-10">
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t("item-type")}
                   </label>
@@ -265,7 +265,7 @@ export default function Search() {
                 </div>
 
                 {/* Branch Filter */}
-                <div className="relative z-10">
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {tSearch("branch")}
                   </label>
@@ -299,7 +299,7 @@ export default function Search() {
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Item Type Filter */}
-                  <div className="relative z-10">
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {t("item-type")}
                     </label>
@@ -315,7 +315,7 @@ export default function Search() {
                   </div>
 
                   {/* Branch Filter */}
-                  <div className="relative z-10">
+                  <div className="relative">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {tSearch("branch")}
                     </label>
