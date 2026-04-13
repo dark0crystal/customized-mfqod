@@ -181,8 +181,9 @@ class ADConfig:
 
     # Direct bind: authenticate with only the end-user identity + password (no service account)
     DIRECT_USER_BIND: bool = _env_bool_default("AD_DIRECT_USER_BIND", False)
-    # Python format string with exactly {username}, e.g. "{username}@squ.edu.om" or "SQU\\{username}"
-    USER_BIND_IDENTITY_TEMPLATE: Optional[str] = _env_optional_str("AD_USER_BIND_IDENTITY_TEMPLATE")
+    # Comma-separated Python format strings, each with {username} only, e.g.
+    # "{username}@student.squ.edu.om,{username}@squ.edu.om"
+    USER_BIND_IDENTITY_TEMPLATES: List[str] = _env_list("AD_USER_BIND_IDENTITY_TEMPLATE")
     # When the bind identity is not a UPN/email, set this so local user records get a unique email
     DEFAULT_EMAIL_DOMAIN: Optional[str] = _env_optional_str("AD_DEFAULT_EMAIL_DOMAIN")
 

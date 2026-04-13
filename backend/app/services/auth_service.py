@@ -40,9 +40,11 @@ class AuthService:
         Uses database-first lookup to determine user type.
 
         **University (internal/AD) users** may provide either:
-        - **Username only** (e.g. `jdoe`) — used as-is for AD bind.
-        - **Full email** (e.g. `jdoe@university.edu`) — the part before `@` is used as the AD username; the domain is ignored for authentication.
-        Both formats are supported for lookup and for AD authentication.
+        - **Username only** (e.g. `jdoe`) — for direct LDAP bind, each value in
+          `AD_USER_BIND_IDENTITY_TEMPLATE` (comma-separated) is tried as `{username}@suffix`.
+        - **Full UPN / email** (e.g. `jdoe@student.squ.edu.om` or `jdoe@squ.edu.om`) — that
+          string is tried first for LDAP bind; the local part before `@` is still used as
+          the account username in the app.
         """
         try:
             # Get client info
@@ -74,11 +76,17 @@ class AuthService:
                 username = email_or_username.split("@")[0] if "@" in email_or_username else email_or_username
                 
                 try:
-                    is_authenticated, ad_user_data, error_detail = self.ad_service.authenticate_user(username, password)
-                    
+                    is_authenticated, ad_user_data, error_detail = self.ad_service.authenticate_user(
+                        username, password, login_input=email_or_username
+                    )
+
                     if is_authenticated:
                         # Business logic: Auto-create internal user from AD on successful authentication
-                        user = await self.ad_service.sync_user_from_ad(username, db)
+                        user = await self.ad_service.sync_user_from_ad(
+                            username,
+                            db,
+                            bind_identity=ad_user_data.get("dn") if ad_user_data else None,
+                        )
                         if user:
                             await self._handle_successful_login(user, ip_address, user_agent, db)
                             return await self._generate_auth_response(user, ip_address, user_agent, db)
@@ -145,7 +153,9 @@ class AuthService:
             # Security: Always authenticate against AD to verify user is still active
             # This ensures database user records stay in sync with AD
             try:
-                is_authenticated, ad_user_data, error_detail = self.ad_service.authenticate_user(username, password)
+                is_authenticated, ad_user_data, error_detail = self.ad_service.authenticate_user(
+                    username, password, login_input=email_or_username
+                )
             except HTTPException as e:
                 # Re-raise HTTP exceptions (like service unavailable)
                 raise e
@@ -176,7 +186,11 @@ class AuthService:
             # User exists and is active in AD - proceed with sync/update
             if not user:
                 # Create new user from AD
-                user = await self.ad_service.sync_user_from_ad(username, db)
+                user = await self.ad_service.sync_user_from_ad(
+                    username,
+                    db,
+                    bind_identity=ad_user_data.get("dn") if ad_user_data else None,
+                )
                 if not user:
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

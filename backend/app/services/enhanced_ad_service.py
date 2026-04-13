@@ -63,22 +63,47 @@ class EnhancedADService:
     def service_bind_configured(self) -> bool:
         return bool(self.config.BIND_USER and self.config.BIND_PASSWORD)
 
-    def _build_user_bind_identity(self, username: str) -> str:
-        tmpl = self.config.USER_BIND_IDENTITY_TEMPLATE
-        if not tmpl:
-            raise ValueError(
-                "AD_USER_BIND_IDENTITY_TEMPLATE is required when AD_DIRECT_USER_BIND=true "
-                "(e.g. {username}@squ.edu.om)"
-            )
+    def _sam_account_from_login(self, username: str, login_input: Optional[str]) -> str:
         u = (username or "").strip()
-        if not u or "\x00" in u:
+        li = (login_input or "").strip()
+        if li and "@" in li:
+            return li.split("@", 1)[0].strip() or u
+        return u
+
+    def _direct_bind_identity_candidates(
+        self, username: str, login_input: Optional[str]
+    ) -> List[str]:
+        """UPN candidates: full login if user@domain, then each template with SAM name."""
+        sam = self._sam_account_from_login(username, login_input)
+        if not sam or "\x00" in sam:
             raise ValueError("Invalid username")
-        try:
-            return tmpl.format(username=u)
-        except KeyError as e:
+        li = (login_input or "").strip()
+        templates = self.config.USER_BIND_IDENTITY_TEMPLATES
+        seen = set()
+        out: List[str] = []
+
+        if li and "@" in li:
+            if li not in seen:
+                seen.add(li)
+                out.append(li)
+
+        for tmpl in templates:
+            try:
+                cand = tmpl.format(username=sam)
+            except KeyError as e:
+                raise ValueError(
+                    "AD_USER_BIND_IDENTITY_TEMPLATE entries may only use the {username} placeholder"
+                ) from e
+            if cand not in seen:
+                seen.add(cand)
+                out.append(cand)
+
+        if not out:
             raise ValueError(
-                "AD_USER_BIND_IDENTITY_TEMPLATE may only use the {username} placeholder"
-            ) from e
+                "Set AD_USER_BIND_IDENTITY_TEMPLATE (comma-separated for multiple UPN suffixes) "
+                "or sign in with a full UPN/email (user@domain)"
+            )
+        return out
 
     def _minimal_ad_user_dict(self, username: str, bind_identity: str) -> Dict[str, Any]:
         email: Optional[str] = None
@@ -108,45 +133,67 @@ class EnhancedADService:
         }
 
     def _authenticate_via_direct_bind(
-        self, username: str, password: str
+        self,
+        username: str,
+        password: str,
+        login_input: Optional[str] = None,
     ) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
         if password is None or password == "":
             return False, None, "Password required"
         try:
-            bind_identity = self._build_user_bind_identity(username)
+            candidates = self._direct_bind_identity_candidates(username, login_input)
         except ValueError as e:
             return False, None, str(e)
 
-        conn = None
-        try:
-            conn = self._get_ldap_connection()
-            conn.simple_bind_s(bind_identity, password)
-            user_data = self._minimal_ad_user_dict(username, bind_identity)
-            logger.info("User %s authenticated via direct LDAP bind", username)
-            return True, user_data, None
-        except ldap.INVALID_CREDENTIALS:
-            logger.warning("Direct LDAP bind failed for user %s (invalid credentials)", username)
-            return False, None, "Invalid credentials"
-        except ldap.SERVER_DOWN:
-            err = "LDAP server is down or unreachable"
-            logger.error(err)
-            return False, None, err
-        except LDAPError as e:
-            err = f"LDAP error: {str(e)}"
-            logger.error("Direct bind LDAP error for %s: %s", username, err)
-            return False, None, err
-        except Exception as e:
-            err = f"Unexpected error: {str(e)}"
-            logger.error("Direct bind error for %s: %s", username, err)
-            return False, None, err
-        finally:
-            if conn:
-                try:
-                    conn.unbind_s()
-                except Exception:
-                    pass
+        sam = self._sam_account_from_login(username, login_input)
+        last_err: Optional[str] = None
 
-    def authenticate_user(self, username: str, password: str) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
+        for bind_identity in candidates:
+            conn = None
+            try:
+                conn = self._get_ldap_connection()
+                conn.simple_bind_s(bind_identity, password)
+                user_data = self._minimal_ad_user_dict(sam, bind_identity)
+                logger.info(
+                    "User %s authenticated via direct LDAP bind as %s",
+                    sam,
+                    bind_identity,
+                )
+                return True, user_data, None
+            except ldap.INVALID_CREDENTIALS:
+                last_err = "Invalid credentials"
+                logger.debug(
+                    "Direct bind failed for %s as %s (invalid credentials; may try next identity)",
+                    sam,
+                    bind_identity,
+                )
+            except ldap.SERVER_DOWN:
+                err = "LDAP server is down or unreachable"
+                logger.error(err)
+                return False, None, err
+            except LDAPError as e:
+                err = f"LDAP error: {str(e)}"
+                logger.error("Direct bind LDAP error for %s: %s", sam, err)
+                return False, None, err
+            except Exception as e:
+                err = f"Unexpected error: {str(e)}"
+                logger.error("Direct bind error for %s: %s", sam, err)
+                return False, None, err
+            finally:
+                if conn:
+                    try:
+                        conn.unbind_s()
+                    except Exception:
+                        pass
+
+        return False, None, last_err or "Invalid credentials"
+
+    def authenticate_user(
+        self,
+        username: str,
+        password: str,
+        login_input: Optional[str] = None,
+    ) -> Tuple[bool, Optional[Dict[str, Any]], Optional[str]]:
         """
         Authenticate user against Active Directory with enhanced verification
         Returns: (is_authenticated, user_data, error_detail)
@@ -156,7 +203,7 @@ class EnhancedADService:
         error_detail = None
         try:
             if self.config.DIRECT_USER_BIND:
-                return self._authenticate_via_direct_bind(username, password)
+                return self._authenticate_via_direct_bind(username, password, login_input)
 
             # Step 1: Create connection
             try:
@@ -392,7 +439,12 @@ class EnhancedADService:
         except (ValueError, OSError):
             return None
     
-    async def sync_user_from_ad(self, username: str, db: Session) -> Optional[User]:
+    async def sync_user_from_ad(
+        self,
+        username: str,
+        db: Session,
+        bind_identity: Optional[str] = None,
+    ) -> Optional[User]:
         """Sync a specific user from AD to local database
         
         Business logic: Creates or updates user record from AD data
@@ -410,8 +462,11 @@ class EnhancedADService:
 
             if not user_data and self.config.DIRECT_USER_BIND:
                 try:
-                    bind_identity = self._build_user_bind_identity(username)
-                    user_data = self._minimal_ad_user_dict(username, bind_identity)
+                    if bind_identity:
+                        user_data = self._minimal_ad_user_dict(username, bind_identity)
+                    else:
+                        cands = self._direct_bind_identity_candidates(username, None)
+                        user_data = self._minimal_ad_user_dict(username, cands[0])
                 except Exception as e:
                     logger.error(
                         "Could not build minimal AD profile for %s (direct bind): %s",

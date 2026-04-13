@@ -715,6 +715,7 @@ async def diagnose_ad(
             "use_ssl": ad_service.config.USE_SSL,
             "user_dn": ad_service.config.USER_DN,
             "direct_user_bind": ad_service.config.DIRECT_USER_BIND,
+            "user_bind_identity_templates": ad_service.config.USER_BIND_IDENTITY_TEMPLATES,
             "service_bind_configured": ad_service.service_bind_configured(),
             "bind_user": ad_service.config.BIND_USER,
             "search_filter": ad_service.config.USER_SEARCH_FILTER,
