@@ -3,9 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import DisplayPosts from "./DisplayPosts";
 import Footer from "@/components/Footer";
 import CustomDropdown from "@/components/ui/CustomDropdown";
-import FilterModal from "@/components/ui/FilterModal";
 import HydrationSafeWrapper from "@/components/HydrationSafeWrapper";
-import { MdTune } from "react-icons/md";
 import { useTranslations, useLocale } from "next-intl";
 import { tokenManager } from "@/utils/tokenManager";
 
@@ -52,7 +50,6 @@ export default function Search() {
   const [error, setError] = useState<string | null>(null);
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   const API_BASE = `${process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'}/api/item-types/public`;
 
@@ -258,6 +255,54 @@ export default function Search() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8">
         <div className="space-y-6">
+          {/* Mobile Filters - Always Visible Top */}
+          <div className="lg:hidden relative z-20">
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-[#3277AE]/20 shadow-sm">
+              <div className="p-4 space-y-4">
+                {/* Item Type Filter */}
+                <div className="relative z-10">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t("item-type")}
+                  </label>
+                  <HydrationSafeWrapper fallback={<div className="w-full h-12 bg-gray-100 rounded-lg animate-pulse"></div>}>
+                    <CustomDropdown
+                      options={itemTypeOptions}
+                      value={currentItemTypeId}
+                      onChange={handleItemTypeChange}
+                      placeholder={tSearch("selectItemType")}
+                      variant="light"
+                    />
+                  </HydrationSafeWrapper>
+                </div>
+
+                {/* Branch Filter */}
+                <div className="relative z-10">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t("branch")}
+                  </label>
+                  <HydrationSafeWrapper fallback={<div className="w-full h-12 bg-gray-100 rounded-lg animate-pulse"></div>}>
+                    <CustomDropdown
+                      options={branchOptions}
+                      value={selectedBranchId}
+                      onChange={handleBranchChange}
+                      placeholder={tSearch("selectBranch")}
+                      variant="light"
+                    />
+                  </HydrationSafeWrapper>
+                </div>
+
+                {(currentItemTypeId || selectedBranchId) && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="w-full px-4 py-2 text-sm text-[#3277AE] hover:text-[#3277AE]/80 hover:bg-[#3277AE]/5 rounded-lg font-medium transition-colors duration-200 border border-[#3277AE]/20"
+                  >
+                    {tSearch("clearAllFilters")}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Desktop Filters - Top */}
           <div className="hidden lg:block relative z-20">
             <div className="flex justify-center">
@@ -365,57 +410,6 @@ export default function Search() {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Mobile Filter Modal */}
-      <HydrationSafeWrapper>
-        <FilterModal
-          isOpen={isFilterModalOpen}
-          onClose={() => setIsFilterModalOpen(false)}
-          itemTypes={itemTypes}
-          branches={branches}
-          currentItemTypeId={currentItemTypeId}
-          selectedBranchId={selectedBranchId}
-          onApplyFilters={(itemTypeId, branchId) => {
-            setCurrentItemTypeId(itemTypeId);
-            setSelectedBranchId(branchId);
-            fetchItemByItemType(itemTypeId, branchId);
-          }}
-          onClearFilters={clearAllFilters}
-          itemsCount={items.length}
-          loading={loading}
-        />
-      </HydrationSafeWrapper>
-
-      {/* Mobile Floating Filter Button */}
-      <div className="lg:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
-        <button
-          onClick={() => setIsFilterModalOpen(!isFilterModalOpen)}
-          className="flex items-center space-x-3 px-6 py-4 rounded-lg shadow-md transition-all duration-200 text-white"
-          style={{ 
-            backgroundColor: isFilterModalOpen ? '#ef4444' : '#3277AE',
-            '--tw-ring-color': isFilterModalOpen ? '#ef4444' : '#3277AE'
-          } as React.CSSProperties & { [key: string]: string }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = isFilterModalOpen ? '#dc2626' : '#2a5f94';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = isFilterModalOpen ? '#ef4444' : '#3277AE';
-          }}
-        >
-          <MdTune className="w-6 h-6" />
-          <span className="font-medium text-base">
-            {isFilterModalOpen ? tSearch("close") : tSearch("filters")}
-          </span>
-          {(currentItemTypeId || selectedBranchId) && (
-            <span 
-              className="text-white text-sm px-2 py-1 rounded-full min-w-[24px] h-6 flex items-center justify-center"
-              style={{ backgroundColor: '#3277AE' }}
-            >
-              {(currentItemTypeId ? 1 : 0) + (selectedBranchId ? 1 : 0)}
-            </span>
-          )}
-        </button>
       </div>
 
       <Footer />
