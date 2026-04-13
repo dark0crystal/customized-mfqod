@@ -241,17 +241,6 @@ export default function Search() {
 
   return (
     <div className="min-h-screen">
-      {/* Mobile Results Summary */}
-      <div className="lg:hidden bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-center">
-            <span className="text-sm font-medium text-gray-700">
-              {loading ? tSearch("loading") : getItemsCountText(items.length)}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8">
         <div className="space-y-6">
@@ -278,7 +267,7 @@ export default function Search() {
                 {/* Branch Filter */}
                 <div className="relative z-10">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t("branch")}
+                    {tSearch("branch")}
                   </label>
                   <HydrationSafeWrapper fallback={<div className="w-full h-12 bg-gray-100 rounded-lg animate-pulse"></div>}>
                     <CustomDropdown
@@ -328,7 +317,7 @@ export default function Search() {
                   {/* Branch Filter */}
                   <div className="relative z-10">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t("branch")}
+                      {tSearch("branch")}
                     </label>
                     <HydrationSafeWrapper fallback={<div className="w-full h-12 bg-gray-100 rounded-lg animate-pulse"></div>}>
                       <CustomDropdown

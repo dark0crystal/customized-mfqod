@@ -58,7 +58,11 @@ export default function CustomDropdown({
   };
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef} dir={direction}>
+    <div
+      className={`relative ${isOpen ? "z-[300]" : "z-10"} ${className}`}
+      ref={dropdownRef}
+      dir={direction}
+    >
       <button
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
