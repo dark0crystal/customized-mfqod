@@ -7,9 +7,9 @@
     "description": "مفقود يسهل عليك تحصل ممتلكاتك المفقودة"
   },
   "stats": {
-    "itemsCount": "عدد العناصر",
-    "branchesCount": "عدد الفروع",
-    "returnedCount": "تم إرجاعها حتى الآن",
+    "itemsCount": "عدد المفقود",
+    "branchesCount": "مواقع إستلام المفقود",
+    "returnedCount": "ما تم إرجاعه حتى الآن",
     "loadingError": "خطأ في التحميل"
   },
   "howMfqodWorks": {
@@ -32,7 +32,7 @@
     "dashboard": "لوحة التحكم",
     "report": "الإبلاغ عن مفقود",
     "reportBtn": "وجدت مفقودًا ؟",
-    "branchesInfo": "الفروع",
+    "branchesInfo": "مواقع إستلام المفقود",
     "guides": "دليل المستخدم",
     "login": "تسجيل الدخول",
     "logout": "تسجيل الخروج",
@@ -57,6 +57,7 @@
     "main": "الرئيسية",
     "search": "أبحث عن مفقود",
     "report": "الإبلاغ عن مفقود",
+    "branchesInfo": "مواقع إستلام المفقود",
     "guides": "دليل المستخدم",
     "howMfqodWorks": "كيف يعمل مفقود",
     "privacy": "سياسة الخصوصية",

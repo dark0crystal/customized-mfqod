@@ -16,6 +16,7 @@ export default function Footer() {
   const quickLinks = [
     { href: "/dashboard/report-missing-item", label: `${t("report")}`, requiresAuth: true },
     { href: "/search", label: `${t("search")}`, requiresAuth: false },
+    { href: "/branches-info", label: `${t("branchesInfo")}`, requiresAuth: false },
     { href: "/guides", label: `${t("guides")}`, requiresAuth: false },
     { href: "/how-mfqod-works", label: `${t("howMfqodWorks")}`, requiresAuth: false },
   ];
