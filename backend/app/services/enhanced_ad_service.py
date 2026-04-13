@@ -521,7 +521,12 @@ class EnhancedADService:
             'display_name': display_name_val,
             'first_name': fn,
             'last_name': ln,
-            'phone_number': get_attr_value('telephoneNumber'),
+            'phone_number': (
+                get_attr_value('telephoneNumber')
+                or get_attr_value('mobile')
+                or get_attr_value('homePhone')
+                or get_attr_value('ipPhone')
+            ),
             'employee_id': get_attr_value('employeeID'),
             'department': get_attr_value('department'),
             'groups': groups,
