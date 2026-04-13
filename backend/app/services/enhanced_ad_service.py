@@ -1,4 +1,5 @@
 import ldap
+import ldap.filter
 import ssl
 import logging
 from typing import Dict, List, Optional, Any, Tuple
@@ -132,6 +133,74 @@ class EnhancedADService:
             "dn": bind_identity,
         }
 
+    def _ldap_search_as_bound_user(
+        self,
+        conn: ldap.ldapobject.LDAPObject,
+        sam: str,
+        bind_identity: str,
+    ) -> Optional[Tuple[str, Dict]]:
+        """
+        After a successful user bind, read the user's own directory entry (name, mail, etc.).
+        Works when AD allows authenticated users to search under the configured base.
+        """
+        sam_esc = ldap.filter.escape_filter_chars(sam)
+        upn_esc = ldap.filter.escape_filter_chars(bind_identity)
+
+        search_filters: List[str] = []
+        try:
+            search_filters.append(self.config.USER_SEARCH_FILTER.format(username=sam_esc))
+        except Exception:
+            logger.debug("Could not format AD_USER_SEARCH_FILTER for self-read", exc_info=True)
+
+        search_filters.extend(
+            [
+                f"(&(objectClass=user)(sAMAccountName={sam_esc}))",
+                f"(&(objectClass=user)(userPrincipalName={upn_esc}))",
+                f"(&(objectClass=person)(sAMAccountName={sam_esc}))",
+                f"(&(objectClass=person)(uid={sam_esc}))",
+                f"(&(objectClass=person)(cn={sam_esc}))",
+            ]
+        )
+
+        seen_f = set()
+        unique_filters: List[str] = []
+        for sf in search_filters:
+            if sf and sf not in seen_f:
+                seen_f.add(sf)
+                unique_filters.append(sf)
+
+        bases = [self.config.USER_DN, self.config.BASE_DN]
+        seen_b = set()
+        unique_bases: List[str] = []
+        for b in bases:
+            if b and b not in seen_b:
+                seen_b.add(b)
+                unique_bases.append(b)
+
+        attr_list = list(self.config.USER_ATTRIBUTES)
+
+        for base in unique_bases:
+            for sf in unique_filters:
+                try:
+                    result = conn.search_s(
+                        base,
+                        ldap.SCOPE_SUBTREE,
+                        sf,
+                        attr_list,
+                    )
+                    if result:
+                        user_dn, user_attrs = result[0]
+                        if user_attrs:
+                            return user_dn, user_attrs
+                except ldap.LDAPError as e:
+                    logger.debug(
+                        "Self LDAP search skipped base=%s: %s",
+                        base,
+                        e,
+                    )
+                    continue
+        return None
+
     def _authenticate_via_direct_bind(
         self,
         username: str,
@@ -153,12 +222,35 @@ class EnhancedADService:
             try:
                 conn = self._get_ldap_connection()
                 conn.simple_bind_s(bind_identity, password)
-                user_data = self._minimal_ad_user_dict(sam, bind_identity)
-                logger.info(
-                    "User %s authenticated via direct LDAP bind as %s",
-                    sam,
-                    bind_identity,
-                )
+
+                row = self._ldap_search_as_bound_user(conn, sam, bind_identity)
+                if row:
+                    user_dn, user_attrs = row
+                    if not self._is_account_active(user_attrs):
+                        logger.warning(
+                            "Direct bind OK but account inactive in directory: %s",
+                            sam,
+                        )
+                        return False, None, "Account disabled or expired"
+
+                    user_data = self._process_user_attributes(user_attrs)
+                    user_data["dn"] = user_dn
+                    if not user_data.get("email") and "@" in bind_identity:
+                        user_data["email"] = bind_identity
+                    logger.info(
+                        "User %s authenticated via direct LDAP bind as %s (profile from LDAP)",
+                        sam,
+                        bind_identity,
+                    )
+                else:
+                    user_data = self._minimal_ad_user_dict(sam, bind_identity)
+                    logger.info(
+                        "User %s authenticated via direct LDAP bind as %s (minimal profile; "
+                        "directory self-read not allowed or no matching entry)",
+                        sam,
+                        bind_identity,
+                    )
+
                 return True, user_data, None
             except ldap.INVALID_CREDENTIALS:
                 last_err = "Invalid credentials"
@@ -409,13 +501,26 @@ class EnhancedADService:
         
         # Note: Roles are no longer mapped from AD groups
         # Roles will be assigned based on database configuration
-        
+
+        cn = get_attr_value("cn")
+        display_name_val = get_attr_value("displayName") or cn
+        fn = get_attr_value("givenName")
+        ln = get_attr_value("sn")
+        if fn is None and ln is None and display_name_val:
+            parts = display_name_val.strip().split(None, 1)
+            fn = parts[0]
+            ln = parts[1] if len(parts) > 1 else "-"
+        if fn is None:
+            fn = cn or get_attr_value("sAMAccountName") or get_attr_value("uid")
+        if ln is None or ln == "":
+            ln = "-"
+
         return {
             'username': get_attr_value('sAMAccountName') or get_attr_value('uid') or get_attr_value('cn'),
             'email': get_attr_value('mail') or get_attr_value('userPrincipalName'),
-            'display_name': get_attr_value('displayName'),
-            'first_name': get_attr_value('givenName'),
-            'last_name': get_attr_value('sn'),
+            'display_name': display_name_val,
+            'first_name': fn,
+            'last_name': ln,
             'phone_number': get_attr_value('telephoneNumber'),
             'employee_id': get_attr_value('employeeID'),
             'department': get_attr_value('department'),
