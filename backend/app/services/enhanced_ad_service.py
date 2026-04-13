@@ -21,26 +21,38 @@ class EnhancedADService:
         self.config = ADConfig()
         self.executor = ThreadPoolExecutor(max_workers=5)
     
+    def _apply_ldap_tls_cert_policy(self, conn: ldap.ldapobject.LDAPObject) -> None:
+        """Match AD_VERIFY_SSL: demand server cert vs allow mis-matched / self-signed (testing only)."""
+        if self.config.VERIFY_SSL:
+            conn.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
+        else:
+            conn.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
+        conn.set_option(ldap.OPT_X_TLS_NEWCTX, 0)
+
     def _get_ldap_connection(self) -> ldap.ldapobject.LDAPObject:
         """Create and return LDAP connection with enhanced error handling"""
         try:
+            if self.config.USE_SSL and self.config.USE_TLS:
+                logger.warning("AD_USE_SSL and AD_USE_TLS are both true; using LDAPS only")
+
             protocol = "ldaps" if self.config.USE_SSL else "ldap"
             ldap_uri = f"{protocol}://{self.config.SERVER}:{self.config.PORT}"
-            
+
             conn = ldap.initialize(ldap_uri)
-            
-            # Enhanced connection options
+
             conn.set_option(ldap.OPT_REFERRALS, 0)
             conn.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
             conn.set_option(ldap.OPT_TIMEOUT, self.config.CONNECTION_TIMEOUT)
             conn.set_option(ldap.OPT_NETWORK_TIMEOUT, self.config.CONNECTION_TIMEOUT)
-            
+
             if self.config.USE_SSL:
-                conn.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
-                conn.set_option(ldap.OPT_X_TLS_NEWCTX, 0)
-            
+                self._apply_ldap_tls_cert_policy(conn)
+            elif self.config.USE_TLS:
+                self._apply_ldap_tls_cert_policy(conn)
+                conn.start_tls_s()
+
             return conn
-            
+
         except Exception as e:
             logger.error(f"Failed to create LDAP connection: {str(e)}")
             raise HTTPException(
