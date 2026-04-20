@@ -4,10 +4,24 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Link } from "@/i18n/navigation"
+import { useSearchParams } from "next/navigation"
+import { Link, useRouter } from "@/i18n/navigation"
 import { useTranslations } from "next-intl"
 import { useAuth } from "@/hooks/useAuth"
+
+/** Safe internal path only; next-intl `useRouter` adds the active locale prefix. */
+function resolvePostLoginPath(returnUrl: string | null): string {
+  if (!returnUrl) return "/"
+  try {
+    const decoded = decodeURIComponent(returnUrl).trim()
+    if (decoded.startsWith("/") && !decoded.startsWith("//")) {
+      return decoded
+    }
+  } catch {
+    /* ignore */
+  }
+  return "/"
+}
 
 export default function Login() {
   const t = useTranslations("auth.login")
@@ -16,7 +30,6 @@ export default function Login() {
   const { login: authLogin, isAuthenticated } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
   const loginSchema = z.object({
     identifier: z.string().min(3, t("validation.usernameOrEmailRequired")),
@@ -36,33 +49,22 @@ export default function Login() {
   // Check if user is already authenticated and redirect if so
   useEffect(() => {
     if (isAuthenticated) {
-      // User is already logged in, redirect to returnUrl or main page
-      const returnUrl = searchParams.get('returnUrl')
-      const destination = returnUrl ? decodeURIComponent(returnUrl) : '/'
-      router.push(destination)
+      const returnUrl = searchParams.get("returnUrl")
+      const destination = resolvePostLoginPath(returnUrl)
+      router.replace(destination)
     }
   }, [router, searchParams, isAuthenticated])
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     setError(null)
-    setSuccess(null)
 
     try {
-      // Use the useAuth hook's login method to ensure state updates immediately
       await authLogin(data.identifier, data.password)
-      
-      setSuccess(t("loginSuccess"))
 
-      // Redirect to returnUrl if provided, otherwise redirect to main page
-      const returnUrl = searchParams.get('returnUrl')
-      const destination = returnUrl ? decodeURIComponent(returnUrl) : '/'
-      
-      // Small delay to show success message and allow state to propagate
-      setTimeout(() => {
-        router.push(destination)
-      }, 500)
-      
+      const destination = resolvePostLoginPath(searchParams.get("returnUrl"))
+      // Locale-aware router (next-intl): "/" is the main page for the current locale
+      router.replace(destination)
     } catch (err) {
       const msg = err instanceof Error ? err.message : t("loginFailed")
       setError(
@@ -83,12 +85,6 @@ export default function Login() {
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
-        </div>
-      )}
-      
-      {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-          {success}
         </div>
       )}
 
