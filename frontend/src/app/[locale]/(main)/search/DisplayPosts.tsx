@@ -1,6 +1,5 @@
 "use client";
 import { useRouter } from "@/i18n/navigation";
-import { MdArrowOutward } from "react-icons/md";
 import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
 import { IoMdResize } from "react-icons/io";
@@ -193,13 +192,13 @@ export default function DisplayPosts({ items, images, itemTypes = [] }: DisplayP
 
                   {/* Image Section */}
                   <div className="relative h-[250px] m-3 w-[calc(100%-24px)]">
-                    {/* Go to details */}
                     <button
-                      title="Go to details"
+                      type="button"
+                      title={t("claimItem")}
                       onClick={() => handlePostClick(item.id)}
-                      className="absolute bottom-2 right-2 p-3 bg-white z-20 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
+                      className="absolute bottom-2 right-2 z-20 max-w-[calc(100%-16px)] rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-900 shadow-md transition-colors hover:bg-blue-50 sm:px-3 sm:text-sm"
                     >
-                      <MdArrowOutward />
+                      {t("claimItem")}
                     </button>
 
                     {/* Expand image */}
@@ -250,16 +249,16 @@ export default function DisplayPosts({ items, images, itemTypes = [] }: DisplayP
                         ×
                       </button>
 
-                      {/* Go to details */}
                       <button
-                        title="Go to details"
+                        type="button"
+                        title={t("claimItem")}
                         onClick={(e) => {
                           e.stopPropagation();
                           handlePostClick(item.id);
                         }}
-                        className="absolute bottom-4 right-4 p-3 bg-white z-30 text-black text-xl rounded-full hover:bg-blue-200 transition-colors shadow-md"
+                        className="absolute bottom-4 right-4 z-30 max-w-[min(90vw,280px)] rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-md transition-colors hover:bg-blue-50 sm:text-base"
                       >
-                        <MdArrowOutward />
+                        {t("claimItem")}
                       </button>
 
                       {/* Expanded image */}

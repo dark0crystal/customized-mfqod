@@ -48,7 +48,8 @@
     "loading": "جاري التحميل...",
     "clear-filters": "مسح جميع المرشحات",
     "noImagesAvailable": "الصور غير متاحة",
-    "brandName": "مفقود"
+    "brandName": "مفقود",
+    "claimItem": "المطالبة بالغرض"
   },
   "footer": {
     "seeAlso": "انظر أيضاً",

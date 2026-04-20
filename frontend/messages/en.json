@@ -48,7 +48,8 @@
     "loading": "Loading...",
     "clear-filters": "Clear all filters",
     "noImagesAvailable": "Images not available",
-    "brandName": "Mfqod"
+    "brandName": "Mfqod",
+    "claimItem": "Claim item"
   },
   "footer": {
     "seeAlso": "See Also",
