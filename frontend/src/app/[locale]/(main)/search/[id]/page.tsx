@@ -510,7 +510,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                     {...register("title")}
                     type="text"
                     placeholder={t('claimTitlePlaceholder')}
-                    className="w-full p-3 sm:p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-sm sm:text-base lg:text-lg"
+                    className="w-full p-3 sm:p-4 border border-gray-300 rounded-lg placeholder:text-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 text-sm sm:text-base lg:text-lg"
                     style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
                     onFocus={(e) => {
                       e.currentTarget.style.borderColor = '#3277AE';
@@ -531,7 +531,7 @@ export default function ItemDetailsPage({ params }: { params: Promise<{ id: stri
                     {...register("description")}
                     rows={6}
                     placeholder={t('proofPlaceholder')}
-                    className="w-full p-3 sm:p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-sm sm:text-base lg:text-lg resize-none"
+                    className="w-full p-3 sm:p-4 border border-gray-300 rounded-lg placeholder:text-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 text-sm sm:text-base lg:text-lg resize-none"
                     style={{ '--tw-ring-color': '#3277AE' } as React.CSSProperties & { [key: string]: string }}
                     onFocus={(e) => {
                       e.currentTarget.style.borderColor = '#3277AE';

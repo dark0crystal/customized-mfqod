@@ -196,7 +196,7 @@ export default function DisplayPosts({ items, images, itemTypes = [] }: DisplayP
                       type="button"
                       title={t("claimItem")}
                       onClick={() => handlePostClick(item.id)}
-                      className="absolute bottom-2 right-2 z-20 max-w-[calc(100%-16px)] rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-900 shadow-md transition-colors hover:bg-blue-50 sm:px-3 sm:text-sm"
+                      className="absolute bottom-2 right-2 z-20 max-w-[calc(100%-16px)] rounded-lg border border-[#3277AE] bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-900 shadow-md transition-colors hover:bg-blue-50 sm:px-3 sm:text-sm"
                     >
                       {t("claimItem")}
                     </button>
@@ -256,7 +256,7 @@ export default function DisplayPosts({ items, images, itemTypes = [] }: DisplayP
                           e.stopPropagation();
                           handlePostClick(item.id);
                         }}
-                        className="absolute bottom-4 right-4 z-30 max-w-[min(90vw,280px)] rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-md transition-colors hover:bg-blue-50 sm:text-base"
+                        className="absolute bottom-4 right-4 z-30 max-w-[min(90vw,280px)] rounded-lg border border-[#3277AE] bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-md transition-colors hover:bg-blue-50 sm:text-base"
                       >
                         {t("claimItem")}
                       </button>
