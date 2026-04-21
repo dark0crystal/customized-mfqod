@@ -40,9 +40,11 @@ class EmailSettings:
         self.MAIL_FROM: Optional[str] = _env("MAIL_FROM")
         self.MAIL_FROM_NAME: Optional[str] = _env("MAIL_FROM_NAME")
 
-        # Security (env only)
+        # Security (env only). If SMTP_TLS is unset, default STARTTLS on common submission ports.
         self.SMTP_TLS: Optional[bool] = _env_bool("SMTP_TLS")
         self.SMTP_SSL: Optional[bool] = _env_bool("SMTP_SSL")
+        if self.SMTP_TLS is None and self.SMTP_PORT in (587, 2525):
+            self.SMTP_TLS = True
 
         # Templates (env only)
         self.TEMPLATE_DIR: Optional[str] = _env("EMAIL_TEMPLATE_DIR")
