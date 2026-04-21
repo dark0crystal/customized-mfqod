@@ -170,46 +170,22 @@ class EmailNotificationService:
             return True
             
         except Exception as e:
-            detail = str(e)
-            if getattr(e, "__cause__", None):
-                detail = f"{detail} (caused by: {e.__cause__!r})"
-            logger.error("Failed to send email: %s", detail)
+            logger.error(f"Failed to send email: {e}")
             return False
-
-    async def _dispose_smtp_client_async(self, smtp_client: Any) -> None:
-        """Close SMTP session. Never call quit() unless connected — otherwise aiosmtplib raises Server not connected and hides the real error."""
-        try:
-            if getattr(smtp_client, "is_connected", False):
-                await smtp_client.quit()
-            else:
-                smtp_client.close()
-        except Exception as cleanup_err:
-            logger.debug("SMTP session cleanup: %s", cleanup_err)
-            try:
-                smtp_client.close()
-            except Exception:
-                pass
-
+    
     async def _send_smtp_email(self, message: MIMEMultipart, recipients: List[str]):
         """Send email via SMTP"""
         # For port 465, use SSL from the start (use_tls=True)
         # For port 587, connect plain then use STARTTLS (use_tls=False, then starttls())
-        use_tls_from_start = bool(self.smtp_ssl) or (self.smtp_port == 465)
-        use_starttls = bool(self.smtp_tls) and not use_tls_from_start
-
+        use_tls_from_start = self.smtp_ssl or (self.smtp_port == 465)
+        
         # Create SSL context with certifi certificates
         try:
             ssl_context = ssl.create_default_context(cafile=certifi.where())
         except Exception:
             # Fallback to default context if certifi fails
             ssl_context = ssl.create_default_context()
-
-        connect_timeout = 30.0
-        try:
-            connect_timeout = float(os.getenv("SMTP_CONNECT_TIMEOUT", "30"))
-        except (TypeError, ValueError):
-            connect_timeout = 30.0
-
+        
         smtp_client = aiosmtplib.SMTP(
             hostname=self.smtp_host,
             port=self.smtp_port,
@@ -217,35 +193,25 @@ class EmailNotificationService:
             tls_context=ssl_context if use_tls_from_start else None,
             start_tls=False  # Handle STARTTLS manually
         )
-
+        
         try:
-            await smtp_client.connect(timeout=connect_timeout)
-
+            await smtp_client.connect()
+            
             # For port 587 with STARTTLS, upgrade connection after connecting
-            if use_starttls:
+            if self.smtp_tls and not use_tls_from_start:
                 await smtp_client.starttls(tls_context=ssl_context)
-
+            
             if self.smtp_username and self.smtp_password:
                 await smtp_client.login(self.smtp_username, self.smtp_password)
-
+            
             await smtp_client.send_message(
                 message,
                 sender=self.mail_from,
                 recipients=recipients
             )
-
-        except Exception as exc:
-            logger.error(
-                "SMTP failed (host=%s port=%s implicit_tls=%s starttls=%s): %s",
-                self.smtp_host,
-                self.smtp_port,
-                use_tls_from_start,
-                use_starttls,
-                exc,
-            )
-            raise
+            
         finally:
-            await self._dispose_smtp_client_async(smtp_client)
+            await smtp_client.quit()
     
     async def send_templated_email(
         self,
