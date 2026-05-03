@@ -548,18 +548,46 @@ class EnhancedADService:
             return datetime.fromtimestamp(unix_timestamp, tz=timezone.utc)
         except (ValueError, OSError):
             return None
-    
+
+    def _sync_user_data_from_login_profile(
+        self, profile: Dict[str, Any], fallback_username: str
+    ) -> Dict[str, Any]:
+        """Map LDAP profile from authenticate (direct bind) into keys sync_user_from_ad expects."""
+        uname = profile.get("username") or fallback_username
+        email = profile.get("email")
+        if not email:
+            raise ValueError("AD profile from bind is missing email")
+        fn = profile.get("first_name")
+        if fn is None or (isinstance(fn, str) and not fn.strip()):
+            disp = (profile.get("display_name") or "").strip()
+            fn = disp or uname
+        ln = profile.get("last_name")
+        if ln is None or (isinstance(ln, str) and not str(ln).strip()):
+            ln = "-"
+        return {
+            "username": uname,
+            "email": email,
+            "first_name": str(fn).strip(),
+            "last_name": str(ln).strip() if ln else "-",
+            "phone_number": profile.get("phone_number"),
+            "dn": profile.get("dn"),
+        }
+
     async def sync_user_from_ad(
         self,
         username: str,
         db: Session,
         bind_identity: Optional[str] = None,
+        profile_from_bind: Optional[Dict[str, Any]] = None,
     ) -> Optional[User]:
         """Sync a specific user from AD to local database
         
         Business logic: Creates or updates user record from AD data
         Used for automatic user creation on first login
         Runs AD lookup in thread pool to avoid blocking async operations
+
+        When AD_BIND_USER is not set, ``profile_from_bind`` should carry the LDAP
+        attributes already read during direct bind so names/phone are persisted.
         """
         try:
             # Run AD lookup in thread pool to avoid blocking async event loop
@@ -569,6 +597,17 @@ class EnhancedADService:
                 self._get_ad_user_data,
                 username,
             )
+
+            if not user_data and profile_from_bind:
+                try:
+                    user_data = self._sync_user_data_from_login_profile(
+                        profile_from_bind, username
+                    )
+                except ValueError as e:
+                    logger.warning(
+                        "Login AD profile not usable for DB sync (will try minimal): %s", e
+                    )
+                    user_data = None
 
             if not user_data and self.config.DIRECT_USER_BIND:
                 try:
@@ -607,6 +646,8 @@ class EnhancedADService:
                 existing_user.email = user_data['email'] or existing_user.email
                 existing_user.username = user_data['username'] or existing_user.username
                 existing_user.phone_number = user_data.get('phone_number') or existing_user.phone_number
+                if user_data.get("dn"):
+                    existing_user.ad_dn = user_data["dn"]
                 existing_user.user_type = UserType.INTERNAL
                 existing_user.ad_sync_date = datetime.now(timezone.utc)
                 existing_user.active = True

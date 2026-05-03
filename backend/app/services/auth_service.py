@@ -90,6 +90,7 @@ class AuthService:
                             username,
                             db,
                             bind_identity=_sync_bind,
+                            profile_from_bind=ad_user_data,
                         )
                         if user:
                             await self._handle_successful_login(user, ip_address, user_agent, db)
@@ -196,6 +197,7 @@ class AuthService:
                     username,
                     db,
                     bind_identity=_sync_bind,
+                    profile_from_bind=ad_user_data,
                 )
                 if not user:
                     raise HTTPException(
@@ -812,7 +814,11 @@ class AuthService:
         user.first_name = ad_data.get('first_name') or user.first_name
         user.last_name = ad_data.get('last_name') or user.last_name
         user.email = ad_data.get('email') or user.email
+        if ad_data.get("username"):
+            user.username = ad_data.get("username") or user.username
         user.phone_number = ad_data.get('phone_number') or user.phone_number
+        if ad_data.get("dn"):
+            user.ad_dn = ad_data["dn"]
         user.ad_sync_date = datetime.now(timezone.utc)
         user.updated_at = datetime.now(timezone.utc)
         
