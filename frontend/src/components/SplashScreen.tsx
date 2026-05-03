@@ -42,9 +42,6 @@ export default function SplashScreen() {
             </span>
           </p>
         </div>
-        <p className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-gray-500 text-xs sm:text-sm text-center z-10">
-          المرداس البوسعيدي X عمادة شؤون الطلبة
-        </p>
       </div>
       <style jsx>{`
         @keyframes lightTurnOn {

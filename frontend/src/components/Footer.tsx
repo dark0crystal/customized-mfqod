@@ -139,19 +139,24 @@ export default function Footer() {
             />
           </div>
           
-          {/* Copyright and Developer */}
-          <div className="text-center sm:text-right space-y-1">
-            <p className="text-gray-500 text-sm sm:text-base">{t("copyright")}</p>
-            <a
-              href="https://mrdas.mfqod.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 block hover:opacity-80 transition-opacity text-sm sm:text-base"
-              style={{ color: '#3277AE' }}
-            >
-              {t("developedBy")}
-            </a>
-          </div>
+          {(t("copyright").trim() || t("developedBy").trim()) && (
+            <div className="text-center sm:text-right space-y-1">
+              {t("copyright").trim() ? (
+                <p className="text-gray-500 text-sm sm:text-base">{t("copyright")}</p>
+              ) : null}
+              {t("developedBy").trim() ? (
+                <a
+                  href="https://mrdas.mfqod.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 block hover:opacity-80 transition-opacity text-sm sm:text-base"
+                  style={{ color: '#3277AE' }}
+                >
+                  {t("developedBy")}
+                </a>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </footer>
