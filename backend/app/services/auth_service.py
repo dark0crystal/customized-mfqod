@@ -82,10 +82,14 @@ class AuthService:
 
                     if is_authenticated:
                         # Business logic: Auto-create internal user from AD on successful authentication
+                        # Prefer email/UPN for sync fallback (no service bind): DN alone cannot derive email
+                        # for both student.squ.edu.om and squ.edu.om identities.
+                        _ad = ad_user_data or {}
+                        _sync_bind = _ad.get("email") or _ad.get("dn")
                         user = await self.ad_service.sync_user_from_ad(
                             username,
                             db,
-                            bind_identity=ad_user_data.get("dn") if ad_user_data else None,
+                            bind_identity=_sync_bind,
                         )
                         if user:
                             await self._handle_successful_login(user, ip_address, user_agent, db)
@@ -186,10 +190,12 @@ class AuthService:
             # User exists and is active in AD - proceed with sync/update
             if not user:
                 # Create new user from AD
+                _ad = ad_user_data or {}
+                _sync_bind = _ad.get("email") or _ad.get("dn")
                 user = await self.ad_service.sync_user_from_ad(
                     username,
                     db,
-                    bind_identity=ad_user_data.get("dn") if ad_user_data else None,
+                    bind_identity=_sync_bind,
                 )
                 if not user:
                     raise HTTPException(
