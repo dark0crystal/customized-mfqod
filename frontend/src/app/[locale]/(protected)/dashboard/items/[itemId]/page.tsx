@@ -893,7 +893,7 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
       
       const htmlContent = `
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
+          @font-face { font-family: 'Lalezar'; src: url('/fonts/lalezar-400.woff2') format('woff2'); font-weight: 400; font-style: normal; }
         </style>
         <!-- Brand Logo Section -->
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 30px; padding-bottom: 25px; border-bottom: 2px solid #3277AE;">
@@ -1060,13 +1060,12 @@ export default function PostDetails({ params }: { params: Promise<{ itemId: stri
         </div>
       `;
 
-      // Ensure Lalezar font is loaded
-      if (!document.querySelector('link[href*="Lalezar"]')) {
-        const fontLink = document.createElement('link');
-        fontLink.href = 'https://fonts.googleapis.com/css2?family=Lalezar&display=swap';
-        fontLink.rel = 'stylesheet';
-        document.head.appendChild(fontLink);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for font to load
+      // Ensure Lalezar font is loaded locally
+      if (!document.querySelector('style[data-font="Lalezar"]')) {
+        const fontStyle = document.createElement('style');
+        fontStyle.setAttribute('data-font', 'Lalezar');
+        fontStyle.textContent = "@font-face { font-family: 'Lalezar'; src: url('/fonts/lalezar-400.woff2') format('woff2'); font-weight: 400; font-style: normal; }";
+        document.head.appendChild(fontStyle);
       }
       
       tempDiv.innerHTML = htmlContent;

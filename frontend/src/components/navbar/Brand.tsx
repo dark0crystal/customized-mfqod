@@ -2,16 +2,15 @@
 
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
-import { Lalezar } from "next/font/google";
+import localFont from "next/font/local";
 import { useTranslations } from "next-intl";
 import squLogo from "../../../public/squlogo.svg";
 
-const lalezarFont = Lalezar({
+const lalezarFont = localFont({
+  src: "../../../public/fonts/lalezar-400.woff2",
   weight: "400",
-  subsets: ["latin"],
   display: "swap",
   fallback: ["system-ui", "arial", "sans-serif"],
-  adjustFontFallback: true,
 });
 
 export default function Brand() {

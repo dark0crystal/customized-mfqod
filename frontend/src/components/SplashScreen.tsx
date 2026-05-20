@@ -1,15 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Lalezar } from "next/font/google";
+import localFont from "next/font/local";
 import { getHasNavigatedWithinApp } from "@/lib/splashScreenTracker";
 
-const lalezarFont = Lalezar({
+const lalezarFont = localFont({
+  src: "../../public/fonts/lalezar-400.woff2",
   weight: "400",
-  subsets: ["latin"],
   display: "swap",
   fallback: ["system-ui", "arial", "sans-serif"],
-  adjustFontFallback: true,
 });
 
 export default function SplashScreen() {
