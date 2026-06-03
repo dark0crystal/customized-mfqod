@@ -64,6 +64,15 @@ class EnhancedADService:
     def service_bind_configured(self) -> bool:
         return bool(self.config.BIND_USER and self.config.BIND_PASSWORD)
 
+    @staticmethod
+    def _real_entries(results: list) -> List[Tuple[str, Dict]]:
+        """Filter LDAP search results, keeping only real entries and discarding referrals.
+        AD returns referrals as (None, [url, ...]) mixed in with real entries."""
+        return [
+            (dn, attrs) for dn, attrs in (results or [])
+            if dn is not None and isinstance(attrs, dict)
+        ]
+
     def _sam_account_from_login(self, username: str, login_input: Optional[str]) -> str:
         u = (username or "").strip()
         li = (login_input or "").strip()
@@ -182,22 +191,12 @@ class EnhancedADService:
         for base in unique_bases:
             for sf in unique_filters:
                 try:
-                    result = conn.search_s(
-                        base,
-                        ldap.SCOPE_SUBTREE,
-                        sf,
-                        attr_list,
-                    )
-                    if result:
-                        user_dn, user_attrs = result[0]
+                    raw = conn.search_s(base, ldap.SCOPE_SUBTREE, sf, attr_list)
+                    for user_dn, user_attrs in self._real_entries(raw):
                         if user_attrs:
                             return user_dn, user_attrs
                 except ldap.LDAPError as e:
-                    logger.debug(
-                        "Self LDAP search skipped base=%s: %s",
-                        base,
-                        e,
-                    )
+                    logger.debug("Self LDAP search skipped base=%s: %s", base, e)
                     continue
         return None
 
@@ -335,38 +334,33 @@ class EnhancedADService:
                 logger.error("Service account bind FAILED: %s", error_detail)
                 return False, None, error_detail
             
-            # Step 3: Search for user
-            search_filters = [
-                self.config.USER_SEARCH_FILTER.format(username=username),
-                f"(&(objectClass=person)(uid={username}))",
-                f"(&(objectClass=person)(cn={username}))",
-            ]
-            
-            result = None
-            used_filter = None
-            for search_filter in search_filters:
-                try:
-                    logger.info("Searching user '%s' with filter: %s (base: %s)", username, search_filter, self.config.USER_DN)
-                    result = conn.search_s(
-                        self.config.USER_DN,
-                        ldap.SCOPE_SUBTREE,
-                        search_filter,
-                        self.config.USER_ATTRIBUTES
-                    )
-                    if result:
-                        used_filter = search_filter
-                        logger.info("User '%s' FOUND using filter: %s", username, search_filter)
-                        break
-                except Exception as e:
-                    logger.warning("Search filter failed: %s — %s", search_filter, str(e))
-                    continue
-            
-            if not result:
-                error_detail = f"User '{username}' not found in AD. Tried filters: {', '.join(search_filters)}"
+            # Step 3: Search for user with a single combined filter
+            username_esc = ldap.filter.escape_filter_chars(username)
+            search_filter = (
+                f"(&(objectClass=person)"
+                f"(|(sAMAccountName={username_esc})(uid={username_esc})(cn={username_esc})))"
+            )
+            logger.info("Searching user '%s' with filter: %s (base: %s)", username, search_filter, self.config.USER_DN)
+
+            try:
+                raw_result = conn.search_s(
+                    self.config.USER_DN,
+                    ldap.SCOPE_SUBTREE,
+                    search_filter,
+                    self.config.USER_ATTRIBUTES
+                )
+            except Exception as e:
+                error_detail = f"LDAP search error: {str(e)}"
+                logger.error("LDAP search failed for %s: %s", username, error_detail)
+                return False, None, error_detail
+
+            entries = self._real_entries(raw_result)
+            if not entries:
+                error_detail = f"User '{username}' not found in AD (filter: {search_filter})"
                 logger.warning("User %s not found. Search base: %s", username, self.config.USER_DN)
                 return False, None, error_detail
             
-            user_dn, user_attrs = result[0]
+            user_dn, user_attrs = entries[0]
             logger.info("User found with DN: %s", user_dn)
             
             # Step 4: Security check - verify account is active and not expired
@@ -708,18 +702,23 @@ class EnhancedADService:
             conn = self._get_ldap_connection()
             conn.simple_bind_s(self.config.BIND_USER, self.config.BIND_PASSWORD)
             
-            search_filter = self.config.USER_SEARCH_FILTER.format(username=username)
-            result = conn.search_s(
+            username_esc = ldap.filter.escape_filter_chars(username)
+            search_filter = (
+                f"(&(objectClass=person)"
+                f"(|(sAMAccountName={username_esc})(uid={username_esc})(cn={username_esc})))"
+            )
+            raw = conn.search_s(
                 self.config.USER_DN,
                 ldap.SCOPE_SUBTREE,
                 search_filter,
                 self.config.USER_ATTRIBUTES
             )
             
-            if not result:
+            entries = self._real_entries(raw)
+            if not entries:
                 return None
             
-            user_dn, user_attrs = result[0]
+            user_dn, user_attrs = entries[0]
             
             if not self._is_account_active(user_attrs):
                 return None
@@ -837,9 +836,8 @@ class EnhancedADService:
             conn = self._get_ldap_connection()
             conn.simple_bind_s(self.config.BIND_USER, self.config.BIND_PASSWORD)
             
-            # Search for all active user accounts
             search_filter = "(&(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-            result = conn.search_s(
+            raw = conn.search_s(
                 self.config.USER_DN,
                 ldap.SCOPE_SUBTREE,
                 search_filter,
@@ -847,8 +845,8 @@ class EnhancedADService:
             )
             
             users = []
-            for user_dn, user_attrs in result:
-                if user_attrs and self._is_account_active(user_attrs):
+            for user_dn, user_attrs in self._real_entries(raw):
+                if self._is_account_active(user_attrs):
                     user_data = self._process_user_attributes(user_attrs)
                     user_data['dn'] = user_dn
                     users.append(user_data)
