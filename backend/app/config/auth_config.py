@@ -1,6 +1,12 @@
 import os
+import logging
 from datetime import timedelta
 from typing import Optional, List
+from dotenv import load_dotenv
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 def _env(key: str) -> Optional[str]:

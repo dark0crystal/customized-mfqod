@@ -175,6 +175,27 @@ async def startup_event():
         # Create logs directory
         os.makedirs("logs", exist_ok=True)
         
+        # Log active AD configuration for verification
+        from app.config.auth_config import ADConfig
+        ad = ADConfig()
+        logger.info("=== Active Directory Configuration ===")
+        logger.info(f"  AD_SERVER:           {ad.SERVER}:{ad.PORT}")
+        logger.info(f"  AD_USE_SSL:          {ad.USE_SSL}")
+        logger.info(f"  AD_USE_TLS:          {ad.USE_TLS}")
+        logger.info(f"  AD_DIRECT_USER_BIND: {ad.DIRECT_USER_BIND}")
+        logger.info(f"  AD_BIND_USER:        {ad.BIND_USER or '(not set)'}")
+        logger.info(f"  AD_BIND_PASSWORD:    {'***set***' if ad.BIND_PASSWORD else '(not set)'}")
+        logger.info(f"  AD_BASE_DN:          {ad.BASE_DN}")
+        logger.info(f"  AD_USER_DN:          {ad.USER_DN}")
+        logger.info(f"  AD_USER_SEARCH_FILTER: {ad.USER_SEARCH_FILTER}")
+        if ad.DIRECT_USER_BIND:
+            logger.info(f"  AD_USER_BIND_IDENTITY_TEMPLATES: {ad.USER_BIND_IDENTITY_TEMPLATES}")
+        if ad.DIRECT_USER_BIND and not ad.BIND_USER:
+            logger.warning("  AD_DIRECT_USER_BIND=true and no AD_BIND_USER: user sync/search will use fallback profiles")
+        if not ad.DIRECT_USER_BIND and not ad.BIND_USER:
+            logger.error("  AD_DIRECT_USER_BIND=false but AD_BIND_USER is not set — LDAP authentication WILL FAIL")
+        logger.info("======================================")
+        
         logger.info("University Lost & Found System started successfully")
         
     except Exception as e:

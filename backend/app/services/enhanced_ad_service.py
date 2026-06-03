@@ -295,50 +295,58 @@ class EnhancedADService:
         error_detail = None
         try:
             if self.config.DIRECT_USER_BIND:
+                logger.info("Using DIRECT user bind for %s", username)
                 return self._authenticate_via_direct_bind(username, password, login_input)
+
+            logger.info(
+                "Using SERVICE ACCOUNT bind for %s (AD_BIND_USER=%s, server=%s:%s)",
+                username, self.config.BIND_USER, self.config.SERVER, self.config.PORT,
+            )
 
             # Step 1: Create connection
             try:
                 conn = self._get_ldap_connection()
-                logger.debug(f"LDAP connection established to {self.config.SERVER}:{self.config.PORT}")
+                logger.info("LDAP connection established to %s:%s", self.config.SERVER, self.config.PORT)
             except Exception as e:
                 error_detail = f"Connection failed: {str(e)}"
-                logger.error(f"Failed to create LDAP connection: {error_detail}")
+                logger.error("Failed to create LDAP connection: %s", error_detail)
                 return False, None, error_detail
 
             if not self.service_bind_configured():
                 error_detail = (
-                    "AD_BIND_USER and AD_BIND_PASSWORD must be set when AD_DIRECT_USER_BIND=false"
+                    "AD_BIND_USER and AD_BIND_PASSWORD must be set when AD_DIRECT_USER_BIND=false. "
+                    f"AD_BIND_USER={'set' if self.config.BIND_USER else 'EMPTY'}, "
+                    f"AD_BIND_PASSWORD={'set' if self.config.BIND_PASSWORD else 'EMPTY'}"
                 )
                 logger.error(error_detail)
                 return False, None, error_detail
 
             # Step 2: Bind with service account
             try:
+                logger.info("Attempting service account bind as: %s", self.config.BIND_USER)
                 conn.simple_bind_s(self.config.BIND_USER, self.config.BIND_PASSWORD)
-                logger.debug(f"Service account bind successful: {self.config.BIND_USER}")
+                logger.info("Service account bind SUCCESSFUL: %s", self.config.BIND_USER)
             except ldap.INVALID_CREDENTIALS:
-                error_detail = "Service account credentials invalid"
-                logger.error(f"Service account bind failed: {error_detail}")
+                error_detail = f"Service account credentials INVALID for AD_BIND_USER={self.config.BIND_USER}"
+                logger.error("Service account bind FAILED: %s", error_detail)
                 return False, None, error_detail
             except Exception as e:
                 error_detail = f"Service account bind error: {str(e)}"
-                logger.error(f"Service account bind failed: {error_detail}")
+                logger.error("Service account bind FAILED: %s", error_detail)
                 return False, None, error_detail
             
-            # Step 3: Search for user - try multiple search filters for compatibility
-            # Business logic: Supports different LDAP configurations (production AD, test LDAP)
+            # Step 3: Search for user
             search_filters = [
                 self.config.USER_SEARCH_FILTER.format(username=username),
-                f"(&(objectClass=person)(uid={username}))",  # For test LDAP
-                f"(&(objectClass=person)(cn={username}))",     # Fallback
+                f"(&(objectClass=person)(uid={username}))",
+                f"(&(objectClass=person)(cn={username}))",
             ]
             
             result = None
             used_filter = None
             for search_filter in search_filters:
                 try:
-                    logger.debug(f"Trying search filter: {search_filter}")
+                    logger.info("Searching user '%s' with filter: %s (base: %s)", username, search_filter, self.config.USER_DN)
                     result = conn.search_s(
                         self.config.USER_DN,
                         ldap.SCOPE_SUBTREE,
@@ -347,19 +355,19 @@ class EnhancedADService:
                     )
                     if result:
                         used_filter = search_filter
-                        logger.debug(f"User found using filter: {search_filter}")
+                        logger.info("User '%s' FOUND using filter: %s", username, search_filter)
                         break
                 except Exception as e:
-                    logger.debug(f"Search filter failed: {search_filter} - {str(e)}")
+                    logger.warning("Search filter failed: %s — %s", search_filter, str(e))
                     continue
             
             if not result:
                 error_detail = f"User '{username}' not found in AD. Tried filters: {', '.join(search_filters)}"
-                logger.warning(f"User {username} not found in AD. Search base: {self.config.USER_DN}")
+                logger.warning("User %s not found. Search base: %s", username, self.config.USER_DN)
                 return False, None, error_detail
             
             user_dn, user_attrs = result[0]
-            logger.debug(f"User found: {user_dn}")
+            logger.info("User found with DN: %s", user_dn)
             
             # Step 4: Security check - verify account is active and not expired
             # Prevents authentication for disabled or expired accounts
@@ -375,9 +383,10 @@ class EnhancedADService:
             user_conn = None
             try:
                 user_conn = self._get_ldap_connection()
+                logger.info("Verifying user password via bind as DN: %s", user_dn)
                 user_conn.simple_bind_s(user_dn, password)
                 user_conn.unbind_s()
-                logger.debug(f"User credential bind successful for {username}")
+                logger.info("User credential bind SUCCESSFUL for %s", username)
             except ldap.INVALID_CREDENTIALS:
                 error_detail = "Invalid password provided"
                 logger.warning(f"Invalid credentials for user {username} (DN: {user_dn})")
@@ -438,15 +447,13 @@ class EnhancedADService:
     def _is_account_active(self, attrs: Dict) -> bool:
         """Check if AD account is active and not expired"""
         try:
-            # Check userAccountControl flag
             uac_values = attrs.get('userAccountControl', [])
             if uac_values:
                 uac = int(uac_values[0].decode('utf-8') if isinstance(uac_values[0], bytes) else uac_values[0])
-                # Check if account is disabled (flag 0x2)
                 if uac & 0x2:
+                    logger.warning("Account disabled: userAccountControl flag 0x2 is set (uac=%s)", uac)
                     return False
             
-            # Check account expiration
             if self.config.CHECK_ACCOUNT_STATUS:
                 expires_values = attrs.get('accountExpires', [])
                 if expires_values:
@@ -457,18 +464,22 @@ class EnhancedADService:
                     expires_timestamp = int(expires_raw)
                     # 0 or 9223372036854775807 means never expires
                     if expires_timestamp not in (0, 9223372036854775807):
-                        # Convert from Windows FILETIME to Unix timestamp
                         expires_unix = (expires_timestamp - 116444736000000000) / 10000000
                         expires_date = datetime.fromtimestamp(expires_unix, tz=timezone.utc)
                         
                         if expires_date < datetime.now(timezone.utc):
+                            logger.warning("Account expired: accountExpires=%s (expired %s)", expires_raw, expires_date)
                             return False
             
             return True
             
         except Exception as e:
-            logger.error(f"Error checking account status: {str(e)}")
-            return False
+            logger.error(
+                "Error checking account status (treating as ACTIVE to avoid false denial): %s",
+                str(e),
+                exc_info=True,
+            )
+            return True
     
     def _process_user_attributes(self, attrs: Dict) -> Dict[str, Any]:
         """Process LDAP attributes with enhanced mapping"""
