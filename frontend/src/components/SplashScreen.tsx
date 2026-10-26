@@ -1,15 +1,5 @@
-"use client";
-
 import { useState, useEffect } from "react";
-import localFont from "next/font/local";
 import { getHasNavigatedWithinApp } from "@/lib/splashScreenTracker";
-
-const lalezarFont = localFont({
-  src: "../../public/fonts/lalezar-400.woff2",
-  weight: "400",
-  display: "swap",
-  fallback: ["system-ui", "arial", "sans-serif"],
-});
 
 export default function SplashScreen() {
   // Only show splash on full page load (reload/direct visit), not when navigating from other pages
@@ -33,7 +23,7 @@ export default function SplashScreen() {
   return (
     <>
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white">
-        <div className={`text-center text-6xl sm:text-7xl md:text-8xl ${lalezarFont.className}`}>
+        <div className={`text-center text-6xl sm:text-7xl md:text-8xl font-lalezar`}>
           <p className="relative z-20 text-slate-800">
             مفقود
             <span className="absolute -z-10 left-0 top-0 light-turn-on" style={{ color: '#3277AE' }}>
@@ -42,7 +32,7 @@ export default function SplashScreen() {
           </p>
         </div>
       </div>
-      <style jsx>{`
+      <style>{`
         @keyframes lightTurnOn {
           0% {
             opacity: 0.1;

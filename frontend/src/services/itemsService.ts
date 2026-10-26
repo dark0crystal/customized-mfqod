@@ -2,6 +2,7 @@
  * Items API Service
  * Handles API calls related to items
  */
+import { API_URL } from "@/config";
 
 // Helper function to get token from cookies
 const getTokenFromCookies = (): string | null => {
@@ -31,7 +32,7 @@ const getAuthHeaders = (): HeadersInit => {
   return headers;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
+const API_BASE_URL = API_URL;
 
 /**
  * Get pending items count for the current user

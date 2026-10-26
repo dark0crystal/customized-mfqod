@@ -1,9 +1,8 @@
-"use client";
-
 import React from 'react';
 import { Building, MapPin, Clock, Phone } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { formatDateWithLocale } from '@/utils/dateFormatter';
+import { SHOW_EXTERNAL_MAP_LINKS } from '@/config';
 
 interface Branch {
   id: string;
@@ -143,7 +142,9 @@ export default function BranchCard({ branch, organization }: BranchCardProps) {
         </div>
       </div>
 
-      {/* Action Button - Fixed at bottom */}
+      {/* Action Button - Fixed at bottom. Opens Google Maps (internet), so it is only shown when
+          SHOW_EXTERNAL_MAP_LINKS is enabled in /config.js (off for air-gapped deployments). */}
+      {SHOW_EXTERNAL_MAP_LINKS && (
       <div className="mt-6 pt-4 border-t border-gray-100">
         <button
           onClick={() => {
@@ -162,6 +163,7 @@ export default function BranchCard({ branch, organization }: BranchCardProps) {
           <span>{t('viewOnMap')}</span>
         </button>
       </div>
+      )}
     </div>
   );
 }

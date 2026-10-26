@@ -1,8 +1,8 @@
-"use client";
 import { useEffect, useState, useRef } from "react";
-import { useTranslations } from 'next-intl';
+import { useTranslations } from 'use-intl';
+import { API_URL } from '@/config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
+const API_BASE_URL = API_URL;
 
 export default function NewCardsSection() {
   const t = useTranslations('stats');
@@ -17,7 +17,7 @@ export default function NewCardsSection() {
   const [errorReturned, setErrorReturned] = useState<string | null>(null);
 
   // ref for animation interval to avoid memory leaks
-  const returnedIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const returnedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     async function fetchBranches() {

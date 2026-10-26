@@ -2,6 +2,8 @@
  * Unified Image Upload Service
  * Handles all image upload operations with proper authentication, error handling, and progress tracking
  */
+import { API_URL } from "@/config";
+import { tokenManager } from "@/utils/tokenManager";
 
 export interface UploadError {
   error: string;
@@ -34,7 +36,7 @@ export class ImageUploadService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
+    this.baseUrl = API_URL;
   }
 
   /**
@@ -43,13 +45,10 @@ export class ImageUploadService {
   private getAuthHeaders(): HeadersInit {
     if (typeof window === 'undefined') return {};
     
-    // Try to import tokenManager dynamically
+    // Get the token from tokenManager
     let token: string | null = null;
     try {
-      // Use dynamic import to keep this file compatible with ESM
-      // and avoid require() lint violations
-      const mod = require('@/utils/tokenManager') as { tokenManager: { getAccessToken: () => string | null } };
-      token = mod.tokenManager.getAccessToken();
+      token = tokenManager.getAccessToken();
     } catch {
       // Fallback to cookie parsing if tokenManager is not available
       const cookies = document.cookie.split(';');

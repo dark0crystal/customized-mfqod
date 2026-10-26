@@ -7,3 +7,15 @@ storage/
 # Application logs (do not upload to GitHub)
 backend/logs/
 *.log
+
+# Frontend build output (Vite)
+frontend/dist/
+
+# Offline map tiles (large; downloaded with scripts/download-map-tiles.sh, mounted at runtime)
+frontend/public/map/*.pmtiles
+*.pmtiles.part
+
+# Playwright e2e artifacts
+frontend/e2e/test-results/
+frontend/e2e/playwright-report/
+frontend/e2e/blob-report/

@@ -47,12 +47,13 @@ services:
     read_only: false  # Set to true if you want read-only root filesystem (may need tmpfs for /tmp)
 
   frontend:
+    # Static SPA (Vite build) served by nginx. Configured at RUNTIME via env vars below
+    # (written to /config.js at container start), so no rebuild is needed to change them.
     build:
       context: .
       dockerfile: frontend/Dockerfile
       target: runner
       args:
-        - NEXT_PUBLIC_HOST_NAME=${NEXT_PUBLIC_HOST_NAME:-http://localhost:8000}
         - BUILDKIT_INLINE_CACHE=1
     image: mfqod-frontend:latest
     container_name: mfqod-frontend
@@ -60,28 +61,43 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_HOST_NAME=${NEXT_PUBLIC_HOST_NAME:-http://localhost:8000}
-      - NEXT_TELEMETRY_DISABLED=1
+      # Backend URL as reached by the users' BROWSERS (not container-to-container).
+      # NEXT_PUBLIC_HOST_NAME is still accepted for backward compatibility.
+      - API_URL=${API_URL:-${NEXT_PUBLIC_HOST_NAME:-http://localhost:8000}}
+      # Offline map: Protomaps .pmtiles file served from the ./storage/map volume.
+      # Use MAP_TILES_TYPE=xyz with MAP_TILES_URL=<internal tile server>/{z}/{x}/{y}.png, or none.
+      - MAP_TILES_URL=${MAP_TILES_URL:-/map/oman.pmtiles}
+      - MAP_TILES_TYPE=${MAP_TILES_TYPE:-pmtiles}
+      # Google Maps buttons need internet access: keep false on an air-gapped network.
+      - SHOW_EXTERNAL_MAP_LINKS=${SHOW_EXTERNAL_MAP_LINKS:-false}
+      # Optional (empty = entrypoint default). Map attribution text shown on the branch map.
+      - MAP_ATTRIBUTION=${MAP_ATTRIBUTION:-}
+      # Optional extra origins for the Content-Security-Policy (space-separated), e.g. an internal
+      # XYZ tile server (img-src) or an additional backend host (connect-src).
+      - CSP_EXTRA_CONNECT_SRC=${CSP_EXTRA_CONNECT_SRC:-}
+      - CSP_EXTRA_IMG_SRC=${CSP_EXTRA_IMG_SRC:-}
+    volumes:
+      # Offline map tiles (create with scripts/download-map-tiles.sh on a connected machine)
+      - ./storage/map:/usr/share/nginx/html/map:ro
     networks:
       - app-network
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/healthz"]
       interval: 30s
-      timeout: 10s
-      start_period: 40s
+      timeout: 5s
+      start_period: 10s
       retries: 3
     deploy:
       resources:
         limits:
           cpus: '1'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
           memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 32M
     logging:
       driver: "json-file"
       options:
@@ -92,7 +108,6 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-      - /var/tmp
 
 networks:
   app-network:

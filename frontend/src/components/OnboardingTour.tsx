@@ -1,8 +1,6 @@
-"use client";
-
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Lightbulb, ChevronRight, ChevronLeft } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 
 export interface TourStep {
   id: string;
@@ -42,6 +40,7 @@ export default function OnboardingTour({
   // Calculate position for modal based on target element
   useEffect(() => {
     if (!isOpen || !currentStepData?.target) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- ported 1:1
       setHighlightedElement(null);
       setHighlightStyle({});
       setOverlayClipPath(undefined);
@@ -117,6 +116,7 @@ export default function OnboardingTour({
   // Reset to first step when tour opens
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- ported 1:1
       setCurrentStep(0);
     }
   }, [isOpen]);
@@ -392,7 +392,7 @@ export default function OnboardingTour({
                   try {
                     const translationKey = `steps.${currentStepData.id}.title`;
                     const translated = t(translationKey);
-                    // If next-intl returns the key (translation not found), use the prop value
+                    // If use-intl returns the key (translation not found), use the prop value
                     // Also check if it's a valid translation (not the full path)
                     if (translated && !translated.includes('dashboard.') && translated !== translationKey) {
                       return translated;
@@ -426,7 +426,7 @@ export default function OnboardingTour({
               try {
                 const translationKey = `steps.${currentStepData.id}.description`;
                 const translated = t(translationKey);
-                // If next-intl returns the key (translation not found), use the prop value
+                // If use-intl returns the key (translation not found), use the prop value
                 // Also check if it's a valid translation (not the full path)
                 if (translated && !translated.includes('dashboard.') && translated !== translationKey) {
                   return translated;

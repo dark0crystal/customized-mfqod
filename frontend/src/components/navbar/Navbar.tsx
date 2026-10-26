@@ -1,10 +1,9 @@
-"use client";
 import { Link } from "@/i18n/navigation";
 import Brand from "./Brand";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "use-intl";
 import MobileNavbar from "./MobileNavbar";
 import { tokenManager } from "@/utils/tokenManager";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/next-compat";
 import LanguageChange from "./LangChange";
 import UserProfile from "./UserProfile";
 

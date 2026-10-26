@@ -1,7 +1,5 @@
-'use client'
-
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/lib/next-compat'
 import { tokenManager } from '@/utils/tokenManager'
 
 interface AuthWrapperProps {
@@ -21,6 +19,7 @@ export default function AuthWrapper({
   useEffect(() => {
     // Check if user is authenticated
     const authStatus = tokenManager.isAuthenticated()
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- ported 1:1
     setIsAuthenticated(authStatus)
     
     if (!authStatus) {

@@ -1,5 +1,6 @@
 // utils/tokenManager.ts
 import { cookieUtils } from "@/utils/cookies";
+import { API_URL } from "@/config";
 
 interface TokenInfo {
   expires_at: string | null;
@@ -38,7 +39,7 @@ class TokenManager {
   private refreshPromise: Promise<string> | null = null;
   private isRefreshing = false;
   private baseUrl: string;
-  private checkInterval: NodeJS.Timeout | null = null;
+  private checkInterval: ReturnType<typeof setInterval> | null = null;
   private isMonitoringPaused = false;
   private retryCount = 0;
   private maxRetries = 3;
@@ -47,7 +48,7 @@ class TokenManager {
   private currentLocale: string = 'en';
 
   constructor() {
-    this.baseUrl = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
+    this.baseUrl = API_URL;
     this.detectLocale();
     // Load translations asynchronously (will use defaults until loaded)
     this.loadTranslations().catch(err => {
@@ -99,7 +100,7 @@ class TokenManager {
 
     try {
       // Try to load translations from the messages directory
-      // This is a fallback - in production, translations should be loaded via next-intl
+      // This is a fallback - in production, translations are loaded via use-intl (src/i18n/IntlProvider.tsx)
       const messages = await import(`../../messages/${this.currentLocale}.json`);
       this.translations = messages.default;
     } catch (error) {

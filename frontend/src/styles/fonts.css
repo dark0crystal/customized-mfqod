@@ -1,0 +1,57 @@
+/*
+ * Self-hosted fonts (no Google Fonts / CDN requests, works on an air-gapped network).
+ * Files live in public/fonts/ and are served from /fonts/* (licences: public/fonts/OFL-*.txt).
+ *
+ * - Alexandria: ONE variable woff2 covering weights 100–900, Arabic + Latin
+ *   (from google/fonts ofl/alexandria). Replaces next/font/local + the nine per-weight files.
+ * - Lalezar 400 (google/fonts ofl/lalezar). The file name lalezar-400.woff2 is load-bearing:
+ *   the PDF export code inlines url('/fonts/lalezar-400.woff2').
+ *
+ * The "… Fallback" faces reproduce the metric-adjusted Arial fallbacks that next/font generated
+ * (same override values), so text keeps the same box size while the real font swaps in.
+ */
+
+@font-face {
+  font-family: 'Alexandria';
+  src: url('/fonts/alexandria-variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Alexandria Fallback';
+  src: local('Arial');
+  ascent-override: 85.29%;
+  descent-override: 22.12%;
+  line-gap-override: 0%;
+  size-adjust: 113.5%;
+}
+
+@font-face {
+  font-family: 'Lalezar';
+  src: url('/fonts/lalezar-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lalezar Fallback';
+  src: local('Arial');
+  ascent-override: 103.51%;
+  descent-override: 62.17%;
+  line-gap-override: 0%;
+  size-adjust: 94.58%;
+}
+
+/* Was the next/font `alexandria.className` on <body>. Unlayered, like the next/font CSS module,
+   so it wins over Tailwind's @layer base font-family on html. */
+html, body { font-family: 'Alexandria', 'Alexandria Fallback', system-ui, arial, sans-serif; }
+
+/* Was `lalezarFont.className` (next/font/local, weight 400) in Brand.tsx and SplashScreen.tsx.
+   next/font emitted font-weight with the family because a single weight was declared. */
+.font-lalezar {
+  font-family: 'Lalezar', 'Lalezar Fallback', system-ui, arial, sans-serif;
+  font-weight: 400;
+}

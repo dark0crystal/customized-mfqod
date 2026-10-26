@@ -1,8 +1,6 @@
-"use client";
-
 import type { ReactNode } from "react";
 import { useId } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "use-intl";
 
 function cn(...parts: (string | undefined | false)[]) {
   return parts.filter(Boolean).join(" ");

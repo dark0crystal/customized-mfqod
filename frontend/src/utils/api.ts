@@ -1,5 +1,6 @@
 // API utility functions for authentication
-const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000'
+import { API_URL } from "@/config";
+const API_BASE_URL = API_URL
 
 export interface ApiResponse<T = unknown> {
   data?: T

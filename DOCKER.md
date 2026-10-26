@@ -28,8 +28,6 @@ cp SQU_LDAP_CONFIG.env .env
 # For Linux, use your host IP or host network mode
 DATABASE_URL=postgresql://user:password@host.docker.internal:5432/dbname
 
-# Backend API URL (used by frontend)
-NEXT_PUBLIC_HOST_NAME=http://localhost:8000
 
 # Security
 SECRET_KEY=your-super-secret-key-change-this-in-production
@@ -38,7 +36,33 @@ SECRET_KEY=your-super-secret-key-change-this-in-production
 CORS_ORIGINS=http://localhost:3000,http://frontend:3000
 ```
 
-### 2. Build and Run
+The **frontend** is configured with environment variables for `docker-compose` (shell environment
+or a `.env` file next to `docker-compose.yml`). They are read when the container starts, so the
+same image works on any server:
+
+```env
+# Frontend (read at container START, written to /config.js -- no rebuild needed to change them)
+# Backend URL as reached by the users' BROWSERS (NEXT_PUBLIC_HOST_NAME is still accepted)
+API_URL=http://localhost:8000
+# Offline branch map: pmtiles (default, ./storage/map/oman.pmtiles) | xyz | none
+MAP_TILES_TYPE=pmtiles
+MAP_TILES_URL=/map/oman.pmtiles
+# "View on map" buttons open Google Maps (internet) -- keep false on an air-gapped network
+SHOW_EXTERNAL_MAP_LINKS=false
+```
+
+### 2. Offline map tiles (optional, recommended)
+
+The branch map uses a self-hosted OpenStreetMap basemap (no internet needed at runtime). Download it
+once on a machine with internet access (about 165 MB for Oman):
+
+```bash
+scripts/download-map-tiles.sh            # -> storage/map/oman.pmtiles
+```
+
+Without the file the app works normally; the branch map just shows markers on a blank background.
+
+### 3. Build and Run
 
 **Production mode:**
 ```bash
@@ -57,7 +81,7 @@ docker-compose down
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-### 3. Access the Application
+### 4. Access the Application
 
 - **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:8000
@@ -89,6 +113,7 @@ DATABASE_URL=postgresql://user:password@postgres:5432/dbname
 
 The following directories are mounted as volumes for persistence:
 - `./storage` - Uploaded images and files
+- `./storage/map` - Offline map tiles (`oman.pmtiles`, read-only in the frontend container)
 - `./backend/logs` - Application logs
 
 Make sure these directories exist and have proper permissions:
@@ -101,7 +126,7 @@ chmod -R 755 storage backend/logs
 
 Both services include health checks:
 - **Backend:** Checks `/api/health` endpoint
-- **Frontend:** Checks root endpoint
+- **Frontend:** Checks `/healthz` (nginx)
 
 View health status:
 ```bash
@@ -112,7 +137,7 @@ docker-compose ps
 
 Default resource limits (adjust in `docker-compose.yml`):
 - **Backend:** 2 CPU, 2GB RAM (reserved: 0.5 CPU, 512MB)
-- **Frontend:** 1 CPU, 1GB RAM (reserved: 0.25 CPU, 256MB)
+- **Frontend:** 1 CPU, 256MB RAM (reserved: 0.1 CPU, 32MB) -- static files served by nginx
 
 ## Troubleshooting
 
@@ -156,11 +181,35 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 2. Code changes will automatically reload:
    - Backend: Uvicorn with `--reload`
-   - Frontend: Next.js dev server
+   - Frontend: Vite dev server (runtime config from `frontend/public/config.js`)
 
 3. Access services at:
    - Frontend: http://localhost:3000
    - Backend: http://localhost:8000
+
+## Frontend container
+
+The frontend is a static single-page app (Vite + React Router) served by **nginx** on port 3000:
+
+- `frontend/Dockerfile`: stage 1 `node:20-alpine` (`npm ci`, `npm run build` -> `dist/`),
+  stage 2 `nginx:1.27-alpine`, running as the unprivileged `nginx` user with a read-only filesystem.
+- `frontend/docker-entrypoint.sh` writes `/config.js` from `API_URL`, `MAP_TILES_URL`,
+  `MAP_TILES_TYPE`, `MAP_ATTRIBUTION`, `SHOW_EXTERNAL_MAP_LINKS` and renders
+  `frontend/nginx/default.conf.template`.
+- nginx: SPA fallback (every URL such as `/ar/dashboard/items/12` serves `index.html`), gzip,
+  `immutable` caching for `/assets/*`, `no-cache` for `index.html` and `/config.js`, byte-range
+  requests for `/map/*.pmtiles`, and security headers including a Content-Security-Policy that only
+  allows this server and the backend (`API_URL`). The browser therefore refuses any request to the
+  internet.
+
+Changing `API_URL` only needs a restart: `docker-compose up -d frontend`.
+
+## Air-gapped (offline) installation
+
+The application needs no internet access at runtime: fonts, icons, images and map tiles are all
+served locally. To install on a network without internet, build on a connected machine and copy
+the images. See **[docs/installation-production.md](docs/installation-production.md#air-gapped-offline-deployment-docker)**
+for the step-by-step guide (`docker save` -> transfer -> `docker load`).
 
 ## Production Deployment
 
@@ -208,6 +257,7 @@ Before deploying to production:
 ## Additional Resources
 
 - [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
-- [Next.js Docker Deployment](https://nextjs.org/docs/deployment#docker-image)
+- [nginx documentation](https://nginx.org/en/docs/)
+- [Protomaps basemaps / PMTiles](https://docs.protomaps.com/)
 - [FastAPI Deployment](https://fastapi.tiangolo.com/deployment/)
 

@@ -1,7 +1,5 @@
-'use client';
-
 import React from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
 import { formatDate } from '@/utils/dateFormatter';
 
 interface Organization {

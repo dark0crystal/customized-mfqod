@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect } from 'react';
 
 /**
@@ -11,6 +9,7 @@ export function useIsClient() {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- ported 1:1
     setIsClient(true);
   }, []);
 

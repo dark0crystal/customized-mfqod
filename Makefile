@@ -1,4 +1,4 @@
-.PHONY: help build up down logs restart clean dev
+.PHONY: help build up down logs restart clean dev map-tiles save-images load-images
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -50,7 +50,7 @@ health: ## Check service health
 	@curl -s http://localhost:8000/api/health || echo "Backend not responding"
 	@echo ""
 	@echo "Frontend health:"
-	@curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "Frontend not responding"
+	@curl -s http://localhost:3000/healthz || echo "Frontend not responding"
 
 shell-backend: ## Open shell in backend container
 	docker-compose exec backend /bin/bash
@@ -58,3 +58,19 @@ shell-backend: ## Open shell in backend container
 shell-frontend: ## Open shell in frontend container
 	docker-compose exec frontend /bin/sh
 
+
+map-tiles: ## Download offline map tiles to storage/map/oman.pmtiles (needs internet)
+	bash scripts/download-map-tiles.sh "$(BUILD_DATE)" "$(BBOX)" "$(MAXZOOM)"
+
+IMAGES_ARCHIVE ?= mfqod-images.tar.gz
+PLATFORM ?= linux/amd64
+
+save-images: ## Build images for $(PLATFORM) and save them to $(IMAGES_ARCHIVE) (air-gapped install)
+	docker buildx build --platform $(PLATFORM) -f backend/Dockerfile --target production -t mfqod-backend:latest --load .
+	docker buildx build --platform $(PLATFORM) -f frontend/Dockerfile --target runner -t mfqod-frontend:latest --load .
+	docker save mfqod-backend:latest mfqod-frontend:latest | gzip > $(IMAGES_ARCHIVE)
+	@echo "Saved $(IMAGES_ARCHIVE). Copy it with docker-compose.yml, backend/.env and storage/map/oman.pmtiles."
+
+load-images: ## Load images from $(IMAGES_ARCHIVE) and start without building (offline server)
+	docker load < $(IMAGES_ARCHIVE)
+	docker-compose up -d --no-build

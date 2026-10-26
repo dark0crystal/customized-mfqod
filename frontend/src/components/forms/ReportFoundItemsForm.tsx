@@ -1,18 +1,17 @@
-"use client";
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState, useEffect, useRef, useMemo } from "react";
 import ReactConfetti from "react-confetti";
 import CompressorFileInput from "./CompressorFileInput";
-import { useTranslations, useLocale } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useTranslations, useLocale } from "use-intl";
+import { useRouter } from "@/lib/next-compat";
 import imageUploadService, { UploadError, UploadProgress } from "@/services/imageUploadService";
 import { tokenManager } from "@/utils/tokenManager";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import HydrationSafeWrapper from "@/components/HydrationSafeWrapper";
 import { usePermissions } from "@/PermissionsContext";
+import { API_URL } from "@/config";
 
 function buildReportFoundSchema(c: (key: string) => string) {
   return z.object({
@@ -85,7 +84,7 @@ export default function ReportFoundItem() {
   const locale = useLocale();
 
   // API configuration
-  const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
+  const API_BASE_URL = API_URL;
 
   // Track if we've set the default orgnization value after fetching
   const hasSetDefaultOrg = useRef(false);

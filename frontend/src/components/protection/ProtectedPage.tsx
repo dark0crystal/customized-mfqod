@@ -1,7 +1,5 @@
-'use client'
-
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/lib/next-compat';
 import { usePermissions } from '@/PermissionsContext';
 
 interface ProtectedPageProps {
@@ -11,7 +9,7 @@ interface ProtectedPageProps {
 }
 
 /**
- * Client component wrapper for protecting pages that use "use client"
+ * Client component wrapper for protecting pages
  * Checks permissions using the PermissionsContext and redirects if access is denied
  * 
  * Usage:

@@ -1,0 +1,22 @@
+{
+  "name": "mfqod-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Framework-agnostic e2e, visual-diff and offline tests for the MFQOD frontend (runs against any BASE_URL).",
+  "scripts": {
+    "test": "playwright test",
+    "test:offline": "playwright test tests/offline.spec.ts",
+    "capture": "tsx scripts/capture.ts",
+    "compare": "tsx scripts/compare.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "^20.19.0",
+    "@types/pngjs": "^6.0.5",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

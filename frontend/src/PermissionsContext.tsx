@@ -1,6 +1,5 @@
-"use client";
-
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { API_URL } from '@/config';
 
 export type Permission =
   // Consolidated hierarchical permissions
@@ -25,7 +24,7 @@ export type Permission =
   | 'user'
   | string; // Allow any string for dynamic permissions from API
 
-const API_BASE = process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000';
+const API_BASE = API_URL;
 
 // Define user roles
 export type UserRole = 'super_admin' | 'admin' | 'moderator' | 'user' | 'guest';

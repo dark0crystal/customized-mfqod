@@ -1,10 +1,9 @@
-'use client'
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/lib/next-compat';
 import { Link } from '@/i18n/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { useTranslations } from 'next-intl';
-import Image from 'next/image';
+import { useTranslations } from 'use-intl';
+import Image from '@/lib/Image';
 
 export default function UserProfile() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);

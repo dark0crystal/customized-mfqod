@@ -1,6 +1,6 @@
 // hooks/useAuth.ts
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/lib/next-compat'
 import { tokenManager, type User, type TokenInfo } from '@/utils/tokenManager'
 
 interface UseAuthReturn {
@@ -243,8 +243,8 @@ interface UseProtectedRouteOptions {
 
 /**
  * Client-side hook for protecting routes
- * Note: This is for UX only. Server-side protection is the primary security mechanism.
- * For server components, use WithPermissions or requirePermission from lib/server/permissions
+ * Note: This is for UX only. The backend enforces authentication and permissions on every API call.
+ * (The app is a client-only SPA; there are no server components.)
  */
 export function useProtectedRoute(options: UseProtectedRouteOptions = {}) {
   const { redirectTo = '/auth/login', requiredPermission, requiredRole } = options

@@ -1,10 +1,10 @@
-"use client";
 import { useState, useRef, useEffect } from "react";
 import { MdKeyboardArrowDown, MdSearch, MdCheckBox, MdCheckBoxOutlineBlank } from "react-icons/md";
 import { useDirection } from "@/components/DirectionProvider";
 import { Link } from "@/i18n/navigation";
-import Image from "next/image";
-import { useLocale } from "next-intl";
+import Image from "@/lib/Image";
+import { useLocale } from "use-intl";
+import { API_URL } from "@/config";
 
 interface Item {
   id: string;
@@ -77,7 +77,7 @@ export default function MultiSelectItemDropdown({
       processedUrl = '/' + processedUrl;
     }
     
-    const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
+    const baseUrl = API_URL.replace(/\/$/, '');
     const fullUrl = `${baseUrl}${processedUrl}`;
     
     try {
@@ -123,6 +123,7 @@ export default function MultiSelectItemDropdown({
       const estimatedDropdownHeight = 400; // Approximate height
       
       if (spaceBelow < estimatedDropdownHeight && spaceAbove > spaceBelow) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- ported 1:1
         setDropdownPosition('top');
       } else {
         setDropdownPosition('bottom');

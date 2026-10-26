@@ -9,7 +9,9 @@ This guide covers the complete installation process and production deployment se
 3. [Environment Configuration](#environment-configuration)
 4. [Database Setup](#database-setup)
 5. [Production Deployment](#production-deployment)
-6. [Troubleshooting](#troubleshooting)
+6. [Frontend (static web app)](#frontend-static-web-app)
+7. [Air-gapped (offline) deployment (Docker)](#air-gapped-offline-deployment-docker)
+8. [Troubleshooting](#troubleshooting)
 
 ## Prerequisites
 
@@ -362,6 +364,126 @@ sudo systemctl status lost-found-api
 - [ ] Backup uploaded files in `storage/uploads/`
 - [ ] Test backup restoration process
 - [ ] Document backup procedures
+
+## Frontend (static web app)
+
+The frontend is a static single-page application (Vite + React Router). `npm run build` produces
+plain files in `frontend/dist/` that any web server can serve; no Node.js is needed at runtime.
+
+```bash
+cd frontend
+npm ci
+npm run build            # -> frontend/dist/
+```
+
+Requirements for the web server (the Docker image does all of this, see `frontend/nginx/`):
+
+- **SPA fallback**: every unknown path (e.g. `/ar/dashboard/items/12`) must serve `index.html`.
+- `/config.js` holds the runtime settings and must not be cached. Edit it on the server to point
+  at the backend; no rebuild needed:
+  ```js
+  window.__APP_CONFIG__ = {
+    API_URL: 'https://lostfound-api.internal.example',   // backend URL as seen by the browser
+    MAP_TILES_URL: '/map/oman.pmtiles',
+    MAP_TILES_TYPE: 'pmtiles',                            // 'pmtiles' | 'xyz' | 'none'
+    MAP_ATTRIBUTION: '© OpenStreetMap contributors · Protomaps',
+    SHOW_EXTERNAL_MAP_LINKS: false,                       // Google Maps buttons need internet
+  };
+  ```
+- `/map/oman.pmtiles` must support HTTP **Range** requests (nginx and Apache do for static files).
+- The backend's `CORS_ORIGINS` must include the frontend's origin.
+
+Everything the browser loads comes from this server or the backend: the Alexandria and Lalezar
+fonts are in `frontend/public/fonts/` (SIL Open Font License, see the `OFL-*.txt` files), icons are
+compiled into the JavaScript bundle, and map tiles come from `/map/`.
+
+## Air-gapped (offline) deployment (Docker)
+
+Use this when the production servers have **no internet access**. Everything is prepared on a
+machine with internet access ("build machine") and copied over. Nothing in the running
+application contacts the internet; the frontend's Content-Security-Policy additionally makes the
+browser block any such request.
+
+### 1. On the build machine (with internet)
+
+```bash
+git clone <repository-url> && cd customized-mfqod
+
+# a) Build the images. Use the CPU architecture of the target server
+#    (most servers: linux/amd64; Apple Silicon build machines default to arm64).
+docker buildx build --platform linux/amd64 -f backend/Dockerfile  --target production -t mfqod-backend:latest  --load .
+docker buildx build --platform linux/amd64 -f frontend/Dockerfile --target runner     -t mfqod-frontend:latest --load .
+
+# b) Save them to a single archive
+docker save mfqod-backend:latest mfqod-frontend:latest | gzip > mfqod-images.tar.gz
+
+# c) Download the offline map (Oman, ~165 MB) -> storage/map/oman.pmtiles
+scripts/download-map-tiles.sh
+```
+
+Transfer these to the server (USB disk, internal file share, ...):
+
+| File | Purpose |
+|---|---|
+| `mfqod-images.tar.gz` | Docker images |
+| `docker-compose.yml` | Service definitions |
+| `storage/map/oman.pmtiles` | Offline map tiles |
+| `backend/.env` | Backend settings (create from `backend/SQU_LDAP_CONFIG.env`; contains secrets, transfer securely) |
+
+### 2. On the offline server
+
+```bash
+mkdir -p /opt/mfqod/storage/map /opt/mfqod/storage/uploads/images /opt/mfqod/storage/uploads/itemTypesImages /opt/mfqod/backend/logs
+cd /opt/mfqod
+# copy docker-compose.yml, backend/.env and storage/map/oman.pmtiles here (same relative paths)
+
+docker load < mfqod-images.tar.gz       # gunzip is automatic
+docker images | grep mfqod              # mfqod-backend:latest, mfqod-frontend:latest
+
+# Runtime settings for the frontend (read at container start)
+cat > .env <<'ENV'
+API_URL=http://lostfound.internal.example:8000
+SHOW_EXTERNAL_MAP_LINKS=false
+ENV
+
+docker compose up -d --no-build
+docker compose ps                       # both services "healthy"
+```
+
+`--no-build` makes compose use the loaded images instead of trying to build (building would need
+internet to download npm/pip packages).
+
+### 3. Changing settings later
+
+The frontend image contains no environment-specific values. To point it at another backend or map
+source, edit `.env` (or `docker-compose.yml`) and restart; **no rebuild is needed**:
+
+```bash
+docker compose up -d frontend
+curl -s http://localhost:3000/config.js   # shows the values the browsers will use
+```
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `API_URL` | `http://localhost:8000` | Backend URL **as reached by the users' browsers**. `NEXT_PUBLIC_HOST_NAME` is still accepted. |
+| `MAP_TILES_TYPE` | `pmtiles` | `pmtiles`, `xyz` (an internal raster tile server) or `none` |
+| `MAP_TILES_URL` | `/map/oman.pmtiles` | `.pmtiles` URL, or XYZ template `http(s)://<internal-server>/{z}/{x}/{y}.png` |
+| `MAP_ATTRIBUTION` | `© OpenStreetMap contributors · Protomaps` | Map attribution text |
+| `SHOW_EXTERNAL_MAP_LINKS` | `false` | Show "View on map" buttons that open Google Maps |
+| `CSP_EXTRA_CONNECT_SRC` / `CSP_EXTRA_IMG_SRC` | empty | Extra Content-Security-Policy sources (space separated) |
+
+### 4. Updating
+
+Repeat step 1 with the new code (and optionally a newer map), transfer `mfqod-images.tar.gz`, then
+on the server: `docker load < mfqod-images.tar.gz && docker compose up -d --no-build`.
+Uploaded files in `storage/uploads/` and the database are not touched.
+
+### 5. Verifying that nothing goes to the internet
+
+- `curl -sI http://localhost:3000/ar | grep -i content-security-policy` shows
+  `default-src 'self'` and only the backend in `connect-src`/`img-src`.
+- In the browser's developer tools (Network tab), every request goes to the frontend server or
+  the backend: fonts from `/fonts/`, map data from `/map/oman.pmtiles` (status 206).
 
 ## Troubleshooting
 

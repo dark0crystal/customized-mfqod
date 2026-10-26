@@ -1,0 +1,7 @@
+# Rendered by docker-entrypoint.sh (envsubst) and included in every location:
+# nginx drops server-level add_header directives in any location that has its own add_header.
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+# The browser enforces that nothing loads from outside this server and the backend (air-gapped by design).
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:${CSP_IMG_SRC}; connect-src 'self'${CSP_CONNECT_SRC}; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'" always;

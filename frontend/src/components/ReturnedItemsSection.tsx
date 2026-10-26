@@ -1,8 +1,6 @@
-"use client";
-
 import { useState, useEffect } from 'react';
 import { CheckCircle, TrendingUp, Users, Clock } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useTranslations } from 'use-intl';
 
 export default function ReturnedItemsSection() {
   const [returnedCount, setReturnedCount] = useState(0);
@@ -159,7 +157,7 @@ export default function ReturnedItemsSection() {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes fadeInUp {
           from {
             opacity: 0;

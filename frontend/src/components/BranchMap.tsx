@@ -1,8 +1,12 @@
-"use client";
-
 import React, { useEffect, useState } from 'react';
 import { Building, MapPin } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'use-intl';
+import type * as Leaflet from 'leaflet';
+// Marker images are bundled by Vite (no CDN): an air-gapped network has no internet access.
+import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
+import markerIcon2xUrl from 'leaflet/dist/images/marker-icon-2x.png';
+import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
+import { MAP_ATTRIBUTION, MAP_TILES_TYPE, MAP_TILES_URL } from '@/config';
 
 interface Branch {
   id: string;
@@ -36,6 +40,7 @@ const ClientOnlyMap = ({ children }: { children: React.ReactNode }) => {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- ported 1:1
     setIsClient(true);
   }, []);
 
@@ -54,7 +59,6 @@ const ClientOnlyMap = ({ children }: { children: React.ReactNode }) => {
 };
 
 // Component to fit map bounds to show all markers
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function FitBounds(_props: { branches: Branch[] }) {
   // For now, we'll skip the fitBounds functionality to avoid SSR issues
   // This can be implemented later with proper client-side map handling
@@ -62,18 +66,47 @@ function FitBounds(_props: { branches: Branch[] }) {
 }
 
 // Dynamic map component that loads react-leaflet components
+// Base map layer, chosen at runtime from /config.js (see src/config.ts):
+//   'pmtiles' -> self-hosted Protomaps vector basemap (MAP_TILES_URL, e.g. /map/oman.pmtiles)
+//   'xyz'     -> raster tile server template (MAP_TILES_URL, an internal server ending in /{z}/{x}/{y}.png)
+//   'none'    -> no base layer (markers only)
 const MapComponent = React.lazy(() => {
   return Promise.all([
     import('react-leaflet'),
-    import('leaflet')
-  ]).then(([{ MapContainer, TileLayer, Marker, Popup }, L]) => {
+    import('leaflet'),
+    MAP_TILES_TYPE === 'pmtiles' ? import('protomaps-leaflet') : Promise.resolve(null),
+  ]).then(([{ MapContainer, TileLayer, Marker, Popup, useMap }, L, protomaps]) => {
     // Fix for default markers in react-leaflet
     delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
     L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconRetinaUrl: markerIcon2xUrl,
+      iconUrl: markerIconUrl,
+      shadowUrl: markerShadowUrl,
     });
+
+    // protomaps-leaflet extends the global `L` (L.GridLayer), so expose the bundled Leaflet instance.
+    const leafletGlobal = (L as unknown as { default?: typeof Leaflet }).default ?? (L as unknown as typeof Leaflet);
+    const win = window as unknown as { L?: typeof Leaflet };
+    if (protomaps && !win.L) win.L = leafletGlobal;
+
+    const ProtomapsBaseLayer = ({ lang }: { lang: string }) => {
+      const map = useMap();
+      useEffect(() => {
+        if (!protomaps) return;
+        const layer = protomaps.leafletLayer({
+          url: MAP_TILES_URL,
+          flavor: 'light',
+          lang,
+          attribution: MAP_ATTRIBUTION,
+          maxZoom: 18, // same zoom limit as the previous OpenStreetMap TileLayer
+        }) as unknown as Leaflet.Layer;
+        layer.addTo(map);
+        return () => {
+          map.removeLayer(layer);
+        };
+      }, [map, lang]);
+      return null;
+    };
 
     return {
       default: ({ 
@@ -84,7 +117,8 @@ const MapComponent = React.lazy(() => {
         getLocalizedOrganizationName, 
         getLocalizedBranchDescription, 
         getLocalizedOrganizationDescription, 
-        t 
+        t,
+        locale
       }: {
         branches: Branch[];
         organizations: Organization[];
@@ -94,6 +128,7 @@ const MapComponent = React.lazy(() => {
         getLocalizedBranchDescription: (branch: Branch) => string;
         getLocalizedOrganizationDescription: (organization: Organization) => string;
         t: (key: string) => string;
+        locale: string;
       }) => (
         <div className="w-full h-[500px] rounded-lg overflow-hidden shadow-lg">
           <MapContainer
@@ -102,10 +137,13 @@ const MapComponent = React.lazy(() => {
             style={{ height: '100%', width: '100%' }}
             className="z-0"
           >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            {MAP_TILES_TYPE === 'pmtiles' && <ProtomapsBaseLayer lang={locale} />}
+            {MAP_TILES_TYPE === 'xyz' && (
+              <TileLayer
+                attribution={MAP_ATTRIBUTION}
+                url={MAP_TILES_URL}
+              />
+            )}
             
             <FitBounds branches={branches} />
             
@@ -121,11 +159,11 @@ const MapComponent = React.lazy(() => {
                   key={branch.id}
                   position={[branch.latitude!, branch.longitude!]}
                   icon={new L.Icon({
-                    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+                    iconUrl: markerIconUrl,
                     iconSize: [25, 41],
                     iconAnchor: [12, 41],
                     popupAnchor: [1, -34],
-                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+                    shadowUrl: markerShadowUrl,
                     shadowSize: [41, 41]
                   })}
                 >
@@ -257,6 +295,7 @@ export default function BranchMap({ branches, organizations }: BranchMapProps) {
           getLocalizedBranchDescription={getLocalizedBranchDescription}
           getLocalizedOrganizationDescription={getLocalizedOrganizationDescription}
           t={t}
+          locale={locale}
         />
       </React.Suspense>
     </ClientOnlyMap>
