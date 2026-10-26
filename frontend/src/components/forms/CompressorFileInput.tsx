@@ -1,9 +1,7 @@
-"use client";
-
 import React, { useState } from "react";
 import Compressor from "compressorjs";
-import { useTranslations } from "next-intl";
-import Image from "next/image";
+import { useTranslations } from "use-intl";
+import Image from "@/lib/Image";
 import imageUploadService from "@/services/imageUploadService";
 
 interface CompressorFileInputProps {

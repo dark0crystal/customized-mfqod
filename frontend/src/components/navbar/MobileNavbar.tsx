@@ -1,13 +1,11 @@
-"use client";
-
-import { useTranslations } from "next-intl";
+import { useTranslations } from "use-intl";
 import { useState, useEffect } from "react";
 import Brand from "./Brand";
 import { RxHamburgerMenu } from "react-icons/rx";
 import { IoClose } from "react-icons/io5";
 import { Search, MapPinned, FileQuestion, LayoutDashboard, LogOut, UserCircle2 } from "lucide-react";
 import { tokenManager } from "@/utils/tokenManager";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/next-compat";
 import LanguageChange from "./LangChange";
 import { useAuth } from "@/hooks/useAuth";
 

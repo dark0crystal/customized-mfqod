@@ -130,8 +130,6 @@ docker-compose up -d
 # For Linux, use your host IP or host network mode
 DATABASE_URL=postgresql://user:password@host.docker.internal:5432/dbname
 
-# Backend API URL (used by frontend)
-NEXT_PUBLIC_HOST_NAME=http://localhost:8000
 
 # Security
 SECRET_KEY=your-super-secret-key-change-this-in-production
@@ -139,6 +137,47 @@ SECRET_KEY=your-super-secret-key-change-this-in-production
 # CORS Origins (comma-separated, optional - defaults included)
 CORS_ORIGINS=http://localhost:3000,http://frontend:3000
 ```
+
+### Frontend runtime configuration
+
+The frontend image is built once and configured when the container **starts** (the entrypoint
+writes `/config.js`). Set these for `docker-compose` in the shell environment or in a `.env` file
+next to `docker-compose.yml`:
+
+```env
+# Frontend (read at container START, written to /config.js -- no rebuild needed to change them)
+# Backend URL as reached by the users' BROWSERS (NEXT_PUBLIC_HOST_NAME is still accepted)
+API_URL=http://localhost:8000
+# Offline branch map: pmtiles (default, ./storage/map/oman.pmtiles) | xyz | none
+MAP_TILES_TYPE=pmtiles
+MAP_TILES_URL=/map/oman.pmtiles
+# "View on map" buttons open Google Maps (internet) -- keep false on an air-gapped network
+SHOW_EXTERNAL_MAP_LINKS=false
+```
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `API_URL` | `http://localhost:8000` (or `NEXT_PUBLIC_HOST_NAME`) | Backend base URL used by the browser. Also added to the CSP `connect-src`/`img-src`. |
+| `MAP_TILES_TYPE` | `pmtiles` | `pmtiles` (self-hosted file), `xyz` (internal tile server), `none` (no base map) |
+| `MAP_TILES_URL` | `/map/oman.pmtiles` | `.pmtiles` URL, or an XYZ template ending in `/{z}/{x}/{y}.png` |
+| `MAP_ATTRIBUTION` | `© OpenStreetMap contributors · Protomaps` | Map attribution text |
+| `SHOW_EXTERNAL_MAP_LINKS` | `false` | Show the Google Maps buttons on the branches page (needs internet) |
+| `CSP_EXTRA_CONNECT_SRC`, `CSP_EXTRA_IMG_SRC` | empty | Extra Content-Security-Policy sources, space separated |
+
+No rebuild is needed after changing them: `docker-compose up -d frontend`.
+
+### Offline map tiles
+
+The branch map renders a self-hosted OpenStreetMap basemap (Protomaps vector tiles). Create the
+file once on a machine with internet access:
+
+```bash
+scripts/download-map-tiles.sh                       # latest build, Oman, max zoom 15 (~165 MB)
+scripts/download-map-tiles.sh 20261025 51.9,16.6,59.9,26.5 14   # explicit date / bbox / max zoom
+```
+
+It writes `storage/map/oman.pmtiles`, which `docker-compose.yml` mounts read-only at
+`/usr/share/nginx/html/map`. The file is not in git and not in the image.
 
 ## Development Workflow
 
@@ -152,7 +191,7 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 2. Code changes will automatically reload:
    - Backend: Uvicorn with `--reload`
-   - Frontend: Next.js dev server
+   - Frontend: Vite dev server (runtime config from `frontend/public/config.js`)
 
 3. Access services at:
    - Frontend: http://localhost:3000
@@ -163,7 +202,9 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ### Security
 
 - Non-root users in containers
-- Read-only filesystem for frontend (with tmpfs for temp files)
+- Read-only filesystem for frontend (with tmpfs for temp files); nginx runs as the `nginx` user
+- Content-Security-Policy: the browser may only load from this server and the backend
+  (`default-src 'self'`), so nothing is ever fetched from the internet
 - Security options (no-new-privileges)
 - Minimal base images (Alpine for frontend, slim for backend)
 - No secrets in Dockerfiles
@@ -175,7 +216,8 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 - Layer caching optimization
 - Resource limits and reservations
 - Gunicorn with multiple workers for backend
-- Next.js standalone output for optimized frontend
+- Frontend is a static build served by nginx (gzip, immutable caching of hashed `/assets/*`,
+  `no-cache` for `index.html` and `/config.js`)
 
 ### Reliability
 
@@ -213,12 +255,13 @@ DATABASE_URL=postgresql://user:password@postgres:5432/dbname
 The following directories are mounted as volumes for persistence:
 
 - `./storage` - Uploaded images and files
+- `./storage/map` - Offline map tiles (`oman.pmtiles`), mounted read-only into the frontend
 - `./backend/logs` - Application logs
 
 Create directories and set permissions:
 
 ```bash
-mkdir -p storage/uploads/images storage/uploads/itemTypesImages backend/logs
+mkdir -p storage/uploads/images storage/uploads/itemTypesImages storage/map backend/logs
 chmod -R 755 storage backend/logs
 ```
 
@@ -249,6 +292,18 @@ docker-compose exec backend python -c "from app.db.database import engine; engin
 sudo chown -R $(id -u):$(id -g) storage backend/logs
 ```
 
+### Branch map is blank (markers but no streets)
+
+`storage/map/oman.pmtiles` is missing or not readable. The frontend logs a warning at start-up
+(`docker-compose logs frontend`). Run `scripts/download-map-tiles.sh` on a connected machine and
+copy the file. Check: `curl -sI -H 'Range: bytes=0-99' http://localhost:3000/map/oman.pmtiles`
+must return `206 Partial Content`.
+
+### Frontend calls the wrong backend
+
+Check `curl http://localhost:3000/config.js`. Change `API_URL` and restart the container
+(`docker-compose up -d frontend`); browsers re-read `/config.js` on the next page load.
+
 ### Docker not reflecting latest code changes
 
 ```bash
@@ -259,6 +314,9 @@ docker-compose up -d
 ```
 
 ## Production Deployment
+
+For servers **without internet access**, follow
+[installation-production.md -> Air-gapped (offline) deployment](installation-production.md#air-gapped-offline-deployment-docker).
 
 ### Build and Push Images
 
@@ -306,5 +364,6 @@ Before deploying to production:
 ## Additional Resources
 
 - [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
-- [Next.js Docker Deployment](https://nextjs.org/docs/deployment#docker-image)
+- [nginx documentation](https://nginx.org/en/docs/)
+- [Protomaps basemaps / PMTiles](https://docs.protomaps.com/)
 - [FastAPI Deployment](https://fastapi.tiangolo.com/deployment/)

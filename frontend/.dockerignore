@@ -1,83 +1,17 @@
-# Dependencies
+# Used when building with frontend/ as the build context. The standard build
+# (docker-compose, `docker build -f frontend/Dockerfile .`) uses the repository root
+# context and the root .dockerignore.
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-.pnpm-debug.log*
-
-# Testing
-coverage/
-.nyc_output/
-
-# Next.js
-.next/
-out/
 dist/
-build/
-
-# Production
-*.log
-
-# Misc
-.DS_Store
-*.pem
-
-# Debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Local env files
+coverage/
+e2e/
+public/map/
+*.pmtiles
 .env
-.env*.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Vercel
-.vercel
-
-# TypeScript
+.env.*
+*.log
 *.tsbuildinfo
-next-env.d.ts
-
-# IDE
+.DS_Store
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
-
-# Git
 .git/
-.gitignore
-
-# Documentation
-*.md
-!README.md
-
-# Temporary files
-*.tmp
-*.bak
-*.cache
-
-# Exclude large public assets (they'll be copied in Dockerfile)
-public/guides/
-public/*.jpeg
-public/*.jpg
-public/*.png
-!public/next.svg
-!public/vercel.svg
-!public/default-profile.svg
-!public/file.svg
-!public/globe.svg
-!public/window.svg
-!public/dsalogo.png
-!public/dsalogo.png
-!public/squlogo.svg
-!public/squ-logo.png
-
-# Exclude source maps and other build artifacts
-*.map
-

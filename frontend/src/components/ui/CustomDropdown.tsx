@@ -1,4 +1,3 @@
-"use client";
 import { useState, useRef, useEffect } from "react";
 import { MdKeyboardArrowDown } from "react-icons/md";
 import { useDirection } from "@/components/DirectionProvider";
@@ -47,6 +46,7 @@ export default function CustomDropdown({
 
   useEffect(() => {
     if (disabled && isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- ported 1:1
       setIsOpen(false);
     }
   }, [disabled, isOpen]);

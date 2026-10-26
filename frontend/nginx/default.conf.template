@@ -1,0 +1,69 @@
+# MFQOD frontend — static SPA (Vite build in /usr/share/nginx/html).
+# Rendered by docker-entrypoint.sh with envsubst; only ${CSP_*} placeholders are substituted.
+server {
+    listen 3000;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 6;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/javascript text/javascript application/json image/svg+xml;
+
+    include /tmp/mfqod/security-headers.conf;
+
+    # Hashed build output: cache forever.
+    location /assets/ {
+        include /tmp/mfqod/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # Runtime configuration generated from env vars at container start. Never cache.
+    location = /config.js {
+        include /tmp/mfqod/security-headers.conf;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        default_type application/javascript;
+        alias /tmp/mfqod/config.js;
+    }
+
+    # App shell. Never cache, so a new deployment is picked up immediately.
+    location = /index.html {
+        include /tmp/mfqod/security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+    }
+
+    # Self-hosted fonts (fixed file names, so not immutable).
+    location /fonts/ {
+        include /tmp/mfqod/security-headers.conf;
+        add_header Cache-Control "public, max-age=604800" always;
+        try_files $uri =404;
+    }
+
+    # Offline map tiles (volume ./storage/map -> /usr/share/nginx/html/map). protomaps-leaflet reads the .pmtiles file with
+    # HTTP Range requests, which nginx serves natively for static files (206 Partial Content).
+    location /map/ {
+        include /tmp/mfqod/security-headers.conf;
+        add_header Cache-Control "public, max-age=3600" always;
+        add_header Accept-Ranges bytes always;
+        types { application/vnd.pmtiles pmtiles; }
+        default_type application/octet-stream;
+        gzip off;
+        autoindex off;
+        try_files $uri =404;
+    }
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # SPA fallback: every client-side route (/ar/dashboard/items/12, ...) serves index.html.
+    location / {
+        try_files $uri /index.html;
+    }
+}

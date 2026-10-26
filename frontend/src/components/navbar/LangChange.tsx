@@ -1,7 +1,6 @@
-'use client'
 import { Link } from "@/i18n/navigation";
 import { usePathname } from "@/i18n/navigation";
-import { useLocale } from "next-intl";
+import { useLocale } from "use-intl";
 
 export default function LanguageChange() {
     const pathname = usePathname(); // Returns pathname without locale

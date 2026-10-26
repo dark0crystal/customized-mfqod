@@ -1,6 +1,5 @@
-'use client'
 import { ReactNode } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale } from 'use-intl';
 import { getDirection, getDirectionClasses, getFontFamily } from '@/utils/direction';
 
 interface DirectionProviderProps {
@@ -10,7 +9,7 @@ interface DirectionProviderProps {
 
 /**
  * Direction-aware component wrapper that applies RTL/LTR styling
- * Based on next-intl documentation for dynamic direction changing
+ * Based on the next-intl (now use-intl) documentation for dynamic direction changing
  */
 export default function DirectionProvider({ children, className = '' }: DirectionProviderProps) {
   const locale = useLocale() as 'en' | 'ar';

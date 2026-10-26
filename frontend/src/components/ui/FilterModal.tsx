@@ -1,8 +1,7 @@
-"use client";
 import { Fragment, useRef, useEffect, useState } from "react";
 import { IoClose } from "react-icons/io5";
 import CustomDropdown from "./CustomDropdown";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "use-intl";
 
 interface ItemType {
   id: string;
@@ -62,6 +61,7 @@ export default function FilterModal({
 
   // Update local state when props change (e.g., when modal opens)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- ported 1:1
     setTempItemTypeId(currentItemTypeId);
     setTempBranchId(selectedBranchId);
   }, [currentItemTypeId, selectedBranchId, isOpen]);
@@ -226,7 +226,7 @@ export default function FilterModal({
       </div>
 
       {/* Add animation keyframes */}
-      <style jsx>{`
+      <style>{`
         @keyframes fadeInScale {
           from {
             transform: scale(0.9);

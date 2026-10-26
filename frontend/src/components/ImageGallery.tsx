@@ -1,7 +1,5 @@
-"use client";
-
 import React, { useState } from "react";
-import Image from "next/image";
+import Image from "@/lib/Image";
 import { IoMdResize, IoMdClose, IoMdTrash } from "react-icons/io";
 import { MdArrowBack, MdArrowForward } from "react-icons/md";
 

@@ -1,10 +1,10 @@
-"use client";
 import { useState, useRef, useEffect } from "react";
 import { MdKeyboardArrowDown, MdSearch } from "react-icons/md";
 import { useDirection } from "@/components/DirectionProvider";
 import { Link } from "@/i18n/navigation";
-import Image from "next/image";
-import { useLocale } from "next-intl";
+import Image from "@/lib/Image";
+import { useLocale } from "use-intl";
+import { API_URL } from "@/config";
 
 interface Item {
   id: string;
@@ -78,7 +78,7 @@ export default function ItemDropdown({
       processedUrl = '/' + processedUrl;
     }
     
-    const baseUrl = (process.env.NEXT_PUBLIC_HOST_NAME || 'http://localhost:8000').replace(/\/$/, '');
+    const baseUrl = API_URL.replace(/\/$/, '');
     const fullUrl = `${baseUrl}${processedUrl}`;
     
     try {

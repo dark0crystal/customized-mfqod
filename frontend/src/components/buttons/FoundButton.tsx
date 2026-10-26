@@ -1,8 +1,6 @@
-"use client";
-
-import { useTranslations } from "next-intl";
+import { useTranslations } from "use-intl";
 import { tokenManager } from "@/utils/tokenManager";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/next-compat";
 
 export default function FoundButton() {
     const t = useTranslations("HomePage");

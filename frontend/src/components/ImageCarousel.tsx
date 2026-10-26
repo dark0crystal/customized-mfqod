@@ -1,7 +1,5 @@
-"use client";
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
+import Image from '@/lib/Image';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 export interface CarouselImage {
@@ -43,7 +41,7 @@ const ImageCarousel: React.FC<ImageCarouselProps> = ({
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
-  const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoPlayTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Use controlled index if provided, otherwise use internal state
   const currentIndex = controlledIndex !== undefined ? controlledIndex : internalIndex;

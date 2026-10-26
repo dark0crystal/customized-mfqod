@@ -3,8 +3,9 @@
  */
 
 import { tokenManager } from '@/utils/tokenManager';
+import { API_URL } from '@/config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_HOST_NAME || "http://localhost:8000";
+const API_BASE_URL = API_URL;
 
 /**
  * Get pending transfer requests count

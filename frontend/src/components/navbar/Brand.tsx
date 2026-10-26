@@ -1,17 +1,6 @@
-"use client";
-
-import Image from "next/image";
+import Image from "@/lib/Image";
 import { Link } from "@/i18n/navigation";
-import localFont from "next/font/local";
-import { useTranslations } from "next-intl";
-import squLogo from "../../../public/squlogo.svg";
-
-const lalezarFont = localFont({
-  src: "../../../public/fonts/lalezar-400.woff2",
-  weight: "400",
-  display: "swap",
-  fallback: ["system-ui", "arial", "sans-serif"],
-});
+import { useTranslations } from "use-intl";
 
 export default function Brand() {
   const t = useTranslations("navbar");
@@ -19,7 +8,7 @@ export default function Brand() {
   return (
     <Link href="/" className="flex items-center gap-1">
       {/* Brand Name */}
-      <div className={`text-black text-[28px] sm:text-[42px] ${lalezarFont.className}`}>
+      <div className={`text-black text-[28px] sm:text-[42px] font-lalezar`}>
         <p className="flex flex-col relative z-20 text-slate-800">
           {t("brand-duplicate")}
           <span className="absolute -z-10" style={{ color: '#3277AE' }}>
@@ -34,7 +23,7 @@ export default function Brand() {
       {/* Organization Logo */}
       <div className="flex items-center">
         <Image
-          src={squLogo}
+          src="/squlogo.svg"
           alt="Sultan Qaboos University Logo"
           width={204}
           height={93}

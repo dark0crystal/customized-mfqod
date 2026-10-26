@@ -32,10 +32,8 @@ Thumbs.db
 *.log
 logs/
 
-# Storage (large uploads - will be mounted as volume)
-storage/uploads/
-storage/uploads/images/
-storage/uploads/itemTypesImages/
+# Storage (uploads and offline map tiles - mounted as volumes at runtime)
+storage/
 
 # Temporary files
 *.tmp
@@ -45,7 +43,13 @@ storage/uploads/itemTypesImages/
 # Large directories that shouldn't be in build context
 backend/logs/
 frontend/node_modules/
-frontend/.next/
-frontend/out/
 frontend/dist/
+# Offline map tiles are served from the ./storage/map volume, never baked into the image
+frontend/public/map/
+**/*.pmtiles
+# Frontend env files (the image is configured at runtime, see frontend/docker-entrypoint.sh)
+frontend/.env
+frontend/.env.*
+# Playwright e2e package (own node_modules, browsers, reports)
+frontend/e2e/
 

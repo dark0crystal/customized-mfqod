@@ -1,11 +1,10 @@
-"use client"
 import Brand from "./navbar/Brand";
 import { Link } from "@/i18n/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "use-intl";
 import LanguageChange from "./navbar/LangChange";
 import { tokenManager } from "@/utils/tokenManager";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { useRouter } from "@/lib/next-compat";
+import Image from "@/lib/Image";
 
 // Footer component
 export default function Footer() {

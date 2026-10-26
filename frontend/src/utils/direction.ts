@@ -1,6 +1,6 @@
 /**
  * Direction utilities for RTL/LTR support
- * Based on next-intl documentation for dynamic direction changing
+ * Based on the next-intl (now use-intl) documentation for dynamic direction changing
  */
 
 export type Direction = 'ltr' | 'rtl';

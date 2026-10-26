@@ -13,12 +13,12 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/out/
-
-# production
+# production (Vite build output)
+/dist/
 /build
+
+# offline map tiles (large, downloaded with scripts/download-map-tiles.sh)
+/public/map/*.pmtiles
 
 # misc
 .DS_Store
@@ -33,9 +33,5 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
-# vercel
-.vercel
-
 # typescript
 *.tsbuildinfo
-next-env.d.ts
